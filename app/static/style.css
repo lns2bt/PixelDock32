@@ -1,0 +1,148 @@
+:root {
+  --bg: #f3f6fb;
+  --card: #ffffff;
+  --text: #111827;
+  --muted: #6b7280;
+  --border: #dbe3ee;
+  --primary: #2563eb;
+  --primary-dark: #1d4ed8;
+  --secondary: #eef2ff;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: linear-gradient(180deg, #eef4ff 0%, var(--bg) 35%);
+  color: var(--text);
+}
+
+.app-shell { max-width: 1080px; margin: 24px auto; padding: 0 14px 32px; }
+.app-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.eyebrow { margin: 0; color: var(--muted); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+h1 { margin: 2px 0 0; font-size: 34px; }
+h2 { margin: 0 0 14px; font-size: 26px; }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, .06);
+  padding: 18px;
+  margin-bottom: 14px;
+}
+
+.section-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; }
+.inline-actions { display: flex; gap: 8px; }
+
+.status-grid {
+  display: grid;
+  grid-template-columns: 190px 1fr;
+  gap: 8px 12px;
+}
+.status-grid span { color: var(--muted); }
+
+.form-row { display: grid; gap: 10px; }
+.form-row.three { grid-template-columns: minmax(220px, 1.6fr) minmax(180px, 1fr) minmax(180px, .9fr); }
+.debug-row { grid-template-columns: repeat(5, minmax(130px, 1fr)); }
+
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field.actions-end { justify-content: flex-end; }
+.field-wide { grid-column: 1 / 3; }
+.value-box { justify-content: flex-end; }
+.subtle { margin: 8px 0 0; color: var(--muted); }
+
+label { font-size: 13px; color: var(--muted); font-weight: 600; }
+input, select {
+  height: 40px;
+  border: 1px solid #cfd8e5;
+  border-radius: 10px;
+  padding: 0 12px;
+  background: #fff;
+  font-size: 15px;
+  color: var(--text);
+}
+input:focus, select:focus {
+  outline: 2px solid rgba(37, 99, 235, .25);
+  border-color: var(--primary);
+}
+
+.btn {
+  height: 40px;
+  border: 1px solid var(--primary);
+  border-radius: 10px;
+  background: var(--primary);
+  color: white;
+  font-weight: 600;
+  padding: 0 14px;
+  cursor: pointer;
+}
+.btn:hover { background: var(--primary-dark); }
+.btn.btn-secondary {
+  background: white;
+  color: var(--primary);
+  border-color: #b7c8ef;
+}
+.btn.btn-secondary:hover { background: var(--secondary); }
+
+.preset-row { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+
+#modules { display: grid; gap: 10px; }
+.module-row {
+  display: grid;
+  grid-template-columns: 1.4fr 140px 180px 160px 130px;
+  gap: 10px;
+  align-items: end;
+  padding: 12px;
+  border: 1px solid #e7edf6;
+  border-radius: 10px;
+  background: #fbfdff;
+}
+.module-name { font-weight: 700; font-size: 20px; }
+.check-label { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; }
+.check-label input { width: 18px; height: 18px; margin: 0; }
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  min-width: 64px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #1e40af;
+  font-weight: 700;
+  border: 1px solid #c7d2fe;
+}
+
+#grid {
+  display: grid;
+  grid-template-columns: repeat(32, minmax(14px, 18px));
+  gap: 3px;
+  padding: 12px;
+  border: 1px solid #e8eef8;
+  border-radius: 10px;
+  background: #f7fbff;
+}
+.pixel { width: 18px; height: 18px; border-radius: 4px; background: #dbe6f5; border: 1px solid #c6d4e8; cursor: pointer; }
+.pixel.on { background: #0f172a; border-color: #0f172a; }
+
+#toast {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  background: #111827;
+  color: #fff;
+  padding: 10px 12px;
+  border-radius: 10px;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: all .2s;
+  pointer-events: none;
+}
+#toast.show { opacity: 1; transform: translateY(0); }
+
+@media (max-width: 960px) {
+  .form-row.three, .debug-row, .module-row { grid-template-columns: 1fr; }
+  .field-wide { grid-column: auto; }
+  .app-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+}
