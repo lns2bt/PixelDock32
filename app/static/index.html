@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PixelDock32</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <h1>PixelDock32</h1>
+
+  <section id="loginSection">
+    <h2>Login</h2>
+    <input id="username" placeholder="Username" value="admin" />
+    <input id="password" type="password" placeholder="Password" />
+    <button onclick="login()">Login</button>
+    <p id="loginStatus"></p>
+  </section>
+
+  <section>
+    <h2>Module</h2>
+    <button onclick="loadModules()">Neu laden</button>
+    <div id="modules"></div>
+  </section>
+
+  <section>
+    <h2>Sofort-Text</h2>
+    <input id="manualText" placeholder="Text" />
+    <input id="manualSeconds" type="number" value="8" min="1" max="120" />
+    <button onclick="sendText()">Anzeigen</button>
+  </section>
+
+  <section>
+    <h2>Helligkeit</h2>
+    <input id="brightness" type="range" min="0" max="255" value="64" oninput="brightnessValue.innerText=this.value" />
+    <span id="brightnessValue">64</span>
+    <button onclick="setBrightness()">Setzen</button>
+  </section>
+
+  <section>
+    <h2>8x32 Pixel-Zeichenbox</h2>
+    <div id="grid"></div>
+    <button onclick="clearGrid()">Clear</button>
+    <button onclick="sendGrid()">Anzeigen</button>
+  </section>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
