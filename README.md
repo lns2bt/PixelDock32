@@ -70,6 +70,7 @@ Dann im LAN öffnen: `http://<raspberrypi-ip>:8000`
 - `POST /api/display/brightness` → Helligkeit setzen
 - `POST /api/debug/pattern` → Kalibrier-/Debug-Pattern starten
 - `DELETE /api/debug/pattern` → Debug-Pattern stoppen
+- `GET /api/debug/status` → Laufzeit-/Debug-Status (FPS, aktive Quelle, Polling-Stand)
 
 
 ## Panel-Kalibrierung & Hardware-Debug
@@ -115,3 +116,11 @@ sudo systemctl status pixeldock32
 3. **Bessere Text-Engine**: Scrolling + größere Font-Auswahl + UTF-8 Glyphen.
 4. **API-Resilience**: Retry/Backoff + sichtbarer Status in UI (letztes Update, Fehlerzustand).
 5. **Sicherheits-Hardening**: HTTPS via Reverse Proxy, rate limit, Passwort-Hash verpflichtend.
+
+
+## UI/UX Verbesserungen (Sprint A)
+
+- Globales **System-Status Panel** in der Web-UI (API online, Quelle, Modul, FPS, Debug-Status, Daten-Updates).
+- **Toast-Feedback** bei allen UI-Aktionen inklusive Fehlern/Netzwerkproblemen.
+- **Quick Presets** für Debug-Pattern (Wiring/Serpentine/Noise Check).
+- Neues Backend-Status-API: `GET /api/debug/status`.

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 
 import httpx
 
@@ -11,7 +12,14 @@ logger = logging.getLogger(__name__)
 class ExternalDataService:
     def __init__(self, settings: Settings):
         self.settings = settings
-        self.cache: dict = {}
+        self.cache: dict = {
+            "btc_eur": None,
+            "weather_temp": None,
+            "btc_updated_at": None,
+            "weather_updated_at": None,
+            "btc_error": None,
+            "weather_error": None,
+        }
         self._running = False
         self._tasks: list[asyncio.Task] = []
 
@@ -38,8 +46,11 @@ class ExternalDataService:
                     )
                     response.raise_for_status()
                     self.cache["btc_eur"] = response.json()["bitcoin"]["eur"]
+                    self.cache["btc_updated_at"] = time.time()
+                    self.cache["btc_error"] = None
             except Exception as exc:  # noqa: BLE001
                 logger.warning("BTC polling failed: %s", exc)
+                self.cache["btc_error"] = str(exc)
             await asyncio.sleep(self.settings.poll_btc_seconds)
 
     async def _poll_weather(self):
@@ -56,6 +67,9 @@ class ExternalDataService:
                     )
                     response.raise_for_status()
                     self.cache["weather_temp"] = response.json()["current"]["temperature_2m"]
+                    self.cache["weather_updated_at"] = time.time()
+                    self.cache["weather_error"] = None
             except Exception as exc:  # noqa: BLE001
                 logger.warning("Weather polling failed: %s", exc)
+                self.cache["weather_error"] = str(exc)
             await asyncio.sleep(self.settings.poll_weather_seconds)
