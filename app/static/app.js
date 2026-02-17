@@ -2,13 +2,13 @@ let token = localStorage.getItem('token') || '';
 const gridState = Array.from({ length: 8 }, () => Array(32).fill(0));
 
 function authHeaders() {
-  return token ? { 'Authorization': `Bearer ${token}` } : {};
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 function toast(message, isError = false) {
   const el = document.getElementById('toast');
   el.innerText = message;
-  el.style.background = isError ? '#8b0000' : '#111';
+  el.style.background = isError ? '#8b0000' : '#111827';
   el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 1800);
 }
@@ -25,19 +25,22 @@ async function apiRequest(path, options = {}, okMessage = '') {
       headers: {
         ...(options.headers || {}),
         ...authHeaders(),
-      }
+      },
     });
+
     let data = null;
     try {
       data = await res.json();
     } catch (_err) {
       data = null;
     }
+
     if (!res.ok) {
       const msg = data?.detail || `HTTP ${res.status}`;
       toast(`Fehler: ${msg}`, true);
       return null;
     }
+
     if (okMessage) toast(okMessage);
     return data;
   } catch (_err) {
@@ -46,14 +49,98 @@ async function apiRequest(path, options = {}, okMessage = '') {
   }
 }
 
+function moduleSettingsHtml(module) {
+  const s = module.settings || {};
+
+  if (module.key === 'clock') {
+    return `
+      <div class="settings-grid">
+        <div class="field">
+          <label for="set-tz-${module.id}">Zeitzone</label>
+          <input id="set-tz-${module.id}" value="${s.timezone || 'Europe/Vienna'}" placeholder="Europe/Vienna" />
+        </div>
+        <div class="field">
+          <label>Anzeige</label>
+          <label class="check-label"><input type="checkbox" id="set-sec-${module.id}" ${s.show_seconds !== false ? 'checked' : ''}> Sekunden anzeigen</label>
+        </div>
+      </div>
+    `;
+  }
+
+  if (module.key === 'btc') {
+    return `
+      <div class="settings-grid">
+        <div class="field">
+          <label for="set-dec-${module.id}">Nachkommastellen (0-2)</label>
+          <input id="set-dec-${module.id}" type="number" min="0" max="2" value="${Number.isInteger(s.decimals) ? s.decimals : 0}" />
+        </div>
+        <div class="field">
+          <label>Format</label>
+          <label class="check-label"><input type="checkbox" id="set-sym-${module.id}" ${s.show_symbol !== false ? 'checked' : ''}> €-Symbol anzeigen</label>
+        </div>
+      </div>
+    `;
+  }
+
+  if (module.key === 'weather') {
+    return `
+      <div class="settings-grid">
+        <div class="field">
+          <label for="set-post-${module.id}">Postleitzahl (Info)</label>
+          <input id="set-post-${module.id}" value="${s.postcode || '6020'}" placeholder="6020" />
+        </div>
+        <div class="field">
+          <label for="set-unit-${module.id}">Temperatur-Einheit</label>
+          <select id="set-unit-${module.id}">
+            <option value="C" ${(s.unit || 'C') === 'C' ? 'selected' : ''}>Celsius (°C)</option>
+            <option value="F" ${(s.unit || 'C') === 'F' ? 'selected' : ''}>Fahrenheit (°F)</option>
+          </select>
+        </div>
+      </div>
+    `;
+  }
+
+  return '<p class="subtle">Keine Settings verfügbar.</p>';
+}
+
+function collectModuleSettings({ id: moduleId, key: moduleKey }) {
+  if (moduleKey === 'clock') {
+    return {
+      timezone: document.getElementById(`set-tz-${moduleId}`).value.trim() || 'Europe/Vienna',
+      show_seconds: document.getElementById(`set-sec-${moduleId}`).checked,
+    };
+  }
+
+  if (moduleKey === 'btc') {
+    const decimals = parseInt(document.getElementById(`set-dec-${moduleId}`).value, 10);
+    return {
+      show_symbol: document.getElementById(`set-sym-${moduleId}`).checked,
+      decimals: Number.isInteger(decimals) ? Math.max(0, Math.min(decimals, 2)) : 0,
+    };
+  }
+
+  if (moduleKey === 'weather') {
+    return {
+      postcode: document.getElementById(`set-post-${moduleId}`).value.trim() || '6020',
+      unit: document.getElementById(`set-unit-${moduleId}`).value === 'F' ? 'F' : 'C',
+    };
+  }
+
+  return {};
+}
+
 async function login() {
   const username = document.getElementById('username').value;
   const password = document.getElementById('password').value;
-  const data = await apiRequest('/api/auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password })
-  }, 'Login erfolgreich');
+  const data = await apiRequest(
+    '/api/auth/login',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    },
+    'Login erfolgreich',
+  );
 
   if (!data?.access_token) {
     document.getElementById('loginStatus').innerText = 'Login fehlgeschlagen';
@@ -71,6 +158,7 @@ async function loadModules() {
 
   const container = document.getElementById('modules');
   container.innerHTML = '';
+
   modules.forEach((m) => {
     const row = document.createElement('div');
     row.className = 'module-row';
@@ -92,16 +180,20 @@ async function loadModules() {
         <input type="number" id="ord-${m.id}" value="${m.sort_order}">
       </div>
       <div class="field actions-end">
-        <button class="btn" onclick="saveModule(${m.id})">Speichern</button>
+        <button class="btn" onclick="saveModule(${m.id}, '${m.key}')">Speichern</button>
+      </div>
+      <div class="module-settings">
+        <label class="settings-title">Moduleinstellungen</label>
+        ${moduleSettingsHtml(m)}
       </div>
     `;
     container.appendChild(row);
   });
 }
 
-async function saveModule(id) {
-  const duration = parseInt(document.getElementById(`dur-${id}`).value, 10);
-  const sortOrder = parseInt(document.getElementById(`ord-${id}`).value, 10);
+async function saveModule(moduleId, moduleKey) {
+  const duration = parseInt(document.getElementById(`dur-${moduleId}`).value, 10);
+  const sortOrder = parseInt(document.getElementById(`ord-${moduleId}`).value, 10);
   if (!Number.isInteger(duration) || duration < 1) {
     toast('Dauer muss >= 1 sein', true);
     return;
@@ -112,17 +204,21 @@ async function saveModule(id) {
   }
 
   const payload = {
-    enabled: document.getElementById(`en-${id}`).checked,
+    enabled: document.getElementById(`en-${moduleId}`).checked,
     duration_seconds: duration,
     sort_order: sortOrder,
-    settings: {}
+    settings: collectModuleSettings({ id: moduleId, key: moduleKey }),
   };
 
-  const res = await apiRequest(`/api/modules/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  }, 'Modul gespeichert');
+  const res = await apiRequest(
+    `/api/modules/${moduleId}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+    'Modul gespeichert',
+  );
   if (res) {
     await Promise.all([loadModules(), refreshStatus()]);
   }
@@ -134,9 +230,11 @@ async function sendText() {
   const res = await apiRequest('/api/display/text', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, seconds })
+    body: JSON.stringify({ text, seconds }),
   }, 'Text gesendet');
-  if (res) await refreshStatus();
+  if (res) await initPreviewGrid();
+refreshStatus();
+refreshPreview();
 }
 
 async function setBrightness() {
@@ -144,7 +242,7 @@ async function setBrightness() {
   const res = await apiRequest('/api/display/brightness', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ brightness })
+    body: JSON.stringify({ brightness }),
   }, 'Helligkeit gesetzt');
   if (res) await refreshStatus();
 }
@@ -158,7 +256,7 @@ async function startDebugPattern() {
   const res = await apiRequest('/api/debug/pattern', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
   }, 'Debug-Pattern gestartet');
   if (res) await refreshStatus();
 }
@@ -197,10 +295,59 @@ async function refreshStatus() {
     : formatTs(data.data.weather_updated_at);
 }
 
+
+function initPreviewGrid() {
+  const container = document.getElementById('previewGrid');
+  if (!container || container.childElementCount > 0) return;
+  for (let y = 0; y < 8; y += 1) {
+    for (let x = 0; x < 32; x += 1) {
+      const px = document.createElement('div');
+      px.className = 'preview-pixel';
+      px.id = `preview-${x}-${y}`;
+      container.appendChild(px);
+    }
+  }
+}
+
+function renderPreviewFrame(frame) {
+  if (!Array.isArray(frame)) return;
+  for (let y = 0; y < 8; y += 1) {
+    for (let x = 0; x < 32; x += 1) {
+      const el = document.getElementById(`preview-${x}-${y}`);
+      if (!el) continue;
+      const on = !!(frame[y] && frame[y][x]);
+      el.classList.toggle('on', on);
+    }
+  }
+}
+
+async function refreshPreview() {
+  if (!token) return;
+  const data = await apiRequest('/api/debug/preview');
+  if (!data?.frame) return;
+  renderPreviewFrame(data.frame);
+}
+
+async function checkMappingCoordinate() {
+  const x = parseInt(document.getElementById('mapX').value, 10);
+  const y = parseInt(document.getElementById('mapY').value, 10);
+  if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || x > 31 || y < 0 || y > 7) {
+    toast('X/Y müssen im Bereich 0..31 / 0..7 liegen', true);
+    return;
+  }
+
+  const data = await apiRequest(`/api/debug/mapping/coordinate?x=${x}&y=${y}`);
+  if (!data?.mapping) return;
+
+  const m = data.mapping;
+  document.getElementById('mappingInfo').innerText =
+    `x=${m.x}, y=${m.y} -> panel=${m.panel_index}, local=(${m.local_x},${m.local_y}), pixel_in_panel=${m.pixel_in_panel}, led_index=${m.index}, serpentine_flip=${m.serpentine_flipped}`;
+}
+
 function initGrid() {
   const grid = document.getElementById('grid');
-  for (let y = 0; y < 8; y++) {
-    for (let x = 0; x < 32; x++) {
+  for (let y = 0; y < 8; y += 1) {
+    for (let x = 0; x < 32; x += 1) {
       const pixel = document.createElement('div');
       pixel.className = 'pixel';
       pixel.onclick = () => {
@@ -215,8 +362,8 @@ function initGrid() {
 function clearGrid() {
   const pixels = document.querySelectorAll('.pixel');
   pixels.forEach((p) => p.classList.remove('on'));
-  for (let y = 0; y < 8; y++) {
-    for (let x = 0; x < 32; x++) {
+  for (let y = 0; y < 8; y += 1) {
+    for (let x = 0; x < 32; x += 1) {
       gridState[y][x] = 0;
     }
   }
@@ -226,7 +373,7 @@ async function sendGrid() {
   const res = await apiRequest('/api/display/draw', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ pixels: gridState, seconds: 8 })
+    body: JSON.stringify({ pixels: gridState, seconds: 8 }),
   }, 'Pixel-Frame gesendet');
   if (res) await refreshStatus();
 }
@@ -236,4 +383,5 @@ refreshStatus();
 if (token) {
   loadModules();
   setInterval(refreshStatus, 5000);
+  setInterval(refreshPreview, 1000);
 }

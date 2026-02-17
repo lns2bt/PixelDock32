@@ -45,6 +45,7 @@ class DisplayService:
         self.started_at = time.time()
         self.last_source = "module"
         self.last_module_key: str | None = None
+        self.last_frame: list[list[int]] = [[0 for _ in range(32)] for _ in range(8)]
 
     async def start(self):
         self._running = True
@@ -71,6 +72,9 @@ class DisplayService:
     def clear_debug_pattern(self):
         self.debug_override = None
 
+    def get_preview_frame(self) -> list[list[int]]:
+        return [row[:] for row in self.last_frame]
+
     def get_status(self) -> dict:
         uptime = max(time.time() - self.started_at, 1)
         return {
@@ -96,6 +100,7 @@ class DisplayService:
                     if val:
                         indices.append(self.mapper.xy_to_index(x, y))
             self.led_driver.write_frame(indices)
+            self.last_frame = [row[:] for row in frame]
             self.last_frame_ts = time.time()
             self.frame_counter += 1
             await asyncio.sleep(self.frame_delay)

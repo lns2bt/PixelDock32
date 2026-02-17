@@ -71,6 +71,8 @@ Dann im LAN öffnen: `http://<raspberrypi-ip>:8000`
 - `POST /api/debug/pattern` → Kalibrier-/Debug-Pattern starten
 - `DELETE /api/debug/pattern` → Debug-Pattern stoppen
 - `GET /api/debug/status` → Laufzeit-/Debug-Status (FPS, aktive Quelle, Polling-Stand)
+- `GET /api/debug/preview` → aktueller 8x32 Frame für virtuelle Vorschau
+- `GET /api/debug/mapping/coordinate?x=&y=` → Mapping-Erklärung für einzelne Koordinate
 
 
 ## Panel-Kalibrierung & Hardware-Debug
@@ -87,6 +89,28 @@ Neue Debug-Pattern helfen beim Verkabeln und Mapping-Check:
 ```bash
 python3 scripts_calibrate.py --pattern pixel_walk --seconds 30 --interval-ms 200
 ```
+
+
+## Modul-Settings (UI)
+
+In der Modul-Verwaltung können jetzt modul-spezifische Einstellungen direkt bearbeitet und gespeichert werden:
+
+- **Clock**: `timezone`, Sekundenanzeige an/aus
+- **BTC**: Nachkommastellen (0-2), €-Symbol an/aus
+- **Weather**: Postleitzahl (Info), Einheit C/F
+
+Die Werte werden über `PUT /api/modules/{id}` gespeichert.
+
+
+## Mapping-Wizard & Virtuelle Vorschau
+
+Die Web-UI enthält jetzt einen geführten Mapping-Bereich mit:
+
+- Schritt-Buttons für Panel-Reihenfolge/Serpentine/Rand-Check
+- Koordinaten-Inspektor (`x`,`y`) mit Rückgabe des physikalischen LED-Index
+- Virtuelle Live-Vorschau (8x32) über `GET /api/debug/preview`
+
+Damit kannst du Mapping-Fehler systematisch finden, ohne nur auf das physische Panel schauen zu müssen.
 
 ## systemd Autostart
 
@@ -112,7 +136,7 @@ sudo systemctl status pixeldock32
 ## Nächste sinnvolle Schritte
 
 1. **Panel-Kalibrierungstest**: kleines Testscript für Pixel-Walk + Mapping-Verifikation je Panel.
-2. **Module-Settings UI**: pro Modul JSON-Settings im Frontend editierbar machen.
+2. **Mapping-Wizard**: geführte Kalibrierung für Panel-Reihenfolge, Serpentine und Offset.
 3. **Bessere Text-Engine**: Scrolling + größere Font-Auswahl + UTF-8 Glyphen.
 4. **API-Resilience**: Retry/Backoff + sichtbarer Status in UI (letztes Update, Fehlerzustand).
 5. **Sicherheits-Hardening**: HTTPS via Reverse Proxy, rate limit, Passwort-Hash verpflichtend.

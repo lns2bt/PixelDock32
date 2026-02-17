@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from app.api.deps import get_current_user
 from app.schemas_debug import DebugPatternRequest
@@ -11,6 +11,13 @@ def _display(request: Request):
     if service is None:
         raise HTTPException(status_code=503, detail="display service unavailable")
     return service
+
+
+def _mapper(request: Request):
+    mapper = getattr(getattr(request.app.state, "display_service", None), "mapper", None)
+    if mapper is None:
+        raise HTTPException(status_code=503, detail="mapper unavailable")
+    return mapper
 
 
 @router.get("/status")
@@ -29,6 +36,24 @@ async def status(request: Request, _: str = Depends(get_current_user)):
             "weather_error": cache.get("weather_error"),
         },
     }
+
+
+@router.get("/preview")
+async def preview(request: Request, _: str = Depends(get_current_user)):
+    frame = _display(request).get_preview_frame()
+    lit_pixels = sum(sum(1 for px in row if px) for row in frame)
+    return {"width": 32, "height": 8, "lit_pixels": lit_pixels, "frame": frame}
+
+
+@router.get("/mapping/coordinate")
+async def explain_coordinate(
+    request: Request,
+    x: int = Query(ge=0, le=31),
+    y: int = Query(ge=0, le=7),
+    _: str = Depends(get_current_user),
+):
+    components = _mapper(request).map_components(x, y)
+    return {"ok": True, "mapping": components}
 
 
 @router.post("/pattern")

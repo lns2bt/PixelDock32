@@ -123,6 +123,39 @@
       </div>
     </section>
 
+
+    <section class="card">
+      <h2>Mapping-Wizard</h2>
+      <p class="subtle">Nutze die Schritte zur Verkabelungsprüfung und prüfe einzelne Koordinaten gegen den physikalischen LED-Index.</p>
+      <div class="preset-row">
+        <button class="btn btn-secondary" onclick="runPreset('panel_walk', 20, 350)">1) Panel-Reihenfolge prüfen</button>
+        <button class="btn btn-secondary" onclick="runPreset('pixel_walk', 50, 120)">2) Serpentine prüfen</button>
+        <button class="btn btn-secondary" onclick="runPreset('border', 20, 300)">3) Rand prüfen</button>
+      </div>
+      <div class="form-row wizard-row">
+        <div class="field">
+          <label for="mapX">Logisches X (0-31)</label>
+          <input id="mapX" type="number" min="0" max="31" value="0" />
+        </div>
+        <div class="field">
+          <label for="mapY">Logisches Y (0-7)</label>
+          <input id="mapY" type="number" min="0" max="7" value="0" />
+        </div>
+        <div class="field actions-end">
+          <button class="btn" onclick="checkMappingCoordinate()">Koordinate erklären</button>
+        </div>
+      </div>
+      <div id="mappingInfo" class="mapping-info">Noch keine Koordinate geprüft.</div>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <h2>Virtuelle Vorschau (8x32)</h2>
+        <button class="btn btn-secondary" onclick="refreshPreview()">Vorschau aktualisieren</button>
+      </div>
+      <div id="previewGrid"></div>
+    </section>
+
     <section class="card">
       <div class="section-head">
         <h2>8×32 Pixel-Zeichenbox</h2>
