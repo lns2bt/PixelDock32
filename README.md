@@ -68,6 +68,24 @@ Dann im LAN öffnen: `http://<raspberrypi-ip>:8000`
 - `POST /api/display/text` → Sofort-Text anzeigen
 - `POST /api/display/draw` → 8x32 Pixel-Frame anzeigen
 - `POST /api/display/brightness` → Helligkeit setzen
+- `POST /api/debug/pattern` → Kalibrier-/Debug-Pattern starten
+- `DELETE /api/debug/pattern` → Debug-Pattern stoppen
+
+
+## Panel-Kalibrierung & Hardware-Debug
+
+Neue Debug-Pattern helfen beim Verkabeln und Mapping-Check:
+
+- `pixel_walk`: wandert Pixel für Pixel durch das 8x32 Feld
+- `panel_walk`: schaltet panelweise 8x8 Blöcke
+- `stripes`: blinkende vertikale Streifen
+- `border`: statischer Rahmen
+
+Über die Web-UI im Abschnitt **Hardware-Debug / Kalibrierung** oder per CLI:
+
+```bash
+python3 scripts_calibrate.py --pattern pixel_walk --seconds 30 --interval-ms 200
+```
 
 ## systemd Autostart
 

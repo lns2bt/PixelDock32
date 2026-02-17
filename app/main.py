@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import auth, display, modules
+from app.api import auth, debug, display, modules
 from app.config import get_settings
 from app.database import SessionLocal, Base, engine
 from app.services.display import DisplayService
@@ -52,6 +52,7 @@ app = FastAPI(title=settings.app_name, lifespan=lifespan)
 app.include_router(auth.router)
 app.include_router(modules.router)
 app.include_router(display.router)
+app.include_router(debug.router)
 
 static_dir = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=static_dir), name="static")

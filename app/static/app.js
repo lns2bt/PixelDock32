@@ -78,6 +78,26 @@ async function setBrightness() {
   });
 }
 
+
+async function startDebugPattern() {
+  await fetch('/api/debug/pattern', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({
+      pattern: document.getElementById('debugPattern').value,
+      seconds: parseInt(document.getElementById('debugSeconds').value, 10),
+      interval_ms: parseInt(document.getElementById('debugInterval').value, 10)
+    })
+  });
+}
+
+async function stopDebugPattern() {
+  await fetch('/api/debug/pattern', {
+    method: 'DELETE',
+    headers: { ...authHeaders() }
+  });
+}
+
 function initGrid() {
   const grid = document.getElementById('grid');
   for (let y = 0; y < 8; y++) {

@@ -37,6 +37,7 @@ class DisplayService:
         self._running = False
         self._task: asyncio.Task | None = None
         self.manual_override: tuple[list[list[int]], float] | None = None
+        self.debug_override: tuple[str, float, float] | None = None
 
     async def start(self):
         self._running = True
@@ -57,6 +58,12 @@ class DisplayService:
     def set_brightness(self, value: int):
         self.led_driver.set_brightness(value)
 
+    def set_debug_pattern(self, pattern: str, seconds: int, interval_ms: int = 250):
+        self.debug_override = (pattern, time.time() + seconds, max(interval_ms / 1000.0, 0.05))
+
+    def clear_debug_pattern(self):
+        self.debug_override = None
+
     async def _loop(self):
         while self._running:
             frame = await self._get_next_frame()
@@ -69,6 +76,16 @@ class DisplayService:
             await asyncio.sleep(self.frame_delay)
 
     async def _get_next_frame(self) -> list[list[int]]:
+        if self.debug_override:
+            from app.services.patterns import PATTERN_FACTORIES
+
+            pattern, until, interval = self.debug_override
+            if time.time() <= until:
+                if pattern in PATTERN_FACTORIES:
+                    tick = int(time.time() / interval)
+                    return PATTERN_FACTORIES[pattern](tick)
+            self.debug_override = None
+
         if self.manual_override:
             pixels, until = self.manual_override
             if time.time() <= until:
