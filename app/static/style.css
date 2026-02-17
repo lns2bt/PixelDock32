@@ -1,0 +1,6 @@
+body { font-family: Arial, sans-serif; max-width: 900px; margin: 20px auto; padding: 0 12px; }
+section { border: 1px solid #ddd; padding: 12px; margin-bottom: 12px; border-radius: 8px; }
+#grid { display: grid; grid-template-columns: repeat(32, 18px); gap: 2px; margin: 8px 0; }
+.pixel { width: 18px; height: 18px; background: #eee; border: 1px solid #ccc; cursor: pointer; }
+.pixel.on { background: #111; }
+.module-row { display: grid; grid-template-columns: 150px 1fr 100px 100px 160px; gap: 8px; margin: 6px 0; align-items: center; }
