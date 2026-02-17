@@ -12,8 +12,8 @@ router = APIRouter(prefix="/api/modules", tags=["modules"])
 
 MODULE_SETTING_DEFAULTS = {
     "clock": {"timezone": "Europe/Vienna", "show_seconds": True},
-    "btc": {"show_symbol": True, "decimals": 0},
-    "weather": {"postcode": "6020", "unit": "C"},
+    "btc": {},
+    "weather": {"postcode": "6020"},
 }
 
 
@@ -26,16 +26,10 @@ def sanitize_settings(module_key: str, settings: dict) -> dict:
         merged["show_seconds"] = bool(merged.get("show_seconds", True))
 
     elif module_key == "btc":
-        merged["show_symbol"] = bool(merged.get("show_symbol", True))
-        try:
-            merged["decimals"] = max(0, min(int(merged.get("decimals", 0)), 2))
-        except (TypeError, ValueError):
-            merged["decimals"] = 0
+        merged = {}
 
     elif module_key == "weather":
         merged["postcode"] = str(merged.get("postcode", "6020")).strip() or "6020"
-        unit = str(merged.get("unit", "C")).upper()
-        merged["unit"] = "F" if unit == "F" else "C"
 
     return merged
 

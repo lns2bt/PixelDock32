@@ -16,14 +16,14 @@ DEFAULT_MODULES = [
         "name": "BTC EUR",
         "sort_order": 1,
         "duration_seconds": 10,
-        "settings": {"show_symbol": True, "decimals": 0},
+        "settings": {},
     },
     {
         "key": "weather",
         "name": "Weather Innsbruck",
         "sort_order": 2,
         "duration_seconds": 10,
-        "settings": {"postcode": "6020", "unit": "C"},
+        "settings": {"postcode": "6020"},
     },
 ]
 

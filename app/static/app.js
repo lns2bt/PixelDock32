@@ -68,18 +68,7 @@ function moduleSettingsHtml(module) {
   }
 
   if (module.key === 'btc') {
-    return `
-      <div class="settings-grid">
-        <div class="field">
-          <label for="set-dec-${module.id}">Nachkommastellen (0-2)</label>
-          <input id="set-dec-${module.id}" type="number" min="0" max="2" value="${Number.isInteger(s.decimals) ? s.decimals : 0}" />
-        </div>
-        <div class="field">
-          <label>Format</label>
-          <label class="check-label"><input type="checkbox" id="set-sym-${module.id}" ${s.show_symbol !== false ? 'checked' : ''}> €-Symbol anzeigen</label>
-        </div>
-      </div>
-    `;
+    return '<p class="subtle">BTC wird automatisch im kompakten k-Format angezeigt (z. B. 56.8k).</p>';
   }
 
   if (module.key === 'weather') {
@@ -90,11 +79,8 @@ function moduleSettingsHtml(module) {
           <input id="set-post-${module.id}" value="${s.postcode || '6020'}" placeholder="6020" />
         </div>
         <div class="field">
-          <label for="set-unit-${module.id}">Temperatur-Einheit</label>
-          <select id="set-unit-${module.id}">
-            <option value="C" ${(s.unit || 'C') === 'C' ? 'selected' : ''}>Celsius (°C)</option>
-            <option value="F" ${(s.unit || 'C') === 'F' ? 'selected' : ''}>Fahrenheit (°F)</option>
-          </select>
+          <label>Anzeige</label>
+          <p class="subtle">Nur Temperatur in Celsius wird angezeigt.</p>
         </div>
       </div>
     `;
@@ -112,17 +98,12 @@ function collectModuleSettings({ id: moduleId, key: moduleKey }) {
   }
 
   if (moduleKey === 'btc') {
-    const decimals = parseInt(document.getElementById(`set-dec-${moduleId}`).value, 10);
-    return {
-      show_symbol: document.getElementById(`set-sym-${moduleId}`).checked,
-      decimals: Number.isInteger(decimals) ? Math.max(0, Math.min(decimals, 2)) : 0,
-    };
+    return {};
   }
 
   if (moduleKey === 'weather') {
     return {
       postcode: document.getElementById(`set-post-${moduleId}`).value.trim() || '6020',
-      unit: document.getElementById(`set-unit-${moduleId}`).value === 'F' ? 'F' : 'C',
     };
   }
 

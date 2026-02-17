@@ -96,8 +96,8 @@ python3 scripts_calibrate.py --pattern pixel_walk --seconds 30 --interval-ms 200
 In der Modul-Verwaltung können jetzt modul-spezifische Einstellungen direkt bearbeitet und gespeichert werden:
 
 - **Clock**: `timezone`, Sekundenanzeige an/aus
-- **BTC**: Nachkommastellen (0-2), €-Symbol an/aus
-- **Weather**: Postleitzahl (Info), Einheit C/F
+- **BTC**: kompakte Anzeige im k-Format (z. B. `56.8k`)
+- **Weather**: Temperatur in Celsius (Stadtname ausgeblendet), optional Postleitzahl-Info
 
 Die Werte werden über `PUT /api/modules/{id}` gespeichert.
 
