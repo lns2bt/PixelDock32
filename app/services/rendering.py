@@ -17,6 +17,7 @@ FONT_5X7 = {
     "B": ["11110", "10001", "10001", "11110", "10001", "10001", "11110"],
     "C": ["01110", "10001", "10000", "10000", "10000", "10001", "01110"],
     "E": ["11111", "10000", "10000", "11110", "10000", "10000", "11111"],
+    "F": ["11111", "10000", "10000", "11110", "10000", "10000", "10000"],
     "H": ["10001", "10001", "10001", "11111", "10001", "10001", "10001"],
     "I": ["01110", "00100", "00100", "00100", "00100", "00100", "01110"],
     "K": ["10001", "10010", "10100", "11000", "10100", "10010", "10001"],
@@ -32,17 +33,46 @@ FONT_5X7 = {
 }
 
 
+def blank_frame(width: int = 32, height: int = 8) -> list[list[int]]:
+    return [[0 for _ in range(width)] for _ in range(height)]
+
+
+def blank_color_frame(width: int = 32, height: int = 8) -> list[list[tuple[int, int, int] | None]]:
+    return [[None for _ in range(width)] for _ in range(height)]
+
+
 def render_text_frame(text: str, width: int = 32, height: int = 8) -> list[list[int]]:
-    frame = [[0 for _ in range(width)] for _ in range(height)]
+    frame, _ = render_text_with_colors(text=text, width=width, height=height)
+    return frame
+
+
+def render_text_with_colors(
+    text: str,
+    char_colors: list[tuple[int, int, int]] | None = None,
+    width: int = 32,
+    height: int = 8,
+) -> tuple[list[list[int]], list[list[tuple[int, int, int] | None]]]:
+    frame = blank_frame(width, height)
+    color_frame = blank_color_frame(width, height)
     x_cursor = 0
     upper = text.upper()[:8]
-    for char in upper:
+
+    for idx, char in enumerate(upper):
         glyph = FONT_5X7.get(char, FONT_5X7[" "])
+        color = (80, 80, 80)
+        if char_colors and idx < len(char_colors):
+            color = char_colors[idx]
+
         for y, row in enumerate(glyph):
             for x, pixel in enumerate(row):
-                if y + 1 < height and x_cursor + x < width and pixel == "1":
-                    frame[y + 1][x_cursor + x] = 1
+                out_y = y + 1
+                out_x = x_cursor + x
+                if out_y < height and out_x < width and pixel == "1":
+                    frame[out_y][out_x] = 1
+                    color_frame[out_y][out_x] = color
+
         x_cursor += 6
         if x_cursor >= width:
             break
-    return frame
+
+    return frame, color_frame

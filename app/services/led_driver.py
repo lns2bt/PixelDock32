@@ -70,3 +70,12 @@ class LEDDriver:
             else:
                 self.strip.setPixelColor(i, self._color(0, 0, 0))
         self.strip.show()
+
+    def write_color_frame(self, index_to_color: dict[int, tuple[int, int, int]]):
+        for i in range(self.strip.numPixels()):
+            rgb = index_to_color.get(i)
+            if rgb is None:
+                self.strip.setPixelColor(i, self._color(0, 0, 0))
+            else:
+                self.strip.setPixelColor(i, self._color(rgb[0], rgb[1], rgb[2]))
+        self.strip.show()

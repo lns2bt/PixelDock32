@@ -42,7 +42,8 @@ async def status(request: Request, _: str = Depends(get_current_user)):
 async def preview(request: Request, _: str = Depends(get_current_user)):
     frame = _display(request).get_preview_frame()
     lit_pixels = sum(sum(1 for px in row if px) for row in frame)
-    return {"width": 32, "height": 8, "lit_pixels": lit_pixels, "frame": frame}
+    colors = _display(request).get_preview_colors()
+    return {"width": 32, "height": 8, "lit_pixels": lit_pixels, "frame": frame, "colors": colors}
 
 
 @router.get("/mapping/coordinate")

@@ -1,8 +1,17 @@
 let token = localStorage.getItem('token') || '';
 const gridState = Array.from({ length: 8 }, () => Array(32).fill(0));
+let pollTimerStatus = null;
+let pollTimerPreview = null;
 
 function authHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+function startPollingLoops() {
+  if (pollTimerStatus) clearInterval(pollTimerStatus);
+  if (pollTimerPreview) clearInterval(pollTimerPreview);
+  pollTimerStatus = setInterval(refreshStatus, 5000);
+  pollTimerPreview = setInterval(refreshPreview, 1000);
 }
 
 function toast(message, isError = false) {
@@ -68,7 +77,7 @@ function moduleSettingsHtml(module) {
   }
 
   if (module.key === 'btc') {
-    return '<p class="subtle">BTC wird automatisch im kompakten k-Format angezeigt (z. B. 56.8k).</p>';
+    return '<p class="subtle">BTC wird automatisch im kompakten k-Format angezeigt (z. B. 56.8k). Das B vorne ist orange, Preisfarbe hängt vom Trend ab.</p>';
   }
 
   if (module.key === 'weather') {
@@ -80,7 +89,7 @@ function moduleSettingsHtml(module) {
         </div>
         <div class="field">
           <label>Anzeige</label>
-          <p class="subtle">Nur Temperatur in Celsius wird angezeigt.</p>
+          <p class="subtle">Nur Temperatur in Celsius. Farbe: kalt = blau, warm = rot.</p>
         </div>
       </div>
     `;
@@ -130,7 +139,9 @@ async function login() {
   token = data.access_token;
   localStorage.setItem('token', token);
   document.getElementById('loginStatus').innerText = 'Eingeloggt';
-  await Promise.all([loadModules(), refreshStatus()]);
+
+  await Promise.all([loadModules(), refreshStatus(), refreshPreview()]);
+  startPollingLoops();
 }
 
 async function loadModules() {
@@ -201,7 +212,7 @@ async function saveModule(moduleId, moduleKey) {
     'Modul gespeichert',
   );
   if (res) {
-    await Promise.all([loadModules(), refreshStatus()]);
+    await Promise.all([loadModules(), refreshStatus(), refreshPreview()]);
   }
 }
 
@@ -213,9 +224,10 @@ async function sendText() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text, seconds }),
   }, 'Text gesendet');
-  if (res) await initPreviewGrid();
-refreshStatus();
-refreshPreview();
+  if (res) {
+    await refreshStatus();
+    await refreshPreview();
+  }
 }
 
 async function setBrightness() {
@@ -239,12 +251,18 @@ async function startDebugPattern() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   }, 'Debug-Pattern gestartet');
-  if (res) await refreshStatus();
+  if (res) {
+    await refreshStatus();
+    await refreshPreview();
+  }
 }
 
 async function stopDebugPattern() {
   const res = await apiRequest('/api/debug/pattern', { method: 'DELETE' }, 'Debug-Pattern gestoppt');
-  if (res) await refreshStatus();
+  if (res) {
+    await refreshStatus();
+    await refreshPreview();
+  }
 }
 
 function runPreset(pattern, seconds, intervalMs) {
@@ -276,7 +294,6 @@ async function refreshStatus() {
     : formatTs(data.data.weather_updated_at);
 }
 
-
 function initPreviewGrid() {
   const container = document.getElementById('previewGrid');
   if (!container || container.childElementCount > 0) return;
@@ -290,7 +307,7 @@ function initPreviewGrid() {
   }
 }
 
-function renderPreviewFrame(frame) {
+function renderPreviewFrame(frame, colors = null) {
   if (!Array.isArray(frame)) return;
   for (let y = 0; y < 8; y += 1) {
     for (let x = 0; x < 32; x += 1) {
@@ -298,6 +315,12 @@ function renderPreviewFrame(frame) {
       if (!el) continue;
       const on = !!(frame[y] && frame[y][x]);
       el.classList.toggle('on', on);
+      if (!on) {
+        el.style.backgroundColor = '';
+        continue;
+      }
+      const c = colors && colors[y] && colors[y][x] ? colors[y][x] : [37, 99, 235];
+      el.style.backgroundColor = `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
     }
   }
 }
@@ -306,7 +329,7 @@ async function refreshPreview() {
   if (!token) return;
   const data = await apiRequest('/api/debug/preview');
   if (!data?.frame) return;
-  renderPreviewFrame(data.frame);
+  renderPreviewFrame(data.frame, data.colors || null);
 }
 
 async function checkMappingCoordinate() {
@@ -356,13 +379,17 @@ async function sendGrid() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ pixels: gridState, seconds: 8 }),
   }, 'Pixel-Frame gesendet');
-  if (res) await refreshStatus();
+  if (res) {
+    await refreshStatus();
+    await refreshPreview();
+  }
 }
 
 initGrid();
-refreshStatus();
+initPreviewGrid();
 if (token) {
   loadModules();
-  setInterval(refreshStatus, 5000);
-  setInterval(refreshPreview, 1000);
+  refreshStatus();
+  refreshPreview();
+  startPollingLoops();
 }

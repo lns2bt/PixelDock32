@@ -19,6 +19,7 @@ class ExternalDataService:
             "weather_updated_at": None,
             "btc_error": None,
             "weather_error": None,
+            "btc_trend": "flat",
         }
         self._running = False
         self._tasks: list[asyncio.Task] = []
@@ -45,7 +46,17 @@ class ExternalDataService:
                         params={"ids": "bitcoin", "vs_currencies": "eur"},
                     )
                     response.raise_for_status()
-                    self.cache["btc_eur"] = response.json()["bitcoin"]["eur"]
+                    new_price = response.json()["bitcoin"]["eur"]
+                    old_price = self.cache.get("btc_eur")
+                    if old_price is None:
+                        self.cache["btc_trend"] = "flat"
+                    elif new_price > old_price:
+                        self.cache["btc_trend"] = "up"
+                    elif new_price < old_price:
+                        self.cache["btc_trend"] = "down"
+                    else:
+                        self.cache["btc_trend"] = "flat"
+                    self.cache["btc_eur"] = new_price
                     self.cache["btc_updated_at"] = time.time()
                     self.cache["btc_error"] = None
             except Exception as exc:  # noqa: BLE001

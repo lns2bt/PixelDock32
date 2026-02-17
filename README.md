@@ -104,6 +104,7 @@ Die Werte werden über `PUT /api/modules/{id}` gespeichert.
 
 ## Mapping-Wizard & Virtuelle Vorschau
 
+
 Die Web-UI enthält jetzt einen geführten Mapping-Bereich mit:
 
 - Schritt-Buttons für Panel-Reihenfolge/Serpentine/Rand-Check
@@ -111,6 +112,13 @@ Die Web-UI enthält jetzt einen geführten Mapping-Bereich mit:
 - Virtuelle Live-Vorschau (8x32) über `GET /api/debug/preview`
 
 Damit kannst du Mapping-Fehler systematisch finden, ohne nur auf das physische Panel schauen zu müssen.
+
+
+## Farb-Logik der Module
+
+- **BTC**: Führendes `B` ist orange. Preis in `k`-Format wird grün bei steigendem Kurs, rot bei fallendem Kurs, gelb bei unverändert.
+- **Weather**: Temperatur wird farbcodiert von kalt (blau) bis warm (rot) angezeigt.
+- **Virtuelle Vorschau**: zeigt diese Farben live über `GET /api/debug/preview` an.
 
 ## systemd Autostart
 
