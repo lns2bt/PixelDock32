@@ -124,3 +124,20 @@ sudo systemctl status pixeldock32
 - **Toast-Feedback** bei allen UI-Aktionen inklusive Fehlern/Netzwerkproblemen.
 - **Quick Presets** für Debug-Pattern (Wiring/Serpentine/Noise Check).
 - Neues Backend-Status-API: `GET /api/debug/status`.
+
+
+## Troubleshooting
+
+Wenn beim Start folgender Fehler kommt:
+
+- `ValueError: the greenlet library is required to use this function. No module named "greenlet"`
+
+Dann wurden die Python-Abhängigkeiten unvollständig installiert. Neu installieren:
+
+```bash
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+Danach `uvicorn app.main:app --host 0.0.0.0 --port 8000` erneut starten.
