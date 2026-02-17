@@ -61,7 +61,7 @@ async function login() {
   }
   token = data.access_token;
   localStorage.setItem('token', token);
-  document.getElementById('loginStatus').innerText = 'OK';
+  document.getElementById('loginStatus').innerText = 'Eingeloggt';
   await Promise.all([loadModules(), refreshStatus()]);
 }
 
@@ -75,11 +75,25 @@ async function loadModules() {
     const row = document.createElement('div');
     row.className = 'module-row';
     row.innerHTML = `
-      <strong>${m.name}</strong>
-      <label><input type="checkbox" ${m.enabled ? 'checked' : ''} id="en-${m.id}"> aktiv</label>
-      <input type="number" id="dur-${m.id}" value="${m.duration_seconds}" min="1">
-      <input type="number" id="ord-${m.id}" value="${m.sort_order}">
-      <button onclick="saveModule(${m.id})">Speichern</button>
+      <div class="field">
+        <label>Modul</label>
+        <div class="module-name">${m.name}</div>
+      </div>
+      <div class="field">
+        <label>Aktiv</label>
+        <label class="check-label"><input type="checkbox" ${m.enabled ? 'checked' : ''} id="en-${m.id}"> aktiv</label>
+      </div>
+      <div class="field">
+        <label for="dur-${m.id}">Dauer (Sek.)</label>
+        <input type="number" id="dur-${m.id}" value="${m.duration_seconds}" min="1">
+      </div>
+      <div class="field">
+        <label for="ord-${m.id}">Reihenfolge</label>
+        <input type="number" id="ord-${m.id}" value="${m.sort_order}">
+      </div>
+      <div class="field actions-end">
+        <button class="btn" onclick="saveModule(${m.id})">Speichern</button>
+      </div>
     `;
     container.appendChild(row);
   });
