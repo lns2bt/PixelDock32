@@ -2,6 +2,7 @@ let token = localStorage.getItem('token') || '';
 const gridState = Array.from({ length: 8 }, () => Array(32).fill(0));
 let pollTimerStatus = null;
 let pollTimerPreview = null;
+const moduleCollapseState = {};
 
 function authHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : {};
@@ -446,35 +447,90 @@ async function loadModules() {
   container.innerHTML = '';
 
   modules.forEach((m) => {
+    if (typeof moduleCollapseState[m.id] === 'undefined') {
+      moduleCollapseState[m.id] = !m.enabled;
+    }
+
     const row = document.createElement('div');
-    row.className = 'module-row';
+    const isCollapsed = !!moduleCollapseState[m.id];
+    row.className = `module-row ${isCollapsed ? 'collapsed' : ''}`;
     row.innerHTML = `
-      <div class="field">
-        <label>Modul</label>
-        <div class="module-name">${m.name}</div>
+      <div class="module-main">
+        <button class="module-toggle" type="button" onclick="toggleModuleCard(${m.id})" aria-label="Modul ein- oder ausklappen">
+          <span id="arrow-${m.id}" class="module-arrow ${isCollapsed ? '' : 'open'}">▸</span>
+        </button>
+        <div class="field module-name-wrap">
+          <label>Modul</label>
+          <div class="module-name">${m.name}</div>
+          <span class="module-key">${m.key}</span>
+        </div>
+        <div class="field">
+          <label>Aktiv</label>
+          <label class="check-label"><input type="checkbox" ${m.enabled ? 'checked' : ''} id="en-${m.id}" onchange="toggleModuleEnabled(${m.id}, '${m.key}')"> aktiv</label>
+        </div>
+        <div class="field">
+          <label for="dur-${m.id}">Dauer (Sek.)</label>
+          <input type="number" id="dur-${m.id}" value="${m.duration_seconds}" min="1">
+        </div>
+        <div class="field">
+          <label for="ord-${m.id}">Reihenfolge</label>
+          <input type="number" id="ord-${m.id}" value="${m.sort_order}">
+        </div>
+        <div class="field actions-end">
+          <button class="btn" onclick="saveModule(${m.id}, '${m.key}')">Speichern</button>
+        </div>
       </div>
-      <div class="field">
-        <label>Aktiv</label>
-        <label class="check-label"><input type="checkbox" ${m.enabled ? 'checked' : ''} id="en-${m.id}"> aktiv</label>
-      </div>
-      <div class="field">
-        <label for="dur-${m.id}">Dauer (Sek.)</label>
-        <input type="number" id="dur-${m.id}" value="${m.duration_seconds}" min="1">
-      </div>
-      <div class="field">
-        <label for="ord-${m.id}">Reihenfolge</label>
-        <input type="number" id="ord-${m.id}" value="${m.sort_order}">
-      </div>
-      <div class="field actions-end">
-        <button class="btn" onclick="saveModule(${m.id}, '${m.key}')">Speichern</button>
-      </div>
-      <div class="module-settings">
+      <div class="module-settings" id="settings-${m.id}">
         <label class="settings-title">Moduleinstellungen</label>
         ${moduleSettingsHtml(m)}
       </div>
     `;
     container.appendChild(row);
   });
+}
+
+function toggleModuleCard(moduleId) {
+  moduleCollapseState[moduleId] = !moduleCollapseState[moduleId];
+  const row = document.querySelector(`#settings-${moduleId}`)?.closest('.module-row');
+  if (!row) return;
+
+  row.classList.toggle('collapsed', moduleCollapseState[moduleId]);
+  const arrow = document.getElementById(`arrow-${moduleId}`);
+  if (arrow) arrow.classList.toggle('open', !moduleCollapseState[moduleId]);
+}
+
+async function toggleModuleEnabled(moduleId, moduleKey) {
+  const enabled = document.getElementById(`en-${moduleId}`).checked;
+
+  const payload = {
+    enabled,
+    duration_seconds: parseInt(document.getElementById(`dur-${moduleId}`).value, 10) || 8,
+    sort_order: parseInt(document.getElementById(`ord-${moduleId}`).value, 10) || 0,
+    settings: collectModuleSettings({ id: moduleId, key: moduleKey }),
+  };
+
+  const res = await apiRequest(
+    `/api/modules/${moduleId}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+    enabled ? 'Modul aktiviert' : 'Modul deaktiviert',
+  );
+
+  if (!res) {
+    document.getElementById(`en-${moduleId}`).checked = !enabled;
+    return;
+  }
+
+  moduleCollapseState[moduleId] = !enabled;
+  const row = document.querySelector(`#settings-${moduleId}`)?.closest('.module-row');
+  if (row) row.classList.toggle('collapsed', !enabled);
+  const arrow = document.getElementById(`arrow-${moduleId}`);
+  if (arrow) arrow.classList.toggle('open', enabled);
+
+  await Promise.all([refreshStatus(), refreshPreview()]);
 }
 
 async function saveModule(moduleId, moduleKey) {
