@@ -2,6 +2,7 @@ import time
 
 from app.modules.base import ModuleBase, ModulePayload
 from app.services.colors import clamp, parse_hex_color
+from app.services.rendering import measure_text_width
 
 
 def _safe_int(value: object, default: int) -> int:
@@ -28,6 +29,7 @@ class TextBoxModule(ModuleBase):
         color = parse_hex_color(settings.get("color"), (245, 245, 245))
         x_offset = clamp(_safe_int(settings.get("x_offset", 0), 0), -16, 16)
         y_offset = clamp(_safe_int(settings.get("y_offset", 0), 0), -4, 4)
+        char_spacing = clamp(_safe_int(settings.get("char_spacing", 1), 1), 0, 4)
 
         text_mode = settings.get("text_mode", "static")
         if text_mode not in {"static", "scroll"}:
@@ -35,8 +37,7 @@ class TextBoxModule(ModuleBase):
 
         if text_mode == "scroll":
             speed = max(1, _safe_int(settings.get("scroll_speed", 35), 35))
-            char_step = 4 if font_size == "small" else 6
-            text_width = max(len(text) * char_step - 1, 1)
+            text_width = measure_text_width(text, font_size=font_size, char_spacing=char_spacing)
             cycle = text_width + 32
             offset = 32 - (int(time.time() * speed / 10) % cycle)
             x_offset = clamp(offset, -text_width, 32)
@@ -47,4 +48,5 @@ class TextBoxModule(ModuleBase):
             x_offset=x_offset,
             y_offset=y_offset,
             default_color=color,
+            char_spacing=char_spacing,
         )

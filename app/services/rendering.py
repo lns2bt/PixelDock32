@@ -104,6 +104,50 @@ def blank_color_frame(width: int = 32, height: int = 8) -> list[list[tuple[int, 
     return [[None for _ in range(width)] for _ in range(height)]
 
 
+def normalize_char_spacing(char_spacing: int | None, font_size: str = "normal") -> int:
+    default_spacing = 1
+    if char_spacing is None:
+        return default_spacing
+    try:
+        spacing = int(char_spacing)
+    except (TypeError, ValueError):
+        return default_spacing
+    max_spacing = 3 if normalize_font_size(font_size) == "small" else 4
+    return max(0, min(max_spacing, spacing))
+
+
+def _glyph_columns(glyph: list[str]) -> tuple[int, int]:
+    first = None
+    last = None
+    for row in glyph:
+        for x, pixel in enumerate(row):
+            if pixel != "1":
+                continue
+            if first is None or x < first:
+                first = x
+            if last is None or x > last:
+                last = x
+
+    if first is None or last is None:
+        return 0, 1
+    return first, (last - first) + 1
+
+
+def measure_text_width(text: str, font_size: str = "normal", char_spacing: int | None = None) -> int:
+    selected_size = normalize_font_size(font_size)
+    glyphs = FONT_3X5 if selected_size == "small" else FONT_5X7
+    spacing = normalize_char_spacing(char_spacing, selected_size)
+
+    width = 0
+    for idx, char in enumerate(text):
+        glyph = glyphs.get(char, glyphs.get(char.upper(), glyphs[" "]))
+        _, glyph_width = _glyph_columns(glyph)
+        width += glyph_width
+        if idx < len(text) - 1:
+            width += spacing
+    return max(width, 1)
+
+
 def render_text_frame(
     text: str,
     width: int = 32,
@@ -132,19 +176,20 @@ def render_text_with_colors(
     x_offset: int = 0,
     y_offset: int = 0,
     base_color: tuple[int, int, int] = (80, 80, 80),
+    char_spacing: int | None = None,
 ) -> tuple[list[list[int]], list[list[tuple[int, int, int] | None]]]:
     frame = blank_frame(width, height)
     color_frame = blank_color_frame(width, height)
     x_cursor = x_offset
-    upper = text.upper()
 
     selected_size = normalize_font_size(font_size)
     glyphs = FONT_3X5 if selected_size == "small" else FONT_5X7
     top_offset = 2 if selected_size == "small" else 1
-    char_step = 4 if selected_size == "small" else 6
+    spacing = normalize_char_spacing(char_spacing, selected_size)
 
-    for idx, char in enumerate(upper):
-        glyph = glyphs.get(char, glyphs[" "])
+    for idx, char in enumerate(text):
+        glyph = glyphs.get(char, glyphs.get(char.upper(), glyphs[" "]))
+        lead, glyph_width = _glyph_columns(glyph)
         color = base_color
         if char_colors and idx < len(char_colors):
             color = char_colors[idx]
@@ -152,12 +197,12 @@ def render_text_with_colors(
         for y, row in enumerate(glyph):
             for x, pixel in enumerate(row):
                 out_y = y + top_offset + y_offset
-                out_x = x_cursor + x
+                out_x = x_cursor + x - lead
                 if 0 <= out_y < height and 0 <= out_x < width and pixel == "1":
                     frame[out_y][out_x] = 1
                     color_frame[out_y][out_x] = color
 
-        x_cursor += char_step
+        x_cursor += glyph_width + spacing
         if x_cursor >= width:
             break
 

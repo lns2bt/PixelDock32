@@ -296,6 +296,7 @@ class DisplayService:
                     base_color=payload.default_color,
                     x_offset=payload.x_offset,
                     y_offset=payload.y_offset,
+                    char_spacing=payload.char_spacing,
                 )
                 payload.color_frame = generated_colors
 

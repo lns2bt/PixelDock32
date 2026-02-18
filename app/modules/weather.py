@@ -16,6 +16,7 @@ class WeatherModule(ModuleBase):
         font_size = settings.get("font_size", "normal")
         x_offset = clamp(int(settings.get("x_offset", 0)), -16, 16)
         y_offset = clamp(int(settings.get("y_offset", 0)), -4, 4)
+        char_spacing = clamp(int(settings.get("char_spacing", 1)), 0, 4)
 
         cold_color = parse_hex_color(settings.get("color_cold"), (50, 120, 255))
         warm_color = parse_hex_color(settings.get("color_warm"), (255, 100, 70))
@@ -28,6 +29,7 @@ class WeatherModule(ModuleBase):
                 x_offset=x_offset,
                 y_offset=y_offset,
                 default_color=fallback_color,
+                char_spacing=char_spacing,
             )
 
         value = float(temp)
@@ -39,4 +41,5 @@ class WeatherModule(ModuleBase):
             x_offset=x_offset,
             y_offset=y_offset,
             default_color=color,
+            char_spacing=char_spacing,
         )
