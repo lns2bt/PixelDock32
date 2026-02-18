@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PixelDock32</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Raspberry Pi LED Controller</p>
+        <h1>PixelDock32</h1>
+        <p class="subtle">Farben, Schriftgröße und Offsets pro Modul frei anpassbar.</p>
+      </div>
+      <button class="btn btn-secondary" onclick="refreshStatus()">Status aktualisieren</button>
+    </header>
+
+    <section id="statusSection" class="card">
+      <h2>System-Status</h2>
+      <div class="status-grid">
+        <span>API</span><strong id="statusApi">unbekannt</strong>
+        <span>Render-Quelle</span><strong id="statusSource">-</strong>
+        <span>Aktives Modul</span><strong id="statusModule">-</strong>
+        <span>FPS (Soll / Ist)</span><strong id="statusFps">-</strong>
+        <span>Debug-Pattern</span><strong id="statusDebug">-</strong>
+        <span>BTC Update</span><strong id="statusBtc">-</strong>
+        <span>Wetter Update</span><strong id="statusWeather">-</strong>
+      </div>
+    </section>
+
+    <section id="loginSection" class="card">
+      <h2>Login</h2>
+      <div class="form-row three">
+        <div class="field">
+          <label for="username">Benutzername</label>
+          <input id="username" placeholder="z. B. admin" value="admin" />
+        </div>
+        <div class="field">
+          <label for="password">Passwort</label>
+          <input id="password" type="password" placeholder="••••••••" />
+        </div>
+        <div class="field actions-end">
+          <button class="btn" onclick="login()">Einloggen</button>
+        </div>
+      </div>
+      <p id="loginStatus" class="subtle"></p>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <h2>Module</h2>
+        <button class="btn btn-secondary" onclick="loadModules()">Module neu laden</button>
+      </div>
+      <div id="modules"></div>
+    </section>
+
+    <section class="card">
+      <h2>Sofort-Text anzeigen</h2>
+      <div class="form-row manual-row">
+        <div class="field">
+          <label for="manualText">Text</label>
+          <input id="manualText" placeholder="Nachricht für die Anzeige" />
+        </div>
+        <div class="field">
+          <label for="manualSeconds">Anzeigedauer (Sekunden)</label>
+          <input id="manualSeconds" type="number" value="8" min="1" max="120" />
+        </div>
+        <div class="field">
+          <label for="manualFontSize">Schriftgröße</label>
+          <select id="manualFontSize">
+            <option value="normal" selected>Normal (5x7)</option>
+            <option value="small">Klein (3x5)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="manualColor">Textfarbe</label>
+          <input id="manualColor" type="color" value="#f0f0f0" />
+        </div>
+        <div class="field">
+          <label for="manualOffsetX">Offset X</label>
+          <input id="manualOffsetX" type="number" min="-16" max="16" value="0" />
+        </div>
+        <div class="field">
+          <label for="manualOffsetY">Offset Y</label>
+          <input id="manualOffsetY" type="number" min="-4" max="4" value="0" />
+        </div>
+        <div class="field actions-end">
+          <button class="btn" onclick="sendText()">Text senden</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Helligkeit</h2>
+      <div class="form-row three">
+        <div class="field field-wide">
+          <label for="brightness">LED-Helligkeit</label>
+          <input id="brightness" type="range" min="0" max="255" value="64" oninput="brightnessValue.innerText=this.value" />
+        </div>
+        <div class="field value-box">
+          <label>Aktueller Wert</label>
+          <span id="brightnessValue" class="pill">64</span>
+        </div>
+        <div class="field actions-end">
+          <button class="btn" onclick="setBrightness()">Helligkeit setzen</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Hardware-Debug & Kalibrierung</h2>
+      <div class="form-row debug-row">
+        <div class="field">
+          <label for="debugPattern">Pattern</label>
+          <select id="debugPattern">
+            <option value="pixel_walk">Pixel Walk</option>
+            <option value="panel_walk">Panel Walk</option>
+            <option value="stripes">Stripes</option>
+            <option value="border">Border</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="debugSeconds">Laufzeit (Sekunden)</label>
+          <input id="debugSeconds" type="number" min="1" max="300" value="20" />
+        </div>
+        <div class="field">
+          <label for="debugInterval">Intervall (ms)</label>
+          <input id="debugInterval" type="number" min="50" max="2000" value="250" />
+        </div>
+        <div class="field actions-end">
+          <button class="btn" onclick="startDebugPattern()">Pattern starten</button>
+        </div>
+        <div class="field actions-end">
+          <button class="btn btn-secondary" onclick="stopDebugPattern()">Pattern stoppen</button>
+        </div>
+      </div>
+      <div class="preset-row">
+        <button class="btn btn-secondary" onclick="runPreset('panel_walk', 20, 350)">Wiring Check</button>
+        <button class="btn btn-secondary" onclick="runPreset('pixel_walk', 60, 120)">Serpentine Check</button>
+        <button class="btn btn-secondary" onclick="runPreset('stripes', 20, 300)">Noise Check</button>
+      </div>
+    </section>
+
+
+    <section class="card">
+      <h2>Mapping-Wizard</h2>
+      <p class="subtle">Nutze die Schritte zur Verkabelungsprüfung und prüfe einzelne Koordinaten gegen den physikalischen LED-Index.</p>
+      <div class="preset-row">
+        <button class="btn btn-secondary" onclick="runPreset('panel_walk', 20, 350)">1) Panel-Reihenfolge prüfen</button>
+        <button class="btn btn-secondary" onclick="runPreset('pixel_walk', 50, 120)">2) Serpentine prüfen</button>
+        <button class="btn btn-secondary" onclick="runPreset('border', 20, 300)">3) Rand prüfen</button>
+      </div>
+      <div class="form-row wizard-row">
+        <div class="field">
+          <label for="mapX">Logisches X (0-31)</label>
+          <input id="mapX" type="number" min="0" max="31" value="0" />
+        </div>
+        <div class="field">
+          <label for="mapY">Logisches Y (0-7)</label>
+          <input id="mapY" type="number" min="0" max="7" value="0" />
+        </div>
+        <div class="field actions-end">
+          <button class="btn" onclick="checkMappingCoordinate()">Koordinate erklären</button>
+        </div>
+      </div>
+      <div id="mappingInfo" class="mapping-info">Noch keine Koordinate geprüft.</div>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <h2>Virtuelle Vorschau (8x32)</h2>
+        <button class="btn btn-secondary" onclick="refreshPreview()">Vorschau aktualisieren</button>
+      </div>
+      <div id="previewGrid"></div>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <h2>8×32 Pixel-Zeichenbox</h2>
+        <div class="inline-actions">
+          <button class="btn btn-secondary" onclick="clearGrid()">Leeren</button>
+          <button class="btn" onclick="sendGrid()">Zeichnung anzeigen</button>
+        </div>
+      </div>
+      <div id="grid"></div>
+    </section>
+  </main>
+
+  <div id="toast"></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
