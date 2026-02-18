@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     first_pixel_offset: int = 0
 
     btc_api_url: str = "https://api.coingecko.com/api/v3/simple/price"
+    btc_block_height_api_url: str = "https://blockstream.info/api/blocks/tip/height"
     weather_api_url: str = "https://api.open-meteo.com/v1/forecast"
     weather_lat: float = 47.2682
     weather_lon: float = 11.3923

@@ -207,6 +207,13 @@ function moduleSettingsHtml(module) {
           <label for="set-fallback-${module.id}">Farbe Fallback</label>
           <input id="set-fallback-${module.id}" type="color" value="${s.color_fallback || '#9ca3af'}" />
         </div>
+        <div class="field">
+          <label class="check-label"><input type="checkbox" id="set-btc-block-${module.id}" ${s.show_block_height === true ? 'checked' : ''}> Zweiter Screen: Blockhöhe</label>
+        </div>
+        <div class="field">
+          <label for="set-btc-screen-sec-${module.id}">Screen-Wechsel (Sek.)</label>
+          <input id="set-btc-screen-sec-${module.id}" type="number" min="1" max="60" value="${s.screen_seconds ?? 4}" />
+        </div>
         ${transitionControls(module.id, s)}
       </div>
     `;
@@ -385,6 +392,8 @@ function collectModuleSettings({ id: moduleId, key: moduleKey }) {
       color_down: document.getElementById(`set-down-${moduleId}`).value,
       color_flat: document.getElementById(`set-flat-${moduleId}`).value,
       color_fallback: document.getElementById(`set-fallback-${moduleId}`).value,
+      show_block_height: document.getElementById(`set-btc-block-${moduleId}`).checked,
+      screen_seconds: parseInt(document.getElementById(`set-btc-screen-sec-${moduleId}`).value, 10) || 4,
       ...commonTransition,
     };
   }
