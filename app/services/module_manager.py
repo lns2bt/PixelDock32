@@ -19,6 +19,9 @@ DEFAULT_MODULES = [
             "char_spacing": 1,
             "transition_direction": "down",
             "transition_ms": 350,
+            "transition_on_content_change": False,
+            "seconds_border_mode": "off",
+            "seconds_border_color": "#3cc8ff",
         },
     },
     {

@@ -1,6 +1,8 @@
 import asyncio
 import time
 from collections.abc import Callable
+from datetime import datetime
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
@@ -16,6 +18,7 @@ from app.services.led_mapper import LEDMapper
 from app.services.colors import parse_hex_color
 from app.services.rendering import blank_color_frame, render_text_with_colors
 from app.services.bitmap_loader import BitmapLoader
+from app.config import get_settings
 
 MODULE_REGISTRY = {
     "clock": ClockModule(),
@@ -40,6 +43,36 @@ def _safe_int(value: object, fallback: int) -> int:
         return int(value)
     except (TypeError, ValueError):
         return fallback
+
+
+def _clock_border_path(width: int = 32, height: int = 8) -> list[tuple[int, int]]:
+    path: list[tuple[int, int]] = []
+    for x in range(width):
+        path.append((x, 0))
+    for y in range(1, height):
+        path.append((width - 1, y))
+    for x in range(width - 2, -1, -1):
+        path.append((x, height - 1))
+    for y in range(height - 2, 0, -1):
+        path.append((0, y))
+    return path
+
+
+def _clock_border_progress(seconds: int, mode: str, path_len: int) -> int:
+    seconds = max(0, min(59, seconds))
+    if path_len <= 0:
+        return 0
+    if mode == "two_forward_one_back":
+        steps = round((seconds / 59) * (path_len * 3))
+        cycles, rest = divmod(steps, 3)
+        progress = cycles
+        if rest == 1:
+            progress += 1
+        elif rest == 2:
+            progress += 2
+    else:
+        progress = round((seconds / 59) * path_len)
+    return max(0, min(path_len, progress))
 
 class DisplayService:
     def __init__(
@@ -74,6 +107,7 @@ class DisplayService:
         self.last_target_key: str | None = None
         self.last_target_frame: list[list[int]] = [[0 for _ in range(32)] for _ in range(8)]
         self.last_target_colors: list[list[tuple[int, int, int] | None]] = blank_color_frame(32, 8)
+        self.clock_border_path = _clock_border_path(32, 8)
 
     async def start(self):
         self._running = True
@@ -177,6 +211,45 @@ class DisplayService:
                     out_colors[y][x] = to_colors[ny][x]
 
         return out_frame, out_colors
+
+    def _apply_clock_border_seconds(
+        self,
+        frame: list[list[int]],
+        color_frame: list[list[tuple[int, int, int] | None]],
+        settings: dict,
+    ) -> tuple[list[list[int]], list[list[tuple[int, int, int] | None]]]:
+        mode = str(settings.get("seconds_border_mode", "off")).strip().lower()
+        if mode not in {"off", "linear", "two_forward_one_back", "dual_edge"}:
+            mode = "off"
+        if mode == "off":
+            return frame, color_frame
+
+        border_color = parse_hex_color(settings.get("seconds_border_color"), (60, 200, 255))
+        tz_name = settings.get("timezone", get_settings().tz)
+        try:
+            now_sec = datetime.now(ZoneInfo(tz_name)).second
+        except ZoneInfoNotFoundError:
+            now_sec = datetime.now(ZoneInfo(get_settings().tz)).second
+
+        progress = _clock_border_progress(now_sec, mode, len(self.clock_border_path))
+        if progress <= 0:
+            return frame, color_frame
+
+        if mode == "dual_edge":
+            half = len(self.clock_border_path) // 2
+            left = progress // 2
+            right = progress - left
+            indices = set(range(left))
+            indices.update(((half + idx) % len(self.clock_border_path)) for idx in range(right))
+        else:
+            indices = set(range(progress))
+
+        for idx in indices:
+            x, y = self.clock_border_path[idx]
+            frame[y][x] = 1
+            color_frame[y][x] = border_color
+
+        return frame, color_frame
 
     async def _loop(self):
         while self._running:
@@ -302,6 +375,11 @@ class DisplayService:
 
             color_frame = payload.color_frame or blank_color_frame(32, 8)
 
+        if selected["key"] == "clock":
+            frame = [row[:] for row in frame]
+            color_frame = [row[:] for row in color_frame]
+            frame, color_frame = self._apply_clock_border_seconds(frame, color_frame, settings)
+
         transition_direction = settings.get("transition_direction", "down")
         if transition_direction not in {"down", "up"}:
             transition_direction = "down"
@@ -323,10 +401,15 @@ class DisplayService:
                     )
                 self.transition_state = None
 
+        transition_on_content_change = bool(settings.get("transition_on_content_change", True))
+        if selected["key"] == "clock" and "transition_on_content_change" not in settings:
+            transition_on_content_change = False
+
+        same_module = self.last_target_key == selected["key"]
+        content_changed = self.last_target_frame != frame or self.last_target_colors != color_frame
         target_changed = (
             self.last_target_key != selected["key"]
-            or self.last_target_frame != frame
-            or self.last_target_colors != color_frame
+            or (transition_on_content_change and same_module and content_changed)
         )
 
         if transition_ms > 0 and self.last_target_key is not None and target_changed:

@@ -160,6 +160,23 @@ function moduleSettingsHtml(module) {
           <label for="set-spacing-${module.id}">Zeichenabstand</label>
           <input id="set-spacing-${module.id}" type="number" min="0" max="4" value="${s.char_spacing ?? 1}" />
         </div>
+        <div class="field">
+          <label for="set-clock-sec-border-mode-${module.id}">Sekunden-Rand Animation</label>
+          <select id="set-clock-sec-border-mode-${module.id}">
+            <option value="off" ${!s.seconds_border_mode || s.seconds_border_mode === 'off' ? 'selected' : ''}>Aus</option>
+            <option value="linear" ${s.seconds_border_mode === 'linear' ? 'selected' : ''}>Simpel (linear)</option>
+            <option value="two_forward_one_back" ${s.seconds_border_mode === 'two_forward_one_back' ? 'selected' : ''}>2 vor, 1 zurück</option>
+            <option value="dual_edge" ${s.seconds_border_mode === 'dual_edge' ? 'selected' : ''}>Dual-Edge (von zwei Seiten)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="set-clock-sec-border-color-${module.id}">Sekunden-Rand Farbe</label>
+          <input id="set-clock-sec-border-color-${module.id}" type="color" value="${s.seconds_border_color || '#3cc8ff'}" />
+        </div>
+        <div class="field">
+          <label>Content-Wechsel animieren</label>
+          <label class="check-label"><input type="checkbox" id="set-clock-content-trans-${module.id}" ${s.transition_on_content_change === true ? 'checked' : ''}> Bei jeder Sekunde sliden</label>
+        </div>
         ${transitionControls(module.id, s)}
       </div>
     `;
@@ -377,6 +394,9 @@ function collectModuleSettings({ id: moduleId, key: moduleKey }) {
       x_offset: parseInt(document.getElementById(`set-x-${moduleId}`).value, 10) || 0,
       y_offset: parseInt(document.getElementById(`set-y-${moduleId}`).value, 10) || 0,
       char_spacing: (() => { const v = parseInt(document.getElementById(`set-spacing-${moduleId}`).value, 10); return Number.isNaN(v) ? 1 : v; })(),
+      seconds_border_mode: document.getElementById(`set-clock-sec-border-mode-${moduleId}`).value,
+      seconds_border_color: document.getElementById(`set-clock-sec-border-color-${moduleId}`).value,
+      transition_on_content_change: document.getElementById(`set-clock-content-trans-${moduleId}`).checked,
       ...commonTransition,
     };
   }

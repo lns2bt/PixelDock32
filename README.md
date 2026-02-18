@@ -128,6 +128,19 @@ Damit kannst du Mapping-Fehler systematisch finden, ohne nur auf das physische P
   - `transition_direction=down` (neue Zeile von oben nach unten)
   - `transition_direction=up` (neue Zeile von unten nach oben)
 - Übergangsdauer über `transition_ms` einstellbar (0 = ohne Animation).
+- Beim **Clock-Modul** ist das Sekundentakt-Sliding standardmäßig deaktiviert (`transition_on_content_change=false`), damit der Slide primär beim Modulwechsel sichtbar ist.
+
+## Clock-Sekundenrand (neu)
+
+Das Clock-Modul unterstützt jetzt optional einen dynamischen 1px-Rand als Sekunden-Visualisierung:
+
+- `seconds_border_mode=off`: deaktiviert
+- `seconds_border_mode=linear`: linearer Fortschritt über die Minute
+- `seconds_border_mode=two_forward_one_back`: animierter "2 vor, 1 zurück" Verlauf
+- `seconds_border_mode=dual_edge`: zusätzlicher Modus mit Wachstum von zwei Startpunkten
+- `seconds_border_color`: Farbe des Sekundenrands
+
+Der Rand ist bei `0s` leer und bei `59s` vollständig gefüllt.
 
 ## Bitmap-Modul (32px breit, vertikales Scrolling)
 
