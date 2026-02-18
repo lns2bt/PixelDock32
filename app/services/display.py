@@ -30,8 +30,6 @@ DEBUG_COLORS = {
 }
 
 
-
-
 def _safe_int(value: object, fallback: int) -> int:
     try:
         return int(value)
