@@ -53,11 +53,17 @@ MODULE_SETTING_DEFAULTS = {
         "y_offset": 0,
         "transition_direction": "down",
         "transition_ms": 450,
+        "text_mode": "static",
+        "scroll_speed": 35,
+        "preset": "welcome",
     },
 }
 
 
 ALLOWED_FONT_SIZES = {"small", "normal"}
+ALLOWED_TRANSITIONS = {"down", "up"}
+ALLOWED_TEXT_MODES = {"static", "scroll"}
+ALLOWED_TEXTBOX_PRESETS = {"welcome", "status", "alert", "ticker"}
 
 
 def _clamp_int(value: object, minimum: int, maximum: int, fallback: int) -> int:
@@ -90,12 +96,23 @@ def _normalize_hex_color(value: object, fallback: str) -> str:
     return v.lower()
 
 
-
-
 def _normalize_transition_direction(value: object, fallback: str = "down") -> str:
-    if isinstance(value, str) and value.lower() in {"down", "up"}:
+    if isinstance(value, str) and value.lower() in ALLOWED_TRANSITIONS:
         return value.lower()
     return fallback
+
+
+def _normalize_text_mode(value: object, fallback: str = "static") -> str:
+    if isinstance(value, str) and value.lower() in ALLOWED_TEXT_MODES:
+        return value.lower()
+    return fallback
+
+
+def _normalize_textbox_preset(value: object, fallback: str = "welcome") -> str:
+    if isinstance(value, str) and value.lower() in ALLOWED_TEXTBOX_PRESETS:
+        return value.lower()
+    return fallback
+
 
 def sanitize_settings(module_key: str, settings: dict) -> dict:
     defaults = MODULE_SETTING_DEFAULTS.get(module_key, {})
@@ -151,6 +168,9 @@ def sanitize_settings(module_key: str, settings: dict) -> dict:
             merged.get("transition_direction"), defaults["transition_direction"]
         )
         merged["transition_ms"] = _clamp_int(merged.get("transition_ms"), 0, 2000, defaults["transition_ms"])
+        merged["text_mode"] = _normalize_text_mode(merged.get("text_mode"), defaults["text_mode"])
+        merged["scroll_speed"] = _clamp_int(merged.get("scroll_speed"), 5, 120, defaults["scroll_speed"])
+        merged["preset"] = _normalize_textbox_preset(merged.get("preset"), defaults["preset"])
 
     return merged
 

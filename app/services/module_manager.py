@@ -69,6 +69,9 @@ DEFAULT_MODULES = [
             "y_offset": 0,
             "transition_direction": "down",
             "transition_ms": 450,
+            "text_mode": "static",
+            "scroll_speed": 35,
+            "preset": "welcome",
         },
     },
 ]

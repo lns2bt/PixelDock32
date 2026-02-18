@@ -74,6 +74,54 @@ function transitionControls(moduleId, settings) {
   `;
 }
 
+function applyTextboxPreset(moduleId) {
+  const preset = document.getElementById(`set-preset-${moduleId}`).value;
+  const presets = {
+    welcome: {
+      lines: 'HELLO\nPIXELDOCK',
+      font: 'small',
+      lineSeconds: 2,
+      mode: 'static',
+      speed: 35,
+      transitionMs: 450,
+    },
+    status: {
+      lines: 'WLAN OK\nTEMP OK\nAPI READY',
+      font: 'small',
+      lineSeconds: 2,
+      mode: 'static',
+      speed: 35,
+      transitionMs: 350,
+    },
+    alert: {
+      lines: 'WARNUNG\nCHECK\nSYSTEM',
+      font: 'normal',
+      lineSeconds: 1,
+      mode: 'static',
+      speed: 35,
+      transitionMs: 250,
+    },
+    ticker: {
+      lines: 'PIXELDOCK STATUS LIVE',
+      font: 'small',
+      lineSeconds: 2,
+      mode: 'scroll',
+      speed: 45,
+      transitionMs: 0,
+    },
+  };
+
+  const cfg = presets[preset];
+  if (!cfg) return;
+  document.getElementById(`set-lines-${moduleId}`).value = cfg.lines;
+  document.getElementById(`set-font-${moduleId}`).value = cfg.font;
+  document.getElementById(`set-line-sec-${moduleId}`).value = cfg.lineSeconds;
+  document.getElementById(`set-text-mode-${moduleId}`).value = cfg.mode;
+  document.getElementById(`set-scroll-speed-${moduleId}`).value = cfg.speed;
+  document.getElementById(`set-trans-ms-${moduleId}`).value = cfg.transitionMs;
+  toast('Textbox-Preset geladen (bitte speichern)');
+}
+
 function moduleSettingsHtml(module) {
   const s = module.settings || {};
 
@@ -197,6 +245,18 @@ function moduleSettingsHtml(module) {
   if (module.key === 'textbox') {
     return `
       <div class="settings-grid settings-grid-color">
+        <div class="field">
+          <label for="set-preset-${module.id}">Preset</label>
+          <div class="inline-actions">
+            <select id="set-preset-${module.id}">
+              <option value="welcome" ${s.preset === 'welcome' ? 'selected' : ''}>Welcome</option>
+              <option value="status" ${s.preset === 'status' ? 'selected' : ''}>Status</option>
+              <option value="alert" ${s.preset === 'alert' ? 'selected' : ''}>Alert</option>
+              <option value="ticker" ${s.preset === 'ticker' ? 'selected' : ''}>Ticker</option>
+            </select>
+            <button type="button" class="btn btn-secondary" onclick="applyTextboxPreset(${module.id})">Laden</button>
+          </div>
+        </div>
         <div class="field field-span-2">
           <label for="set-lines-${module.id}">Mehrzeiliger Text (eine Zeile pro Zeile)</label>
           <textarea id="set-lines-${module.id}" rows="4" placeholder="ZEILE 1&#10;ZEILE 2">${s.lines || 'HELLO\nPIXELDOCK'}</textarea>
@@ -204,6 +264,17 @@ function moduleSettingsHtml(module) {
         <div class="field">
           <label for="set-line-sec-${module.id}">Zeilenwechsel (Sek.)</label>
           <input id="set-line-sec-${module.id}" type="number" min="1" max="30" value="${s.line_seconds ?? 2}" />
+        </div>
+        <div class="field">
+          <label for="set-text-mode-${module.id}">Text-Ausgabe</label>
+          <select id="set-text-mode-${module.id}">
+            <option value="static" ${s.text_mode !== 'scroll' ? 'selected' : ''}>Zeilenweise</option>
+            <option value="scroll" ${s.text_mode === 'scroll' ? 'selected' : ''}>Scroll/Ticker</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="set-scroll-speed-${module.id}">Scroll-Speed</label>
+          <input id="set-scroll-speed-${module.id}" type="number" min="5" max="120" value="${s.scroll_speed ?? 35}" />
         </div>
         <div class="field">
           <label for="set-font-${module.id}">Schriftgröße</label>
@@ -281,6 +352,9 @@ function collectModuleSettings({ id: moduleId, key: moduleKey }) {
     return {
       lines: document.getElementById(`set-lines-${moduleId}`).value,
       line_seconds: parseInt(document.getElementById(`set-line-sec-${moduleId}`).value, 10) || 2,
+      text_mode: document.getElementById(`set-text-mode-${moduleId}`).value,
+      scroll_speed: parseInt(document.getElementById(`set-scroll-speed-${moduleId}`).value, 10) || 35,
+      preset: document.getElementById(`set-preset-${moduleId}`).value,
       font_size: document.getElementById(`set-font-${moduleId}`).value,
       color: document.getElementById(`set-color-${moduleId}`).value,
       x_offset: parseInt(document.getElementById(`set-x-${moduleId}`).value, 10) || 0,

@@ -30,6 +30,8 @@ DEBUG_COLORS = {
 }
 
 
+
+
 def _safe_int(value: object, fallback: int) -> int:
     try:
         return int(value)
@@ -293,8 +295,8 @@ class DisplayService:
 
         if transition_ms > 0 and self.last_target_key is not None and target_changed:
             self.transition_state = {
-                "from_frame": [row[:] for row in self.last_frame],
-                "from_colors": [row[:] for row in self.last_color_frame],
+                "from_frame": [row[:] for row in self.last_target_frame],
+                "from_colors": [row[:] for row in self.last_target_colors],
                 "to_frame": [row[:] for row in frame],
                 "to_colors": [row[:] for row in color_frame],
                 "to_key": selected["key"],
