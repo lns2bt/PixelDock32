@@ -300,6 +300,41 @@ function moduleSettingsHtml(module) {
     `;
   }
 
+  if (module.key === 'bitmap') {
+    return `
+      <div class="settings-grid settings-grid-color">
+        <div class="field field-span-2">
+          <label for="set-bitmap-file-${module.id}">Bitmap-Datei (unter app/bitmaps, z. B. .txt/.pbm/.ppm)</label>
+          <input id="set-bitmap-file-${module.id}" value="${s.file || 'sample_gradient.ppm'}" placeholder="sample_arrow.txt" />
+        </div>
+        <div class="field">
+          <label for="set-bitmap-dir-${module.id}">Scroll-Richtung</label>
+          <select id="set-bitmap-dir-${module.id}">
+            <option value="top_to_bottom" ${s.scroll_direction !== 'bottom_to_top' ? 'selected' : ''}>unten → oben</option>
+            <option value="bottom_to_top" ${s.scroll_direction === 'bottom_to_top' ? 'selected' : ''}>oben → unten</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="set-bitmap-speed-${module.id}">Scroll-Speed</label>
+          <input id="set-bitmap-speed-${module.id}" type="number" min="0.25" max="20" step="0.25" value="${s.scroll_speed ?? 2}" />
+        </div>
+        <div class="field">
+          <label for="set-bitmap-color-${module.id}">Fallback/Solid Farbe</label>
+          <input id="set-bitmap-color-${module.id}" type="color" value="${s.color || '#f4f4f5'}" />
+        </div>
+        <div class="field">
+          <label for="set-bitmap-color-mode-${module.id}">Farbmodus</label>
+          <select id="set-bitmap-color-mode-${module.id}">
+            <option value="bitmap" ${s.color_mode !== 'solid' ? 'selected' : ''}>Bitmap RGB verwenden</option>
+            <option value="solid" ${s.color_mode === 'solid' ? 'selected' : ''}>Alles in Solid-Farbe</option>
+          </select>
+        </div>
+        ${transitionControls(module.id, s)}
+      </div>
+    `;
+  }
+
+
   return '<p class="subtle">Keine Settings verfügbar.</p>';
 }
 
@@ -362,6 +397,18 @@ function collectModuleSettings({ id: moduleId, key: moduleKey }) {
       ...commonTransition,
     };
   }
+
+  if (moduleKey === 'bitmap') {
+    return {
+      file: document.getElementById(`set-bitmap-file-${moduleId}`).value.trim(),
+      scroll_direction: document.getElementById(`set-bitmap-dir-${moduleId}`).value,
+      scroll_speed: parseFloat(document.getElementById(`set-bitmap-speed-${moduleId}`).value) || 2,
+      color: document.getElementById(`set-bitmap-color-${moduleId}`).value,
+      color_mode: document.getElementById(`set-bitmap-color-mode-${moduleId}`).value,
+      ...commonTransition,
+    };
+  }
+
 
   return {};
 }

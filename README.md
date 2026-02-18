@@ -128,6 +128,23 @@ Damit kannst du Mapping-Fehler systematisch finden, ohne nur auf das physische P
   - `transition_direction=up` (neue Zeile von unten nach oben)
 - Übergangsdauer über `transition_ms` einstellbar (0 = ohne Animation).
 
+## Bitmap-Modul (32px breit, vertikales Scrolling)
+
+- Neues Modul **Bitmap** lädt Bitmap-Dateien aus `app/bitmaps/` (Monochrom **und RGB**).
+- Unterstützte Formate:
+  - Plaintext-Bitmaps (`0/1`, `#`, `X`, `@`)
+  - Plaintext-Farb-Token pro Pixel (z. B. `#RRGGBB`, `r:g:b`, `0xRRGGBB`, `off`)
+  - `P1`-PBM (Monochrom)
+  - `P3`-PPM (RGB)
+- Erwartete Breite: **32 Pixel**. Höhe darf größer als 8 sein.
+- Bei Höhe `> 8` wird ein 8-Zeilen-Fenster vertikal gescrollt:
+  - `scroll_direction=top_to_bottom`
+  - `scroll_direction=bottom_to_top`
+- Scroll-Geschwindigkeit über `scroll_speed` (empfohlen 0.25 bis 20).
+
+Beispiel-Files: `app/bitmaps/sample_arrow.txt` (mono) und `app/bitmaps/sample_gradient.ppm` (RGB)
+
+
 ## systemd Autostart
 
 Service-Datei: `systemd/pixeldock32.service`
@@ -181,3 +198,14 @@ pip install -r requirements.txt
 ```
 
 Danach `uvicorn app.main:app --host 0.0.0.0 --port 8000` erneut starten.
+
+
+## GIF-Support (Roadmap)
+
+Aktuell rendert das Bitmap-Modul statische Dateien mit vertikalem Scrolling. Für kleine GIF-Animationen sind als nächster Schritt nötig:
+
+- Frame-Decoder (z. B. `Pillow`) zum Extrahieren einzelner GIF-Frames inkl. Frame-Dauer.
+- In-Memory-Framecache (pro Datei + `mtime`) analog zum Bitmap-Cache.
+- Zeitbasierte Frame-Auswahl im Renderloop (`now -> frame_index`) mit sauberem Looping.
+- Optionales Dithering/Farbreduktion für bessere Lesbarkeit auf 32x8.
+- Einheitliche Einstellungen im Modul (`playback_speed`, `loop_mode`, optional `fit/crop`).

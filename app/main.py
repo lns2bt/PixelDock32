@@ -13,6 +13,7 @@ from app.services.external_data import ExternalDataService
 from app.services.led_driver import LEDDriver
 from app.services.led_mapper import LEDMapper
 from app.services.module_manager import ensure_default_modules
+from app.services.bitmap_loader import BitmapLoader
 
 settings = get_settings()
 
@@ -28,12 +29,15 @@ async def lifespan(app: FastAPI):
     ext_service = ExternalDataService(settings)
     led_driver = LEDDriver(settings)
     mapper = LEDMapper(settings)
+    bitmap_dir = Path(__file__).parent / "bitmaps"
+    bitmap_dir.mkdir(parents=True, exist_ok=True)
     display_service = DisplayService(
         session_factory=SessionLocal,
         led_driver=led_driver,
         mapper=mapper,
         cache_provider=lambda: ext_service.cache,
         fps=settings.render_fps,
+        bitmap_loader=BitmapLoader(bitmap_dir),
     )
 
     app.state.external_data_service = ext_service

@@ -10,16 +10,19 @@ from app.modules.btc import BTCModule
 from app.modules.clock import ClockModule
 from app.modules.weather import WeatherModule
 from app.modules.textbox import TextBoxModule
+from app.modules.bitmap import BitmapModule
 from app.services.led_driver import LEDDriver
 from app.services.led_mapper import LEDMapper
 from app.services.colors import parse_hex_color
 from app.services.rendering import blank_color_frame, render_text_with_colors
+from app.services.bitmap_loader import BitmapLoader
 
 MODULE_REGISTRY = {
     "clock": ClockModule(),
     "btc": BTCModule(),
     "weather": WeatherModule(),
     "textbox": TextBoxModule(),
+    "bitmap": BitmapModule(),
 }
 
 DEBUG_COLORS = {
@@ -46,12 +49,14 @@ class DisplayService:
         mapper: LEDMapper,
         cache_provider: Callable[[], dict],
         fps: int,
+        bitmap_loader: BitmapLoader,
     ):
         self.session_factory = session_factory
         self.led_driver = led_driver
         self.mapper = mapper
         self.cache_provider = cache_provider
         self.frame_delay = 1 / fps
+        self.bitmap_loader = bitmap_loader
         self.target_fps = fps
         self._running = False
         self._task: asyncio.Task | None = None
@@ -249,23 +254,53 @@ class DisplayService:
 
         self.last_source = "module"
         self.last_module_key = selected["key"]
-        payload: ModulePayload = await module.render(selected["settings"] or {}, self.cache_provider())
-        if payload.frame is not None:
-            frame = payload.frame
-        else:
-            frame, generated_colors = render_text_with_colors(
-                payload.text,
-                font_size=payload.font_size,
-                char_colors=payload.char_colors or None,
-                base_color=payload.default_color,
-                x_offset=payload.x_offset,
-                y_offset=payload.y_offset,
-            )
-            payload.color_frame = generated_colors
-
-        color_frame = payload.color_frame or blank_color_frame(32, 8)
-
         settings = selected["settings"] or {}
+
+        if selected["key"] == "bitmap":
+            try:
+                file_path = str(settings.get("file", "")).strip()
+                bitmap = self.bitmap_loader.load(file_path)
+                frame, color_frame = self.bitmap_loader.render_window(
+                    bitmap,
+                    scroll_direction=str(settings.get("scroll_direction", "top_to_bottom")),
+                    scroll_speed=max(0.25, float(settings.get("scroll_speed", 2.0))),
+                )
+                color_mode = str(settings.get("color_mode", "bitmap")).strip().lower()
+                if color_mode not in {"bitmap", "solid"}:
+                    color_mode = "bitmap"
+                bitmap_color = settings.get("color")
+                if color_mode == "solid" and bitmap_color:
+                    parsed_color = parse_hex_color(bitmap_color, (245, 245, 245))
+                    for y in range(8):
+                        for x in range(32):
+                            if frame[y][x]:
+                                color_frame[y][x] = parsed_color
+                elif bitmap.is_monochrome and bitmap_color:
+                    parsed_color = parse_hex_color(bitmap_color, (245, 245, 245))
+                    for y in range(8):
+                        for x in range(32):
+                            if frame[y][x] and color_frame[y][x] is not None:
+                                color_frame[y][x] = parsed_color
+            except (ValueError, TypeError):
+                frame = [[0 for _ in range(32)] for _ in range(8)]
+                color_frame = blank_color_frame(32, 8)
+        else:
+            payload: ModulePayload = await module.render(settings, self.cache_provider())
+            if payload.frame is not None:
+                frame = payload.frame
+            else:
+                frame, generated_colors = render_text_with_colors(
+                    payload.text,
+                    font_size=payload.font_size,
+                    char_colors=payload.char_colors or None,
+                    base_color=payload.default_color,
+                    x_offset=payload.x_offset,
+                    y_offset=payload.y_offset,
+                )
+                payload.color_frame = generated_colors
+
+            color_frame = payload.color_frame or blank_color_frame(32, 8)
+
         transition_direction = settings.get("transition_direction", "down")
         if transition_direction not in {"down", "up"}:
             transition_direction = "down"
