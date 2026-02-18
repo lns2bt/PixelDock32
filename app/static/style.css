@@ -44,6 +44,8 @@ h2 { margin: 0 0 14px; font-size: 26px; }
 
 .form-row { display: grid; gap: 10px; }
 .form-row.three { grid-template-columns: minmax(220px, 1.6fr) minmax(180px, 1fr) minmax(180px, .9fr); }
+.form-row.four { grid-template-columns: minmax(220px, 1.5fr) minmax(160px, .9fr) minmax(170px, .9fr) minmax(160px, .8fr); }
+.manual-row { grid-template-columns: minmax(220px, 1.4fr) repeat(5, minmax(130px, .9fr)) minmax(140px, .8fr); }
 .debug-row { grid-template-columns: repeat(5, minmax(130px, 1fr)); }
 
 .field { display: flex; flex-direction: column; gap: 6px; }
@@ -148,6 +150,12 @@ input:focus, select:focus {
   grid-template-columns: repeat(2, minmax(160px, 1fr));
   gap: 10px;
 }
+.settings-grid-color {
+  border: 1px solid #e0e7ff;
+  background: #f8faff;
+  border-radius: 10px;
+  padding: 10px;
+}
 
 .check-label { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; }
 .check-label input { width: 18px; height: 18px; margin: 0; }
@@ -192,7 +200,7 @@ input:focus, select:focus {
 #toast.show { opacity: 1; transform: translateY(0); }
 
 @media (max-width: 960px) {
-  .form-row.three, .debug-row, .module-row, .settings-grid, .wizard-row { grid-template-columns: 1fr; }
+  .form-row.three, .form-row.four, .manual-row, .debug-row, .module-row, .settings-grid, .wizard-row { grid-template-columns: 1fr; }
   .field-wide { grid-column: auto; }
   .app-header { flex-direction: column; align-items: flex-start; gap: 10px; }
 }

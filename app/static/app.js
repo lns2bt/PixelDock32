@@ -63,7 +63,7 @@ function moduleSettingsHtml(module) {
 
   if (module.key === 'clock') {
     return `
-      <div class="settings-grid">
+      <div class="settings-grid settings-grid-color">
         <div class="field">
           <label for="set-tz-${module.id}">Zeitzone</label>
           <input id="set-tz-${module.id}" value="${s.timezone || 'Europe/Vienna'}" placeholder="Europe/Vienna" />
@@ -72,24 +72,104 @@ function moduleSettingsHtml(module) {
           <label>Anzeige</label>
           <label class="check-label"><input type="checkbox" id="set-sec-${module.id}" ${s.show_seconds !== false ? 'checked' : ''}> Sekunden anzeigen</label>
         </div>
+        <div class="field">
+          <label for="set-font-${module.id}">Schriftgröße</label>
+          <select id="set-font-${module.id}">
+            <option value="normal" ${s.font_size !== 'small' ? 'selected' : ''}>Normal (5x7)</option>
+            <option value="small" ${s.font_size === 'small' ? 'selected' : ''}>Klein (3x5)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="set-color-${module.id}">Schriftfarbe</label>
+          <input id="set-color-${module.id}" type="color" value="${s.color || '#c8e6ff'}" />
+        </div>
+        <div class="field">
+          <label for="set-x-${module.id}">Offset X</label>
+          <input id="set-x-${module.id}" type="number" min="-16" max="16" value="${s.x_offset ?? 0}" />
+        </div>
+        <div class="field">
+          <label for="set-y-${module.id}">Offset Y</label>
+          <input id="set-y-${module.id}" type="number" min="-4" max="4" value="${s.y_offset ?? 0}" />
+        </div>
       </div>
     `;
   }
 
   if (module.key === 'btc') {
-    return '<p class="subtle">BTC wird automatisch im kompakten k-Format angezeigt (z. B. 56.8k). Das B vorne ist orange, Preisfarbe hängt vom Trend ab.</p>';
+    return `
+      <div class="settings-grid settings-grid-color">
+        <div class="field">
+          <label for="set-font-${module.id}">Schriftgröße</label>
+          <select id="set-font-${module.id}">
+            <option value="normal" ${s.font_size !== 'small' ? 'selected' : ''}>Normal (5x7)</option>
+            <option value="small" ${s.font_size === 'small' ? 'selected' : ''}>Klein (3x5)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="set-x-${module.id}">Offset X</label>
+          <input id="set-x-${module.id}" type="number" min="-16" max="16" value="${s.x_offset ?? 0}" />
+        </div>
+        <div class="field">
+          <label for="set-y-${module.id}">Offset Y</label>
+          <input id="set-y-${module.id}" type="number" min="-4" max="4" value="${s.y_offset ?? 0}" />
+        </div>
+        <div class="field">
+          <label for="set-b-${module.id}">Farbe B</label>
+          <input id="set-b-${module.id}" type="color" value="${s.color_b || '#ff8c00'}" />
+        </div>
+        <div class="field">
+          <label for="set-up-${module.id}">Farbe Trend hoch</label>
+          <input id="set-up-${module.id}" type="color" value="${s.color_up || '#00c850'}" />
+        </div>
+        <div class="field">
+          <label for="set-down-${module.id}">Farbe Trend runter</label>
+          <input id="set-down-${module.id}" type="color" value="${s.color_down || '#e63c3c'}" />
+        </div>
+        <div class="field">
+          <label for="set-flat-${module.id}">Farbe Trend neutral</label>
+          <input id="set-flat-${module.id}" type="color" value="${s.color_flat || '#dcdc50'}" />
+        </div>
+        <div class="field">
+          <label for="set-fallback-${module.id}">Farbe Fallback</label>
+          <input id="set-fallback-${module.id}" type="color" value="${s.color_fallback || '#9ca3af'}" />
+        </div>
+      </div>
+    `;
   }
 
   if (module.key === 'weather') {
     return `
-      <div class="settings-grid">
+      <div class="settings-grid settings-grid-color">
         <div class="field">
           <label for="set-post-${module.id}">Postleitzahl (Info)</label>
           <input id="set-post-${module.id}" value="${s.postcode || '6020'}" placeholder="6020" />
         </div>
         <div class="field">
-          <label>Anzeige</label>
-          <p class="subtle">Nur Temperatur in Celsius. Farbe: kalt = blau, warm = rot.</p>
+          <label for="set-font-${module.id}">Schriftgröße</label>
+          <select id="set-font-${module.id}">
+            <option value="normal" ${s.font_size !== 'small' ? 'selected' : ''}>Normal (5x7)</option>
+            <option value="small" ${s.font_size === 'small' ? 'selected' : ''}>Klein (3x5)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="set-x-${module.id}">Offset X</label>
+          <input id="set-x-${module.id}" type="number" min="-16" max="16" value="${s.x_offset ?? 0}" />
+        </div>
+        <div class="field">
+          <label for="set-y-${module.id}">Offset Y</label>
+          <input id="set-y-${module.id}" type="number" min="-4" max="4" value="${s.y_offset ?? 0}" />
+        </div>
+        <div class="field">
+          <label for="set-cold-${module.id}">Farbe kalt</label>
+          <input id="set-cold-${module.id}" type="color" value="${s.color_cold || '#3b82f6'}" />
+        </div>
+        <div class="field">
+          <label for="set-warm-${module.id}">Farbe warm</label>
+          <input id="set-warm-${module.id}" type="color" value="${s.color_warm || '#f97316'}" />
+        </div>
+        <div class="field">
+          <label for="set-fallback-${module.id}">Farbe Fallback</label>
+          <input id="set-fallback-${module.id}" type="color" value="${s.color_fallback || '#9ca3af'}" />
         </div>
       </div>
     `;
@@ -103,16 +183,35 @@ function collectModuleSettings({ id: moduleId, key: moduleKey }) {
     return {
       timezone: document.getElementById(`set-tz-${moduleId}`).value.trim() || 'Europe/Vienna',
       show_seconds: document.getElementById(`set-sec-${moduleId}`).checked,
+      font_size: document.getElementById(`set-font-${moduleId}`).value,
+      color: document.getElementById(`set-color-${moduleId}`).value,
+      x_offset: parseInt(document.getElementById(`set-x-${moduleId}`).value, 10) || 0,
+      y_offset: parseInt(document.getElementById(`set-y-${moduleId}`).value, 10) || 0,
     };
   }
 
   if (moduleKey === 'btc') {
-    return {};
+    return {
+      font_size: document.getElementById(`set-font-${moduleId}`).value,
+      x_offset: parseInt(document.getElementById(`set-x-${moduleId}`).value, 10) || 0,
+      y_offset: parseInt(document.getElementById(`set-y-${moduleId}`).value, 10) || 0,
+      color_b: document.getElementById(`set-b-${moduleId}`).value,
+      color_up: document.getElementById(`set-up-${moduleId}`).value,
+      color_down: document.getElementById(`set-down-${moduleId}`).value,
+      color_flat: document.getElementById(`set-flat-${moduleId}`).value,
+      color_fallback: document.getElementById(`set-fallback-${moduleId}`).value,
+    };
   }
 
   if (moduleKey === 'weather') {
     return {
       postcode: document.getElementById(`set-post-${moduleId}`).value.trim() || '6020',
+      font_size: document.getElementById(`set-font-${moduleId}`).value,
+      x_offset: parseInt(document.getElementById(`set-x-${moduleId}`).value, 10) || 0,
+      y_offset: parseInt(document.getElementById(`set-y-${moduleId}`).value, 10) || 0,
+      color_cold: document.getElementById(`set-cold-${moduleId}`).value,
+      color_warm: document.getElementById(`set-warm-${moduleId}`).value,
+      color_fallback: document.getElementById(`set-fallback-${moduleId}`).value,
     };
   }
 
@@ -222,7 +321,14 @@ async function sendText() {
   const res = await apiRequest('/api/display/text', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, seconds }),
+    body: JSON.stringify({
+      text,
+      seconds,
+      font_size: document.getElementById('manualFontSize').value,
+      color: document.getElementById('manualColor').value,
+      x_offset: parseInt(document.getElementById('manualOffsetX').value, 10) || 0,
+      y_offset: parseInt(document.getElementById('manualOffsetY').value, 10) || 0,
+    }),
   }, 'Text gesendet');
   if (res) {
     await refreshStatus();

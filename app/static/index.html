@@ -12,6 +12,7 @@
       <div>
         <p class="eyebrow">Raspberry Pi LED Controller</p>
         <h1>PixelDock32</h1>
+        <p class="subtle">Farben, Schriftgröße und Offsets pro Modul frei anpassbar.</p>
       </div>
       <button class="btn btn-secondary" onclick="refreshStatus()">Status aktualisieren</button>
     </header>
@@ -57,7 +58,7 @@
 
     <section class="card">
       <h2>Sofort-Text anzeigen</h2>
-      <div class="form-row three">
+      <div class="form-row manual-row">
         <div class="field">
           <label for="manualText">Text</label>
           <input id="manualText" placeholder="Nachricht für die Anzeige" />
@@ -65,6 +66,25 @@
         <div class="field">
           <label for="manualSeconds">Anzeigedauer (Sekunden)</label>
           <input id="manualSeconds" type="number" value="8" min="1" max="120" />
+        </div>
+        <div class="field">
+          <label for="manualFontSize">Schriftgröße</label>
+          <select id="manualFontSize">
+            <option value="normal" selected>Normal (5x7)</option>
+            <option value="small">Klein (3x5)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="manualColor">Textfarbe</label>
+          <input id="manualColor" type="color" value="#f0f0f0" />
+        </div>
+        <div class="field">
+          <label for="manualOffsetX">Offset X</label>
+          <input id="manualOffsetX" type="number" min="-16" max="16" value="0" />
+        </div>
+        <div class="field">
+          <label for="manualOffsetY">Offset Y</label>
+          <input id="manualOffsetY" type="number" min="-4" max="4" value="0" />
         </div>
         <div class="field actions-end">
           <button class="btn" onclick="sendText()">Text senden</button>

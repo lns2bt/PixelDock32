@@ -11,7 +11,8 @@ from app.modules.clock import ClockModule
 from app.modules.weather import WeatherModule
 from app.services.led_driver import LEDDriver
 from app.services.led_mapper import LEDMapper
-from app.services.rendering import blank_color_frame, render_text_frame
+from app.services.colors import parse_hex_color
+from app.services.rendering import blank_color_frame, render_text_with_colors
 
 MODULE_REGISTRY = {
     "clock": ClockModule(),
@@ -44,7 +45,7 @@ class DisplayService:
         self.target_fps = fps
         self._running = False
         self._task: asyncio.Task | None = None
-        self.manual_override: tuple[list[list[int]], float] | None = None
+        self.manual_override: tuple[list[list[int]], list[list[tuple[int, int, int] | None]], float] | None = None
         self.debug_override: tuple[str, float, float] | None = None
 
         self.last_frame_ts: float | None = None
@@ -65,11 +66,32 @@ class DisplayService:
             self._task.cancel()
             await asyncio.gather(self._task, return_exceptions=True)
 
-    def set_manual_text(self, text: str, seconds: int):
-        self.manual_override = (render_text_frame(text), time.time() + seconds)
+    def set_manual_text(
+        self,
+        text: str,
+        seconds: int,
+        font_size: str = "normal",
+        color: str = "#f0f0f0",
+        x_offset: int = 0,
+        y_offset: int = 0,
+    ):
+        parsed_color = parse_hex_color(color, (240, 240, 240))
+        frame, color_frame = render_text_with_colors(
+            text,
+            font_size=font_size,
+            base_color=parsed_color,
+            x_offset=x_offset,
+            y_offset=y_offset,
+        )
+        self.manual_override = (frame, color_frame, time.time() + seconds)
 
     def set_manual_pixels(self, pixels: list[list[int]], seconds: int):
-        self.manual_override = (pixels, time.time() + seconds)
+        color_frame = blank_color_frame(32, 8)
+        for y in range(8):
+            for x in range(32):
+                if pixels[y][x]:
+                    color_frame[y][x] = (240, 240, 240)
+        self.manual_override = (pixels, color_frame, time.time() + seconds)
 
     def set_brightness(self, value: int):
         self.led_driver.set_brightness(value)
@@ -99,7 +121,7 @@ class DisplayService:
             "debug_pattern": self.debug_override[0] if self.debug_override else None,
             "debug_until": self.debug_override[1] if self.debug_override else None,
             "manual_active": bool(self.manual_override),
-            "manual_until": self.manual_override[1] if self.manual_override else None,
+            "manual_until": self.manual_override[2] if self.manual_override else None,
         }
 
     async def _loop(self):
@@ -140,15 +162,10 @@ class DisplayService:
             self.debug_override = None
 
         if self.manual_override:
-            pixels, until = self.manual_override
+            pixels, colors, until = self.manual_override
             if time.time() <= until:
                 self.last_source = "manual"
-                color_frame = blank_color_frame(32, 8)
-                for y in range(8):
-                    for x in range(32):
-                        if pixels[y][x]:
-                            color_frame[y][x] = (240, 240, 240)
-                return pixels, color_frame
+                return pixels, colors
             self.manual_override = None
 
         async with self.session_factory() as db:
@@ -184,6 +201,18 @@ class DisplayService:
         self.last_source = "module"
         self.last_module_key = selected["key"]
         payload: ModulePayload = await module.render(selected["settings"] or {}, self.cache_provider())
-        frame = payload.frame or render_text_frame(payload.text)
+        if payload.frame is not None:
+            frame = payload.frame
+        else:
+            frame, generated_colors = render_text_with_colors(
+                payload.text,
+                font_size=payload.font_size,
+                char_colors=payload.char_colors or None,
+                base_color=payload.default_color,
+                x_offset=payload.x_offset,
+                y_offset=payload.y_offset,
+            )
+            payload.color_frame = generated_colors
+
         color_frame = payload.color_frame or blank_color_frame(32, 8)
         return frame, color_frame

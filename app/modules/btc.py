@@ -1,5 +1,5 @@
 from app.modules.base import ModuleBase, ModulePayload
-from app.services.rendering import render_text_with_colors
+from app.services.colors import clamp, parse_hex_color
 
 
 class BTCModule(ModuleBase):
@@ -8,21 +8,41 @@ class BTCModule(ModuleBase):
     async def render(self, settings: dict, cache: dict) -> ModulePayload:
         price = cache.get("btc_eur")
         trend = cache.get("btc_trend", "flat")
+        font_size = settings.get("font_size", "normal")
+        x_offset = clamp(int(settings.get("x_offset", 0)), -16, 16)
+        y_offset = clamp(int(settings.get("y_offset", 0)), -4, 4)
+
+        base_b_color = parse_hex_color(settings.get("color_b"), (255, 140, 0))
+        up_color = parse_hex_color(settings.get("color_up"), (0, 200, 80))
+        down_color = parse_hex_color(settings.get("color_down"), (230, 60, 60))
+        flat_color = parse_hex_color(settings.get("color_flat"), (220, 220, 80))
+        fallback_color = parse_hex_color(settings.get("color_fallback"), (120, 120, 120))
 
         if price is None:
-            frame, colors = render_text_with_colors("B...K", char_colors=[(255, 140, 0)] + [(120, 120, 120)] * 4)
-            return ModulePayload(text="B...k", frame=frame, color_frame=colors)
+            return ModulePayload(
+                text="B...k",
+                font_size=font_size,
+                x_offset=x_offset,
+                y_offset=y_offset,
+                default_color=fallback_color,
+                char_colors=[base_b_color] + [fallback_color] * 4,
+            )
 
         value_k = float(price) / 1000.0
         text = f"B{value_k:.1f}k"
 
         if trend == "up":
-            price_color = (0, 200, 80)
+            price_color = up_color
         elif trend == "down":
-            price_color = (230, 60, 60)
+            price_color = down_color
         else:
-            price_color = (220, 220, 80)
+            price_color = flat_color
 
-        char_colors = [(255, 140, 0)] + [price_color] * max(0, len(text) - 1)
-        frame, colors = render_text_with_colors(text, char_colors=char_colors)
-        return ModulePayload(text=text, frame=frame, color_frame=colors)
+        return ModulePayload(
+            text=text,
+            font_size=font_size,
+            x_offset=x_offset,
+            y_offset=y_offset,
+            default_color=price_color,
+            char_colors=[base_b_color] + [price_color] * max(0, len(text) - 1),
+        )

@@ -32,6 +32,49 @@ FONT_5X7 = {
     "€": ["01111", "10000", "11110", "10000", "11110", "10000", "01111"],
 }
 
+FONT_3X5 = {
+    " ": ["000", "000", "000", "000", "000"],
+    ":": ["000", "010", "000", "010", "000"],
+    ".": ["000", "000", "000", "000", "010"],
+    "-": ["000", "000", "111", "000", "000"],
+    "0": ["111", "101", "101", "101", "111"],
+    "1": ["010", "110", "010", "010", "111"],
+    "2": ["111", "001", "111", "100", "111"],
+    "3": ["111", "001", "111", "001", "111"],
+    "4": ["101", "101", "111", "001", "001"],
+    "5": ["111", "100", "111", "001", "111"],
+    "6": ["111", "100", "111", "101", "111"],
+    "7": ["111", "001", "001", "010", "010"],
+    "8": ["111", "101", "111", "101", "111"],
+    "9": ["111", "101", "111", "001", "111"],
+    "A": ["111", "101", "111", "101", "101"],
+    "B": ["110", "101", "110", "101", "110"],
+    "C": ["111", "100", "100", "100", "111"],
+    "E": ["111", "100", "110", "100", "111"],
+    "F": ["111", "100", "110", "100", "100"],
+    "H": ["101", "101", "111", "101", "101"],
+    "I": ["111", "010", "010", "010", "111"],
+    "K": ["101", "101", "110", "101", "101"],
+    "N": ["101", "111", "111", "111", "101"],
+    "O": ["111", "101", "101", "101", "111"],
+    "P": ["111", "101", "111", "100", "100"],
+    "R": ["111", "101", "111", "110", "101"],
+    "S": ["111", "100", "111", "001", "111"],
+    "T": ["111", "010", "010", "010", "010"],
+    "U": ["101", "101", "101", "101", "111"],
+    "W": ["101", "101", "111", "111", "101"],
+    "€": ["111", "100", "110", "100", "111"],
+}
+
+
+VALID_FONT_SIZES = {"small", "normal"}
+
+
+def normalize_font_size(font_size: str | None) -> str:
+    if isinstance(font_size, str) and font_size.lower() in VALID_FONT_SIZES:
+        return font_size.lower()
+    return "normal"
+
 
 def blank_frame(width: int = 32, height: int = 8) -> list[list[int]]:
     return [[0 for _ in range(width)] for _ in range(height)]
@@ -41,8 +84,22 @@ def blank_color_frame(width: int = 32, height: int = 8) -> list[list[tuple[int, 
     return [[None for _ in range(width)] for _ in range(height)]
 
 
-def render_text_frame(text: str, width: int = 32, height: int = 8) -> list[list[int]]:
-    frame, _ = render_text_with_colors(text=text, width=width, height=height)
+def render_text_frame(
+    text: str,
+    width: int = 32,
+    height: int = 8,
+    font_size: str = "normal",
+    x_offset: int = 0,
+    y_offset: int = 0,
+) -> list[list[int]]:
+    frame, _ = render_text_with_colors(
+        text=text,
+        width=width,
+        height=height,
+        font_size=font_size,
+        x_offset=x_offset,
+        y_offset=y_offset,
+    )
     return frame
 
 
@@ -51,27 +108,36 @@ def render_text_with_colors(
     char_colors: list[tuple[int, int, int]] | None = None,
     width: int = 32,
     height: int = 8,
+    font_size: str = "normal",
+    x_offset: int = 0,
+    y_offset: int = 0,
+    base_color: tuple[int, int, int] = (80, 80, 80),
 ) -> tuple[list[list[int]], list[list[tuple[int, int, int] | None]]]:
     frame = blank_frame(width, height)
     color_frame = blank_color_frame(width, height)
-    x_cursor = 0
+    x_cursor = x_offset
     upper = text.upper()[:8]
 
+    selected_size = normalize_font_size(font_size)
+    glyphs = FONT_3X5 if selected_size == "small" else FONT_5X7
+    top_offset = 2 if selected_size == "small" else 1
+    char_step = 4 if selected_size == "small" else 6
+
     for idx, char in enumerate(upper):
-        glyph = FONT_5X7.get(char, FONT_5X7[" "])
-        color = (80, 80, 80)
+        glyph = glyphs.get(char, glyphs[" "])
+        color = base_color
         if char_colors and idx < len(char_colors):
             color = char_colors[idx]
 
         for y, row in enumerate(glyph):
             for x, pixel in enumerate(row):
-                out_y = y + 1
+                out_y = y + top_offset + y_offset
                 out_x = x_cursor + x
                 if out_y < height and out_x < width and pixel == "1":
                     frame[out_y][out_x] = 1
                     color_frame[out_y][out_x] = color
 
-        x_cursor += 6
+        x_cursor += char_step
         if x_cursor >= width:
             break
 

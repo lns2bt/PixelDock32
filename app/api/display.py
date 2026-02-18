@@ -15,7 +15,14 @@ def _display(request: Request):
 
 @router.post("/text")
 async def show_text(payload: ManualTextRequest, request: Request, _: str = Depends(get_current_user)):
-    _display(request).set_manual_text(payload.text, payload.seconds)
+    _display(request).set_manual_text(
+        payload.text,
+        payload.seconds,
+        payload.font_size,
+        payload.color,
+        payload.x_offset,
+        payload.y_offset,
+    )
     return {"ok": True}
 
 
