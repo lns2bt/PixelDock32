@@ -1,11 +1,11 @@
 :root {
-  --bg: #f3f6fb;
+  --bg: #eff3ff;
   --card: #ffffff;
-  --text: #111827;
-  --muted: #6b7280;
-  --border: #dbe3ee;
-  --primary: #2563eb;
-  --primary-dark: #1d4ed8;
+  --text: #0f172a;
+  --muted: #64748b;
+  --border: #d8e3f5;
+  --primary: #315de9;
+  --primary-dark: #244ad1;
   --secondary: #eef2ff;
 }
 
@@ -13,23 +13,23 @@
 body {
   margin: 0;
   font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  background: linear-gradient(180deg, #eef4ff 0%, var(--bg) 35%);
+  background: radial-gradient(circle at top left, #f7f9ff 0%, #eef3ff 45%, var(--bg) 100%);
   color: var(--text);
 }
 
-.app-shell { max-width: 1080px; margin: 24px auto; padding: 0 14px 32px; }
-.app-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.app-shell { max-width: 1100px; margin: 20px auto; padding: 0 14px 32px; }
+.app-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .eyebrow { margin: 0; color: var(--muted); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
-h1 { margin: 2px 0 0; font-size: 34px; }
-h2 { margin: 0 0 14px; font-size: 26px; }
+h1 { margin: 2px 0 0; font-size: 42px; line-height: 1.05; }
+h2 { margin: 0 0 12px; font-size: 30px; line-height: 1.05; }
 
 .card {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, .06);
-  padding: 18px;
-  margin-bottom: 14px;
+  border-radius: 16px;
+  box-shadow: 0 12px 28px rgba(30, 41, 59, .08);
+  padding: 16px;
+  margin-bottom: 12px;
 }
 
 .section-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; }
@@ -55,7 +55,7 @@ h2 { margin: 0 0 14px; font-size: 26px; }
 .value-box { justify-content: flex-end; }
 .subtle { margin: 8px 0 0; color: var(--muted); }
 
-label { font-size: 13px; color: var(--muted); font-weight: 600; }
+label { font-size: 12px; color: var(--muted); font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
 input, select, textarea {
   height: 40px;
   border: 1px solid #cfd8e5;
@@ -125,15 +125,46 @@ input:focus, select:focus, textarea:focus {
 #modules { display: grid; gap: 10px; }
 .module-row {
   display: grid;
-  grid-template-columns: 1.4fr 140px 180px 160px 130px;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  align-items: stretch;
+  padding: 12px;
+  border: 1px solid #dfe8f8;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #fcfdff 0%, #f8fbff 100%);
+}
+.module-main {
+  display: grid;
+  grid-template-columns: 32px minmax(180px, 1.5fr) minmax(120px, .8fr) minmax(120px, .8fr) minmax(120px, .7fr) 130px;
   gap: 10px;
   align-items: end;
-  padding: 12px;
-  border: 1px solid #e7edf6;
-  border-radius: 10px;
-  background: #fbfdff;
 }
-.module-name { font-weight: 700; font-size: 20px; }
+.module-toggle {
+  width: 32px;
+  height: 40px;
+  border: 1px solid #c8d8f5;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+}
+.module-toggle:hover { background: #eff4ff; }
+.module-arrow {
+  display: inline-block;
+  color: #3852cc;
+  transition: transform .16s ease;
+  font-size: 16px;
+}
+.module-arrow.open { transform: rotate(90deg); }
+
+.module-name-wrap { gap: 4px; }
+.module-name { font-weight: 800; font-size: 28px; line-height: 1; }
+.module-key {
+  display: inline-block;
+  font-size: 12px;
+  color: #54657f;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
 
 .module-settings {
   grid-column: 1 / -1;
@@ -141,6 +172,7 @@ input:focus, select:focus, textarea:focus {
   padding-top: 10px;
   margin-top: 4px;
 }
+.module-row.collapsed .module-settings { display: none; }
 .settings-title {
   font-size: 12px;
   letter-spacing: .06em;
@@ -152,8 +184,8 @@ input:focus, select:focus, textarea:focus {
   gap: 10px;
 }
 .settings-grid-color {
-  border: 1px solid #e0e7ff;
-  background: #f8faff;
+  border: 1px solid #d7e4ff;
+  background: #f4f8ff;
   border-radius: 10px;
   padding: 10px;
 }
@@ -201,7 +233,7 @@ input:focus, select:focus, textarea:focus {
 #toast.show { opacity: 1; transform: translateY(0); }
 
 @media (max-width: 960px) {
-  .form-row.three, .form-row.four, .manual-row, .debug-row, .module-row, .settings-grid, .wizard-row { grid-template-columns: 1fr; }
+  .form-row.three, .form-row.four, .manual-row, .debug-row, .module-row, .module-main, .settings-grid, .wizard-row { grid-template-columns: 1fr; }
   .field-wide { grid-column: auto; }
   .app-header { flex-direction: column; align-items: flex-start; gap: 10px; }
 }
