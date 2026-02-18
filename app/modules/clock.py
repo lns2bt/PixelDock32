@@ -23,10 +23,12 @@ class ClockModule(ModuleBase):
         color = parse_hex_color(settings.get("color"), (200, 230, 255))
         x_offset = clamp(int(settings.get("x_offset", 0)), -16, 16)
         y_offset = clamp(int(settings.get("y_offset", 0)), -4, 4)
+        char_spacing = clamp(int(settings.get("char_spacing", 1)), 0, 4)
         return ModulePayload(
             text=now.strftime(fmt),
             font_size=font_size,
             x_offset=x_offset,
             y_offset=y_offset,
             default_color=color,
+            char_spacing=char_spacing,
         )

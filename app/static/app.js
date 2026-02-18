@@ -156,6 +156,10 @@ function moduleSettingsHtml(module) {
           <label for="set-y-${module.id}">Offset Y</label>
           <input id="set-y-${module.id}" type="number" min="-4" max="4" value="${s.y_offset ?? 0}" />
         </div>
+        <div class="field">
+          <label for="set-spacing-${module.id}">Zeichenabstand</label>
+          <input id="set-spacing-${module.id}" type="number" min="0" max="4" value="${s.char_spacing ?? 1}" />
+        </div>
         ${transitionControls(module.id, s)}
       </div>
     `;
@@ -178,6 +182,10 @@ function moduleSettingsHtml(module) {
         <div class="field">
           <label for="set-y-${module.id}">Offset Y</label>
           <input id="set-y-${module.id}" type="number" min="-4" max="4" value="${s.y_offset ?? 0}" />
+        </div>
+        <div class="field">
+          <label for="set-spacing-${module.id}">Zeichenabstand</label>
+          <input id="set-spacing-${module.id}" type="number" min="0" max="4" value="${s.char_spacing ?? 1}" />
         </div>
         <div class="field">
           <label for="set-b-${module.id}">Farbe B</label>
@@ -225,6 +233,10 @@ function moduleSettingsHtml(module) {
         <div class="field">
           <label for="set-y-${module.id}">Offset Y</label>
           <input id="set-y-${module.id}" type="number" min="-4" max="4" value="${s.y_offset ?? 0}" />
+        </div>
+        <div class="field">
+          <label for="set-spacing-${module.id}">Zeichenabstand</label>
+          <input id="set-spacing-${module.id}" type="number" min="0" max="4" value="${s.char_spacing ?? 1}" />
         </div>
         <div class="field">
           <label for="set-cold-${module.id}">Farbe kalt</label>
@@ -296,6 +308,10 @@ function moduleSettingsHtml(module) {
           <label for="set-y-${module.id}">Offset Y</label>
           <input id="set-y-${module.id}" type="number" min="-4" max="4" value="${s.y_offset ?? 0}" />
         </div>
+        <div class="field">
+          <label for="set-spacing-${module.id}">Zeichenabstand</label>
+          <input id="set-spacing-${module.id}" type="number" min="0" max="4" value="${s.char_spacing ?? 1}" />
+        </div>
         ${transitionControls(module.id, s)}
       </div>
     `;
@@ -353,6 +369,7 @@ function collectModuleSettings({ id: moduleId, key: moduleKey }) {
       color: document.getElementById(`set-color-${moduleId}`).value,
       x_offset: parseInt(document.getElementById(`set-x-${moduleId}`).value, 10) || 0,
       y_offset: parseInt(document.getElementById(`set-y-${moduleId}`).value, 10) || 0,
+      char_spacing: (() => { const v = parseInt(document.getElementById(`set-spacing-${moduleId}`).value, 10); return Number.isNaN(v) ? 1 : v; })(),
       ...commonTransition,
     };
   }
@@ -362,6 +379,7 @@ function collectModuleSettings({ id: moduleId, key: moduleKey }) {
       font_size: document.getElementById(`set-font-${moduleId}`).value,
       x_offset: parseInt(document.getElementById(`set-x-${moduleId}`).value, 10) || 0,
       y_offset: parseInt(document.getElementById(`set-y-${moduleId}`).value, 10) || 0,
+      char_spacing: (() => { const v = parseInt(document.getElementById(`set-spacing-${moduleId}`).value, 10); return Number.isNaN(v) ? 1 : v; })(),
       color_b: document.getElementById(`set-b-${moduleId}`).value,
       color_up: document.getElementById(`set-up-${moduleId}`).value,
       color_down: document.getElementById(`set-down-${moduleId}`).value,
@@ -377,6 +395,7 @@ function collectModuleSettings({ id: moduleId, key: moduleKey }) {
       font_size: document.getElementById(`set-font-${moduleId}`).value,
       x_offset: parseInt(document.getElementById(`set-x-${moduleId}`).value, 10) || 0,
       y_offset: parseInt(document.getElementById(`set-y-${moduleId}`).value, 10) || 0,
+      char_spacing: (() => { const v = parseInt(document.getElementById(`set-spacing-${moduleId}`).value, 10); return Number.isNaN(v) ? 1 : v; })(),
       color_cold: document.getElementById(`set-cold-${moduleId}`).value,
       color_warm: document.getElementById(`set-warm-${moduleId}`).value,
       color_fallback: document.getElementById(`set-fallback-${moduleId}`).value,
@@ -395,6 +414,7 @@ function collectModuleSettings({ id: moduleId, key: moduleKey }) {
       color: document.getElementById(`set-color-${moduleId}`).value,
       x_offset: parseInt(document.getElementById(`set-x-${moduleId}`).value, 10) || 0,
       y_offset: parseInt(document.getElementById(`set-y-${moduleId}`).value, 10) || 0,
+      char_spacing: (() => { const v = parseInt(document.getElementById(`set-spacing-${moduleId}`).value, 10); return Number.isNaN(v) ? 1 : v; })(),
       ...commonTransition,
     };
   }

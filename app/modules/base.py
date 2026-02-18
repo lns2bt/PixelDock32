@@ -14,6 +14,7 @@ class ModulePayload:
     y_offset: int = 0
     default_color: tuple[int, int, int] = (80, 80, 80)
     char_colors: list[tuple[int, int, int]] = field(default_factory=list)
+    char_spacing: int = 1
 
 
 class ModuleBase:
