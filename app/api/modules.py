@@ -11,10 +11,67 @@ router = APIRouter(prefix="/api/modules", tags=["modules"])
 
 
 MODULE_SETTING_DEFAULTS = {
-    "clock": {"timezone": "Europe/Vienna", "show_seconds": True},
-    "btc": {},
-    "weather": {"postcode": "6020"},
+    "clock": {
+        "timezone": "Europe/Vienna",
+        "show_seconds": True,
+        "font_size": "normal",
+        "color": "#c8e6ff",
+        "x_offset": 0,
+        "y_offset": 0,
+    },
+    "btc": {
+        "font_size": "normal",
+        "x_offset": 0,
+        "y_offset": 0,
+        "color_b": "#ff8c00",
+        "color_up": "#00c850",
+        "color_down": "#e63c3c",
+        "color_flat": "#dcdc50",
+        "color_fallback": "#9ca3af",
+    },
+    "weather": {
+        "postcode": "6020",
+        "font_size": "normal",
+        "x_offset": 0,
+        "y_offset": 0,
+        "color_cold": "#3b82f6",
+        "color_warm": "#f97316",
+        "color_fallback": "#9ca3af",
+    },
 }
+
+
+ALLOWED_FONT_SIZES = {"small", "normal"}
+
+
+def _clamp_int(value: object, minimum: int, maximum: int, fallback: int) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return fallback
+    return max(minimum, min(maximum, parsed))
+
+
+def _normalize_font_size(value: object, fallback: str = "normal") -> str:
+    if isinstance(value, str) and value.lower() in ALLOWED_FONT_SIZES:
+        return value.lower()
+    return fallback
+
+
+def _normalize_hex_color(value: object, fallback: str) -> str:
+    if not isinstance(value, str):
+        return fallback
+    v = value.strip()
+    if not v:
+        return fallback
+    if not v.startswith("#"):
+        v = f"#{v}"
+    if len(v) != 7:
+        return fallback
+    hex_part = v[1:]
+    if any(c not in "0123456789abcdefABCDEF" for c in hex_part):
+        return fallback
+    return v.lower()
 
 
 def sanitize_settings(module_key: str, settings: dict) -> dict:
@@ -22,14 +79,31 @@ def sanitize_settings(module_key: str, settings: dict) -> dict:
     merged = {**defaults, **(settings or {})}
 
     if module_key == "clock":
-        merged["timezone"] = str(merged.get("timezone", "Europe/Vienna")).strip() or "Europe/Vienna"
-        merged["show_seconds"] = bool(merged.get("show_seconds", True))
+        merged["timezone"] = str(merged.get("timezone", defaults["timezone"])).strip() or defaults["timezone"]
+        merged["show_seconds"] = bool(merged.get("show_seconds", defaults["show_seconds"]))
+        merged["font_size"] = _normalize_font_size(merged.get("font_size"), defaults["font_size"])
+        merged["color"] = _normalize_hex_color(merged.get("color"), defaults["color"])
+        merged["x_offset"] = _clamp_int(merged.get("x_offset"), -16, 16, defaults["x_offset"])
+        merged["y_offset"] = _clamp_int(merged.get("y_offset"), -4, 4, defaults["y_offset"])
 
     elif module_key == "btc":
-        merged = {}
+        merged["font_size"] = _normalize_font_size(merged.get("font_size"), defaults["font_size"])
+        merged["x_offset"] = _clamp_int(merged.get("x_offset"), -16, 16, defaults["x_offset"])
+        merged["y_offset"] = _clamp_int(merged.get("y_offset"), -4, 4, defaults["y_offset"])
+        merged["color_b"] = _normalize_hex_color(merged.get("color_b"), defaults["color_b"])
+        merged["color_up"] = _normalize_hex_color(merged.get("color_up"), defaults["color_up"])
+        merged["color_down"] = _normalize_hex_color(merged.get("color_down"), defaults["color_down"])
+        merged["color_flat"] = _normalize_hex_color(merged.get("color_flat"), defaults["color_flat"])
+        merged["color_fallback"] = _normalize_hex_color(merged.get("color_fallback"), defaults["color_fallback"])
 
     elif module_key == "weather":
-        merged["postcode"] = str(merged.get("postcode", "6020")).strip() or "6020"
+        merged["postcode"] = str(merged.get("postcode", defaults["postcode"])).strip() or defaults["postcode"]
+        merged["font_size"] = _normalize_font_size(merged.get("font_size"), defaults["font_size"])
+        merged["x_offset"] = _clamp_int(merged.get("x_offset"), -16, 16, defaults["x_offset"])
+        merged["y_offset"] = _clamp_int(merged.get("y_offset"), -4, 4, defaults["y_offset"])
+        merged["color_cold"] = _normalize_hex_color(merged.get("color_cold"), defaults["color_cold"])
+        merged["color_warm"] = _normalize_hex_color(merged.get("color_warm"), defaults["color_warm"])
+        merged["color_fallback"] = _normalize_hex_color(merged.get("color_fallback"), defaults["color_fallback"])
 
     return merged
 
