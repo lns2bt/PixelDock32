@@ -58,6 +58,22 @@ async function apiRequest(path, options = {}, okMessage = '') {
   }
 }
 
+function transitionControls(moduleId, settings) {
+  return `
+    <div class="field">
+      <label for="set-trans-dir-${moduleId}">Transition Richtung</label>
+      <select id="set-trans-dir-${moduleId}">
+        <option value="down" ${settings.transition_direction !== 'up' ? 'selected' : ''}>Neu von oben nach unten</option>
+        <option value="up" ${settings.transition_direction === 'up' ? 'selected' : ''}>Neu von unten nach oben</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="set-trans-ms-${moduleId}">Transition (ms)</label>
+      <input id="set-trans-ms-${moduleId}" type="number" min="0" max="2000" value="${settings.transition_ms ?? 350}" />
+    </div>
+  `;
+}
+
 function moduleSettingsHtml(module) {
   const s = module.settings || {};
 
@@ -91,6 +107,7 @@ function moduleSettingsHtml(module) {
           <label for="set-y-${module.id}">Offset Y</label>
           <input id="set-y-${module.id}" type="number" min="-4" max="4" value="${s.y_offset ?? 0}" />
         </div>
+        ${transitionControls(module.id, s)}
       </div>
     `;
   }
@@ -133,6 +150,7 @@ function moduleSettingsHtml(module) {
           <label for="set-fallback-${module.id}">Farbe Fallback</label>
           <input id="set-fallback-${module.id}" type="color" value="${s.color_fallback || '#9ca3af'}" />
         </div>
+        ${transitionControls(module.id, s)}
       </div>
     `;
   }
@@ -171,6 +189,42 @@ function moduleSettingsHtml(module) {
           <label for="set-fallback-${module.id}">Farbe Fallback</label>
           <input id="set-fallback-${module.id}" type="color" value="${s.color_fallback || '#9ca3af'}" />
         </div>
+        ${transitionControls(module.id, s)}
+      </div>
+    `;
+  }
+
+  if (module.key === 'textbox') {
+    return `
+      <div class="settings-grid settings-grid-color">
+        <div class="field field-span-2">
+          <label for="set-lines-${module.id}">Mehrzeiliger Text (eine Zeile pro Zeile)</label>
+          <textarea id="set-lines-${module.id}" rows="4" placeholder="ZEILE 1&#10;ZEILE 2">${s.lines || 'HELLO\nPIXELDOCK'}</textarea>
+        </div>
+        <div class="field">
+          <label for="set-line-sec-${module.id}">Zeilenwechsel (Sek.)</label>
+          <input id="set-line-sec-${module.id}" type="number" min="1" max="30" value="${s.line_seconds ?? 2}" />
+        </div>
+        <div class="field">
+          <label for="set-font-${module.id}">Schriftgröße</label>
+          <select id="set-font-${module.id}">
+            <option value="normal" ${s.font_size !== 'small' ? 'selected' : ''}>Normal (5x7)</option>
+            <option value="small" ${s.font_size === 'small' ? 'selected' : ''}>Klein (3x5)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="set-color-${module.id}">Farbe</label>
+          <input id="set-color-${module.id}" type="color" value="${s.color || '#f4f4f5'}" />
+        </div>
+        <div class="field">
+          <label for="set-x-${module.id}">Offset X</label>
+          <input id="set-x-${module.id}" type="number" min="-16" max="16" value="${s.x_offset ?? 0}" />
+        </div>
+        <div class="field">
+          <label for="set-y-${module.id}">Offset Y</label>
+          <input id="set-y-${module.id}" type="number" min="-4" max="4" value="${s.y_offset ?? 0}" />
+        </div>
+        ${transitionControls(module.id, s)}
       </div>
     `;
   }
@@ -179,6 +233,11 @@ function moduleSettingsHtml(module) {
 }
 
 function collectModuleSettings({ id: moduleId, key: moduleKey }) {
+  const commonTransition = {
+    transition_direction: document.getElementById(`set-trans-dir-${moduleId}`).value,
+    transition_ms: parseInt(document.getElementById(`set-trans-ms-${moduleId}`).value, 10) || 350,
+  };
+
   if (moduleKey === 'clock') {
     return {
       timezone: document.getElementById(`set-tz-${moduleId}`).value.trim() || 'Europe/Vienna',
@@ -187,6 +246,7 @@ function collectModuleSettings({ id: moduleId, key: moduleKey }) {
       color: document.getElementById(`set-color-${moduleId}`).value,
       x_offset: parseInt(document.getElementById(`set-x-${moduleId}`).value, 10) || 0,
       y_offset: parseInt(document.getElementById(`set-y-${moduleId}`).value, 10) || 0,
+      ...commonTransition,
     };
   }
 
@@ -200,6 +260,7 @@ function collectModuleSettings({ id: moduleId, key: moduleKey }) {
       color_down: document.getElementById(`set-down-${moduleId}`).value,
       color_flat: document.getElementById(`set-flat-${moduleId}`).value,
       color_fallback: document.getElementById(`set-fallback-${moduleId}`).value,
+      ...commonTransition,
     };
   }
 
@@ -212,6 +273,19 @@ function collectModuleSettings({ id: moduleId, key: moduleKey }) {
       color_cold: document.getElementById(`set-cold-${moduleId}`).value,
       color_warm: document.getElementById(`set-warm-${moduleId}`).value,
       color_fallback: document.getElementById(`set-fallback-${moduleId}`).value,
+      ...commonTransition,
+    };
+  }
+
+  if (moduleKey === 'textbox') {
+    return {
+      lines: document.getElementById(`set-lines-${moduleId}`).value,
+      line_seconds: parseInt(document.getElementById(`set-line-sec-${moduleId}`).value, 10) || 2,
+      font_size: document.getElementById(`set-font-${moduleId}`).value,
+      color: document.getElementById(`set-color-${moduleId}`).value,
+      x_offset: parseInt(document.getElementById(`set-x-${moduleId}`).value, 10) || 0,
+      y_offset: parseInt(document.getElementById(`set-y-${moduleId}`).value, 10) || 0,
+      ...commonTransition,
     };
   }
 

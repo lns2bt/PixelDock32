@@ -9,6 +9,7 @@ from app.modules.base import ModulePayload
 from app.modules.btc import BTCModule
 from app.modules.clock import ClockModule
 from app.modules.weather import WeatherModule
+from app.modules.textbox import TextBoxModule
 from app.services.led_driver import LEDDriver
 from app.services.led_mapper import LEDMapper
 from app.services.colors import parse_hex_color
@@ -18,6 +19,7 @@ MODULE_REGISTRY = {
     "clock": ClockModule(),
     "btc": BTCModule(),
     "weather": WeatherModule(),
+    "textbox": TextBoxModule(),
 }
 
 DEBUG_COLORS = {
@@ -27,6 +29,12 @@ DEBUG_COLORS = {
     "border": (80, 220, 220),
 }
 
+
+def _safe_int(value: object, fallback: int) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return fallback
 
 class DisplayService:
     def __init__(
@@ -55,6 +63,10 @@ class DisplayService:
         self.last_module_key: str | None = None
         self.last_frame: list[list[int]] = [[0 for _ in range(32)] for _ in range(8)]
         self.last_color_frame: list[list[tuple[int, int, int] | None]] = blank_color_frame(32, 8)
+        self.transition_state: dict | None = None
+        self.last_target_key: str | None = None
+        self.last_target_frame: list[list[int]] = [[0 for _ in range(32)] for _ in range(8)]
+        self.last_target_colors: list[list[tuple[int, int, int] | None]] = blank_color_frame(32, 8)
 
     async def start(self):
         self._running = True
@@ -123,6 +135,41 @@ class DisplayService:
             "manual_active": bool(self.manual_override),
             "manual_until": self.manual_override[2] if self.manual_override else None,
         }
+
+
+    @staticmethod
+    def _slide_vertical(
+        from_frame: list[list[int]],
+        from_colors: list[list[tuple[int, int, int] | None]],
+        to_frame: list[list[int]],
+        to_colors: list[list[tuple[int, int, int] | None]],
+        progress: float,
+        direction: str,
+    ) -> tuple[list[list[int]], list[list[tuple[int, int, int] | None]]]:
+        progress = max(0.0, min(1.0, progress))
+        shift = int(round(progress * 8))
+        out_frame = [[0 for _ in range(32)] for _ in range(8)]
+        out_colors = blank_color_frame(32, 8)
+
+        if direction == "down":
+            old_shift = shift
+            new_shift = shift - 8
+        else:
+            old_shift = -shift
+            new_shift = 8 - shift
+
+        for y in range(8):
+            oy = y - old_shift
+            ny = y - new_shift
+            for x in range(32):
+                if 0 <= oy < 8 and from_frame[oy][x]:
+                    out_frame[y][x] = 1
+                    out_colors[y][x] = from_colors[oy][x]
+                if 0 <= ny < 8 and to_frame[ny][x]:
+                    out_frame[y][x] = 1
+                    out_colors[y][x] = to_colors[ny][x]
+
+        return out_frame, out_colors
 
     async def _loop(self):
         while self._running:
@@ -215,4 +262,59 @@ class DisplayService:
             payload.color_frame = generated_colors
 
         color_frame = payload.color_frame or blank_color_frame(32, 8)
+
+        settings = selected["settings"] or {}
+        transition_direction = settings.get("transition_direction", "down")
+        if transition_direction not in {"down", "up"}:
+            transition_direction = "down"
+        transition_ms = max(0, min(2000, _safe_int(settings.get("transition_ms", 350), 350)))
+
+        if self.transition_state:
+            state = self.transition_state
+            if state.get("to_key") == selected["key"] and state.get("to_frame") == frame:
+                elapsed = (time.time() - state["start_time"]) * 1000.0
+                if elapsed < state["duration_ms"]:
+                    progress = elapsed / max(state["duration_ms"], 1)
+                    return self._slide_vertical(
+                        state["from_frame"],
+                        state["from_colors"],
+                        state["to_frame"],
+                        state["to_colors"],
+                        progress,
+                        state["direction"],
+                    )
+                self.transition_state = None
+
+        target_changed = (
+            self.last_target_key != selected["key"]
+            or self.last_target_frame != frame
+            or self.last_target_colors != color_frame
+        )
+
+        if transition_ms > 0 and self.last_target_key is not None and target_changed:
+            self.transition_state = {
+                "from_frame": [row[:] for row in self.last_frame],
+                "from_colors": [row[:] for row in self.last_color_frame],
+                "to_frame": [row[:] for row in frame],
+                "to_colors": [row[:] for row in color_frame],
+                "to_key": selected["key"],
+                "start_time": time.time(),
+                "duration_ms": transition_ms,
+                "direction": transition_direction,
+            }
+            self.last_target_key = selected["key"]
+            self.last_target_frame = [row[:] for row in frame]
+            self.last_target_colors = [row[:] for row in color_frame]
+            return self._slide_vertical(
+                self.transition_state["from_frame"],
+                self.transition_state["from_colors"],
+                self.transition_state["to_frame"],
+                self.transition_state["to_colors"],
+                0.0,
+                transition_direction,
+            )
+
+        self.last_target_key = selected["key"]
+        self.last_target_frame = [row[:] for row in frame]
+        self.last_target_colors = [row[:] for row in color_frame]
         return frame, color_frame

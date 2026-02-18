@@ -16,6 +16,8 @@ DEFAULT_MODULES = [
             "color": "#c8e6ff",
             "x_offset": 0,
             "y_offset": 0,
+            "transition_direction": "down",
+            "transition_ms": 350,
         },
     },
     {
@@ -32,6 +34,8 @@ DEFAULT_MODULES = [
             "color_down": "#e63c3c",
             "color_flat": "#dcdc50",
             "color_fallback": "#9ca3af",
+            "transition_direction": "down",
+            "transition_ms": 350,
         },
     },
     {
@@ -47,6 +51,24 @@ DEFAULT_MODULES = [
             "color_cold": "#3b82f6",
             "color_warm": "#f97316",
             "color_fallback": "#9ca3af",
+            "transition_direction": "down",
+            "transition_ms": 350,
+        },
+    },
+    {
+        "key": "textbox",
+        "name": "Text Box",
+        "sort_order": 3,
+        "duration_seconds": 12,
+        "settings": {
+            "lines": "HELLO\nPIXELDOCK",
+            "line_seconds": 2,
+            "font_size": "small",
+            "color": "#f4f4f5",
+            "x_offset": 0,
+            "y_offset": 0,
+            "transition_direction": "down",
+            "transition_ms": 450,
         },
     },
 ]
@@ -55,11 +77,17 @@ DEFAULT_MODULES = [
 async def ensure_default_modules(db: AsyncSession):
     result = await db.execute(select(ModuleConfig))
     existing = result.scalars().all()
-    if existing:
-        return
+    existing_by_key = {row.key: row for row in existing}
+
+    inserted = False
     for item in DEFAULT_MODULES:
+        if item["key"] in existing_by_key:
+            continue
         db.add(ModuleConfig(enabled=True, **item))
-    await db.commit()
+        inserted = True
+
+    if inserted:
+        await db.commit()
 
 
 async def list_modules(db: AsyncSession) -> list[ModuleConfig]:

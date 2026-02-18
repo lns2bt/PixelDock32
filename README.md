@@ -120,6 +120,14 @@ Damit kannst du Mapping-Fehler systematisch finden, ohne nur auf das physische P
 - **Weather**: Temperatur wird farbcodiert von kalt (blau) bis warm (rot) angezeigt.
 - **Virtuelle Vorschau**: zeigt diese Farben live über `GET /api/debug/preview` an.
 
+## Multiline & Transition-Animation
+
+- Neues Modul **Text Box** für kurze mehrzeilige Texte (`lines`) mit automatischem Zeilenwechsel (`line_seconds`).
+- Alle Text-Module unterstützen vertikale Transitionen bei Inhaltswechsel:
+  - `transition_direction=down` (neue Zeile von oben nach unten)
+  - `transition_direction=up` (neue Zeile von unten nach oben)
+- Übergangsdauer über `transition_ms` einstellbar (0 = ohne Animation).
+
 ## systemd Autostart
 
 Service-Datei: `systemd/pixeldock32.service`

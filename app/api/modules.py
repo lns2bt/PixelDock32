@@ -18,6 +18,8 @@ MODULE_SETTING_DEFAULTS = {
         "color": "#c8e6ff",
         "x_offset": 0,
         "y_offset": 0,
+        "transition_direction": "down",
+        "transition_ms": 350,
     },
     "btc": {
         "font_size": "normal",
@@ -28,6 +30,8 @@ MODULE_SETTING_DEFAULTS = {
         "color_down": "#e63c3c",
         "color_flat": "#dcdc50",
         "color_fallback": "#9ca3af",
+        "transition_direction": "down",
+        "transition_ms": 350,
     },
     "weather": {
         "postcode": "6020",
@@ -37,6 +41,18 @@ MODULE_SETTING_DEFAULTS = {
         "color_cold": "#3b82f6",
         "color_warm": "#f97316",
         "color_fallback": "#9ca3af",
+        "transition_direction": "down",
+        "transition_ms": 350,
+    },
+    "textbox": {
+        "lines": "HELLO\nPIXELDOCK",
+        "line_seconds": 2,
+        "font_size": "small",
+        "color": "#f4f4f5",
+        "x_offset": 0,
+        "y_offset": 0,
+        "transition_direction": "down",
+        "transition_ms": 450,
     },
 }
 
@@ -74,6 +90,13 @@ def _normalize_hex_color(value: object, fallback: str) -> str:
     return v.lower()
 
 
+
+
+def _normalize_transition_direction(value: object, fallback: str = "down") -> str:
+    if isinstance(value, str) and value.lower() in {"down", "up"}:
+        return value.lower()
+    return fallback
+
 def sanitize_settings(module_key: str, settings: dict) -> dict:
     defaults = MODULE_SETTING_DEFAULTS.get(module_key, {})
     merged = {**defaults, **(settings or {})}
@@ -85,6 +108,10 @@ def sanitize_settings(module_key: str, settings: dict) -> dict:
         merged["color"] = _normalize_hex_color(merged.get("color"), defaults["color"])
         merged["x_offset"] = _clamp_int(merged.get("x_offset"), -16, 16, defaults["x_offset"])
         merged["y_offset"] = _clamp_int(merged.get("y_offset"), -4, 4, defaults["y_offset"])
+        merged["transition_direction"] = _normalize_transition_direction(
+            merged.get("transition_direction"), defaults["transition_direction"]
+        )
+        merged["transition_ms"] = _clamp_int(merged.get("transition_ms"), 0, 2000, defaults["transition_ms"])
 
     elif module_key == "btc":
         merged["font_size"] = _normalize_font_size(merged.get("font_size"), defaults["font_size"])
@@ -95,6 +122,10 @@ def sanitize_settings(module_key: str, settings: dict) -> dict:
         merged["color_down"] = _normalize_hex_color(merged.get("color_down"), defaults["color_down"])
         merged["color_flat"] = _normalize_hex_color(merged.get("color_flat"), defaults["color_flat"])
         merged["color_fallback"] = _normalize_hex_color(merged.get("color_fallback"), defaults["color_fallback"])
+        merged["transition_direction"] = _normalize_transition_direction(
+            merged.get("transition_direction"), defaults["transition_direction"]
+        )
+        merged["transition_ms"] = _clamp_int(merged.get("transition_ms"), 0, 2000, defaults["transition_ms"])
 
     elif module_key == "weather":
         merged["postcode"] = str(merged.get("postcode", defaults["postcode"])).strip() or defaults["postcode"]
@@ -104,6 +135,22 @@ def sanitize_settings(module_key: str, settings: dict) -> dict:
         merged["color_cold"] = _normalize_hex_color(merged.get("color_cold"), defaults["color_cold"])
         merged["color_warm"] = _normalize_hex_color(merged.get("color_warm"), defaults["color_warm"])
         merged["color_fallback"] = _normalize_hex_color(merged.get("color_fallback"), defaults["color_fallback"])
+        merged["transition_direction"] = _normalize_transition_direction(
+            merged.get("transition_direction"), defaults["transition_direction"]
+        )
+        merged["transition_ms"] = _clamp_int(merged.get("transition_ms"), 0, 2000, defaults["transition_ms"])
+
+    elif module_key == "textbox":
+        merged["lines"] = str(merged.get("lines", defaults["lines"]))
+        merged["line_seconds"] = _clamp_int(merged.get("line_seconds"), 1, 30, defaults["line_seconds"])
+        merged["font_size"] = _normalize_font_size(merged.get("font_size"), defaults["font_size"])
+        merged["color"] = _normalize_hex_color(merged.get("color"), defaults["color"])
+        merged["x_offset"] = _clamp_int(merged.get("x_offset"), -16, 16, defaults["x_offset"])
+        merged["y_offset"] = _clamp_int(merged.get("y_offset"), -4, 4, defaults["y_offset"])
+        merged["transition_direction"] = _normalize_transition_direction(
+            merged.get("transition_direction"), defaults["transition_direction"]
+        )
+        merged["transition_ms"] = _clamp_int(merged.get("transition_ms"), 0, 2000, defaults["transition_ms"])
 
     return merged
 
