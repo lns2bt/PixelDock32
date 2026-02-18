@@ -36,6 +36,8 @@ DEFAULT_MODULES = [
             "color_down": "#e63c3c",
             "color_flat": "#dcdc50",
             "color_fallback": "#9ca3af",
+            "show_block_height": False,
+            "screen_seconds": 4,
             "transition_direction": "down",
             "transition_ms": 350,
         },

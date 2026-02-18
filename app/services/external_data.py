@@ -20,6 +20,9 @@ class ExternalDataService:
             "btc_error": None,
             "weather_error": None,
             "btc_trend": "flat",
+            "btc_block_height": None,
+            "btc_block_height_updated_at": None,
+            "btc_block_height_error": None,
         }
         self._running = False
         self._tasks: list[asyncio.Task] = []
@@ -29,6 +32,7 @@ class ExternalDataService:
         self._tasks = [
             asyncio.create_task(self._poll_btc()),
             asyncio.create_task(self._poll_weather()),
+            asyncio.create_task(self._poll_btc_block_height()),
         ]
 
     async def stop(self):
@@ -84,3 +88,17 @@ class ExternalDataService:
                 logger.warning("Weather polling failed: %s", exc)
                 self.cache["weather_error"] = str(exc)
             await asyncio.sleep(self.settings.poll_weather_seconds)
+
+    async def _poll_btc_block_height(self):
+        while self._running:
+            try:
+                async with httpx.AsyncClient(timeout=8) as client:
+                    response = await client.get(self.settings.btc_block_height_api_url)
+                    response.raise_for_status()
+                    self.cache["btc_block_height"] = int(response.text.strip())
+                    self.cache["btc_block_height_updated_at"] = time.time()
+                    self.cache["btc_block_height_error"] = None
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("BTC block height polling failed: %s", exc)
+                self.cache["btc_block_height_error"] = str(exc)
+            await asyncio.sleep(self.settings.poll_btc_seconds)
