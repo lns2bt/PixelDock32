@@ -173,11 +173,7 @@ function moduleSettingsHtml(module) {
           <label for="set-clock-sec-border-color-${module.id}">Sekunden-Rand Farbe</label>
           <input id="set-clock-sec-border-color-${module.id}" type="color" value="${s.seconds_border_color || '#3cc8ff'}" />
         </div>
-        <div class="field">
-          <label>Content-Wechsel animieren</label>
-          <label class="check-label"><input type="checkbox" id="set-clock-content-trans-${module.id}" ${s.transition_on_content_change === true ? 'checked' : ''}> Bei jeder Sekunde sliden</label>
-        </div>
-        ${transitionControls(module.id, s)}
+
       </div>
     `;
   }
@@ -380,11 +376,6 @@ function moduleSettingsHtml(module) {
 }
 
 function collectModuleSettings({ id: moduleId, key: moduleKey }) {
-  const commonTransition = {
-    transition_direction: document.getElementById(`set-trans-dir-${moduleId}`).value,
-    transition_ms: parseInt(document.getElementById(`set-trans-ms-${moduleId}`).value, 10) || 350,
-  };
-
   if (moduleKey === 'clock') {
     return {
       timezone: document.getElementById(`set-tz-${moduleId}`).value.trim() || 'Europe/Vienna',
@@ -396,10 +387,13 @@ function collectModuleSettings({ id: moduleId, key: moduleKey }) {
       char_spacing: (() => { const v = parseInt(document.getElementById(`set-spacing-${moduleId}`).value, 10); return Number.isNaN(v) ? 1 : v; })(),
       seconds_border_mode: document.getElementById(`set-clock-sec-border-mode-${moduleId}`).value,
       seconds_border_color: document.getElementById(`set-clock-sec-border-color-${moduleId}`).value,
-      transition_on_content_change: document.getElementById(`set-clock-content-trans-${moduleId}`).checked,
-      ...commonTransition,
     };
   }
+
+  const commonTransition = {
+    transition_direction: document.getElementById(`set-trans-dir-${moduleId}`).value,
+    transition_ms: parseInt(document.getElementById(`set-trans-ms-${moduleId}`).value, 10) || 350,
+  };
 
   if (moduleKey === 'btc') {
     return {

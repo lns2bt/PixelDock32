@@ -384,6 +384,8 @@ class DisplayService:
         if transition_direction not in {"down", "up"}:
             transition_direction = "down"
         transition_ms = max(0, min(2000, _safe_int(settings.get("transition_ms", 350), 350)))
+        if selected["key"] == "clock":
+            transition_ms = 0
 
         if self.transition_state:
             state = self.transition_state
@@ -402,7 +404,7 @@ class DisplayService:
                 self.transition_state = None
 
         transition_on_content_change = bool(settings.get("transition_on_content_change", True))
-        if selected["key"] == "clock" and "transition_on_content_change" not in settings:
+        if selected["key"] == "clock":
             transition_on_content_change = False
 
         same_module = self.last_target_key == selected["key"]
