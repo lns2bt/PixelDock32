@@ -745,7 +745,7 @@ async function checkMappingCoordinate() {
 
   const m = data.mapping;
   document.getElementById('mappingInfo').innerText =
-    `x=${m.x}, y=${m.y} -> panel=${m.panel_index}, local=(${m.local_x},${m.local_y}), pixel_in_panel=${m.pixel_in_panel}, led_index=${m.index}, serpentine_flip=${m.serpentine_flipped}`;
+    `x=${m.x}, y=${m.y} -> panel=${m.panel_index}, rotation=${m.panel_rotation}°, local=(${m.local_x},${m.local_y}), pixel_in_panel=${m.pixel_in_panel}, led_index=${m.index}, serpentine_flip=${m.serpentine_flipped}`;
 }
 
 function initGrid() {
