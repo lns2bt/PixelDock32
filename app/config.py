@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     data_starts_right: bool = True
     serpentine: bool = True
     first_pixel_offset: int = 0
+    panel_order: list[int] = Field(default_factory=lambda: [0, 1, 2, 3])
+    panel_rotations: list[int] = Field(default_factory=lambda: [0, 0, 0, 0])
 
     btc_api_url: str = "https://api.coingecko.com/api/v3/simple/price"
     btc_block_height_api_url: str = "https://blockstream.info/api/blocks/tip/height"
@@ -48,6 +50,24 @@ class Settings(BaseSettings):
     poll_btc_seconds: int = Field(default=60, ge=15)
     poll_weather_seconds: int = Field(default=300, ge=60)
     render_fps: int = Field(default=20, ge=1)
+
+    @field_validator("panel_order", mode="before")
+    @classmethod
+    def parse_panel_order(cls, value):
+        if isinstance(value, str):
+            value = [int(part.strip()) for part in value.split(",") if part.strip()]
+        if not isinstance(value, list):
+            raise ValueError("panel_order must be a list or comma-separated string")
+        return [int(item) for item in value]
+
+    @field_validator("panel_rotations", mode="before")
+    @classmethod
+    def parse_panel_rotations(cls, value):
+        if isinstance(value, str):
+            value = [int(part.strip()) for part in value.split(",") if part.strip()]
+        if not isinstance(value, list):
+            raise ValueError("panel_rotations must be a list or comma-separated string")
+        return [int(item) for item in value]
 
 
 @lru_cache

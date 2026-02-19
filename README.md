@@ -37,6 +37,8 @@ requirements.txt
   - `DATA_STARTS_RIGHT=true`
   - `SERPENTINE=true`
   - `FIRST_PIXEL_OFFSET=0`
+  - `PANEL_ORDER=0,1,2,3`
+  - `PANEL_ROTATIONS=0,0,0,0`
 - Logische API-Koordinaten bleiben immer **links nach rechts**.
 
 ## Setup
@@ -74,6 +76,26 @@ Dann im LAN öffnen: `http://<raspberrypi-ip>:8000`
 - `GET /api/debug/preview` → aktueller 8x32 Frame für virtuelle Vorschau
 - `GET /api/debug/mapping/coordinate?x=&y=` → Mapping-Erklärung für einzelne Koordinate
 
+
+
+### Schnelles Mapping-Schema (neu)
+
+Wenn Panels verdreht oder vertauscht montiert wurden, kannst du das jetzt mit zwei Werten korrigieren:
+
+- `PANEL_ORDER`: Reihenfolge der **physisch verketteten Panels** auf die logischen Panel-Slots.
+  - Format: Komma-Liste mit 4 Zahlen (`0..3`)
+  - Beispiel `3,2,1,0`: komplett gespiegelt
+- `PANEL_ROTATIONS`: Rotation je **logischem Panel-Index** in Grad.
+  - Erlaubt: `0`, `90`, `180`, `270`
+  - Beispiel `0,180,0,180`: jedes zweite Panel auf dem Kopf
+
+Empfohlener Ablauf:
+
+1. `panel_walk` nutzen, bis die Reihenfolge passt (`PANEL_ORDER`).
+2. Danach mit `pixel_walk` die Laufrichtung prüfen und pro Panel die Rotation setzen (`PANEL_ROTATIONS`).
+3. Optional mit `border` final gegenprüfen.
+
+So kannst du typische Hardware-Fehler mit wenigen Zahlenwerten beheben, ohne Code anzufassen.
 
 ## Panel-Kalibrierung & Hardware-Debug
 
