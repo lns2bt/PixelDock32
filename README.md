@@ -11,6 +11,8 @@ cd /path/to/PixelDock32
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+# nur auf Raspberry Pi mit DHT-Sensor erforderlich:
+pip install Adafruit_DHT==1.4.0 --config-settings="--build-option=--force-pi"
 cp .env.example .env
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
