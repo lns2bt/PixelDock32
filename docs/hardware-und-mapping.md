@@ -65,9 +65,13 @@ Das Weather-Modul kann optional direkt vom DHT-Sensor lesen (statt Open-Meteo):
    - DATA -> GPIO4 (Pin 7, anpassbar über `DHT_GPIO_PIN`)
    - Bei nacktem Sensor: 10k Pull-Up zwischen DATA und VCC
 2. Python-Bibliothek installieren:
+
+   Hinweis: Falls `RPi.GPIO` fehlt, zuerst das OS-Paket für dein Raspberry-Pi-System installieren (z. B. `python3-rpi-gpio` oder je nach Distribution `python3-rpi-lgpio`).
    ```bash
    pip install -r requirements.txt
    pip install Adafruit_DHT==1.4.0 --config-settings="--build-option=--force-pi"
+# Alternative (falls Adafruit_DHT/Plattform-Erkennung fehlschlägt):
+pip install adafruit-circuitpython-dht adafruit-blinka
    ```
 3. In `.env` aktivieren:
    ```env
