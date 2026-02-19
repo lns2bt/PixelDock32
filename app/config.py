@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     weather_lon: float = 11.3923
     weather_postcode: str = "6020"
     weather_country: str = "AT"
+    dht_enabled: bool = True
+    dht_model: str = "DHT11"
+    dht_gpio_pin: int = 4
+    poll_dht_seconds: int = Field(default=3, ge=2)
 
     poll_btc_seconds: int = Field(default=60, ge=15)
     poll_weather_seconds: int = Field(default=300, ge=60)

@@ -27,6 +27,8 @@
         <span>Debug-Pattern</span><strong id="statusDebug">-</strong>
         <span>BTC Update</span><strong id="statusBtc">-</strong>
         <span>Wetter Update</span><strong id="statusWeather">-</strong>
+        <span>DHT GPIO-Level</span><strong id="statusDhtLevel">-</strong>
+        <span>DHT Letztes Read</span><strong id="statusDhtRead">-</strong>
       </div>
     </section>
 
@@ -142,6 +144,10 @@
         <button class="btn btn-secondary" onclick="runPreset('pixel_walk', 60, 120)">Serpentine Check</button>
         <button class="btn btn-secondary" onclick="runPreset('stripes', 20, 300)">Noise Check</button>
       </div>
+      <div class="field" style="margin-top: 12px;">
+        <button class="btn btn-secondary" onclick="refreshDhtDebug()">DHT Debug aktualisieren</button>
+      </div>
+      <pre id="dhtDebugInfo">-</pre>
     </section>
 
 

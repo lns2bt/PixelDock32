@@ -267,8 +267,16 @@ function moduleSettingsHtml(module) {
           <input id="set-warm-${module.id}" type="color" value="${s.color_warm || '#f97316'}" />
         </div>
         <div class="field">
+          <label for="set-humidity-${module.id}">Farbe Luftfeuchte</label>
+          <input id="set-humidity-${module.id}" type="color" value="${s.color_humidity || '#6ed2ff'}" />
+        </div>
+        <div class="field">
           <label for="set-fallback-${module.id}">Farbe Fallback</label>
           <input id="set-fallback-${module.id}" type="color" value="${s.color_fallback || '#9ca3af'}" />
+        </div>
+        <div class="field">
+          <label for="set-weather-screen-sec-${module.id}">Screen-Wechsel (Sek.)</label>
+          <input id="set-weather-screen-sec-${module.id}" type="number" min="1" max="60" value="${s.screen_seconds ?? 4}" />
         </div>
         ${transitionControls(module.id, s)}
       </div>
@@ -421,7 +429,9 @@ function collectModuleSettings({ id: moduleId, key: moduleKey }) {
       char_spacing: (() => { const v = parseInt(document.getElementById(`set-spacing-${moduleId}`).value, 10); return Number.isNaN(v) ? 1 : v; })(),
       color_cold: document.getElementById(`set-cold-${moduleId}`).value,
       color_warm: document.getElementById(`set-warm-${moduleId}`).value,
+      color_humidity: document.getElementById(`set-humidity-${moduleId}`).value,
       color_fallback: document.getElementById(`set-fallback-${moduleId}`).value,
+      screen_seconds: parseInt(document.getElementById(`set-weather-screen-sec-${moduleId}`).value, 10) || 4,
       ...commonTransition,
     };
   }
@@ -691,7 +701,20 @@ async function refreshStatus() {
     : formatTs(data.data.btc_updated_at);
   document.getElementById('statusWeather').innerText = data.data.weather_error
     ? `Fehler (${data.data.weather_error.slice(0, 28)}...)`
-    : formatTs(data.data.weather_updated_at);
+    : `${formatTs(data.data.weather_updated_at)} (${data.data.weather_source || 'api'})`;
+  document.getElementById('statusDhtLevel').innerText = data.data.dht_gpio_level === null ? '-' : `${data.data.dht_gpio_level}`;
+  document.getElementById('statusDhtRead').innerText = data.data.dht_error
+    ? `Fehler (${data.data.dht_error.slice(0, 24)}...)`
+    : `${formatTs(data.data.dht_updated_at)} / ${data.data.dht_last_duration_ms ?? '-'}ms`;
+  await refreshDhtDebug();
+}
+
+async function refreshDhtDebug() {
+  const data = await apiRequest('/api/debug/dht');
+  if (!data) return;
+  const el = document.getElementById('dhtDebugInfo');
+  if (!el) return;
+  el.innerText = JSON.stringify(data, null, 2);
 }
 
 function initPreviewGrid() {
@@ -791,5 +814,6 @@ if (token) {
   loadModules();
   refreshStatus();
   refreshPreview();
+  refreshDhtDebug();
   startPollingLoops();
 }

@@ -38,9 +38,12 @@ MODULE_SETTING_DEFAULTS = {
         "font_size": "normal",
         "x_offset": 0,
         "y_offset": 0,
+        "char_spacing": 1,
         "color_cold": "#3b82f6",
         "color_warm": "#f97316",
+        "color_humidity": "#6ed2ff",
         "color_fallback": "#9ca3af",
+        "screen_seconds": 4,
         "transition_direction": "down",
         "transition_ms": 350,
     },
@@ -149,9 +152,12 @@ def sanitize_settings(module_key: str, settings: dict) -> dict:
         merged["font_size"] = _normalize_font_size(merged.get("font_size"), defaults["font_size"])
         merged["x_offset"] = _clamp_int(merged.get("x_offset"), -16, 16, defaults["x_offset"])
         merged["y_offset"] = _clamp_int(merged.get("y_offset"), -4, 4, defaults["y_offset"])
+        merged["char_spacing"] = _clamp_int(merged.get("char_spacing"), 0, 4, defaults["char_spacing"])
         merged["color_cold"] = _normalize_hex_color(merged.get("color_cold"), defaults["color_cold"])
         merged["color_warm"] = _normalize_hex_color(merged.get("color_warm"), defaults["color_warm"])
+        merged["color_humidity"] = _normalize_hex_color(merged.get("color_humidity"), defaults["color_humidity"])
         merged["color_fallback"] = _normalize_hex_color(merged.get("color_fallback"), defaults["color_fallback"])
+        merged["screen_seconds"] = _clamp_int(merged.get("screen_seconds"), 1, 60, defaults["screen_seconds"])
         merged["transition_direction"] = _normalize_transition_direction(
             merged.get("transition_direction"), defaults["transition_direction"]
         )

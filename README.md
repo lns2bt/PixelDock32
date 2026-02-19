@@ -245,3 +245,40 @@ Aktuell rendert das Bitmap-Modul statische Dateien mit vertikalem Scrolling. Fü
 - Zeitbasierte Frame-Auswahl im Renderloop (`now -> frame_index`) mit sauberem Looping.
 - Optionales Dithering/Farbreduktion für bessere Lesbarkeit auf 32x8.
 - Einheitliche Einstellungen im Modul (`playback_speed`, `loop_mode`, optional `fit/crop`).
+
+
+## DHT11 am Raspberry Pi (lokale Temperatur + Luftfeuchte)
+
+Das Weather-Modul kann optional direkt vom DHT-Sensor lesen (statt Open-Meteo):
+
+1. Verdrahtung DHT11
+   - VCC -> 3.3V (Pin 1)
+   - GND -> GND (z. B. Pin 6)
+   - DATA -> GPIO4 (Pin 7, anpassbar über `DHT_GPIO_PIN`)
+   - Bei nacktem Sensor: 10k Pull-Up zwischen DATA und VCC
+2. Python-Bibliothek installieren:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. In `.env` aktivieren:
+   ```env
+   DHT_ENABLED=true  # default aktiv
+   DHT_MODEL=DHT11
+   DHT_GPIO_PIN=4
+   POLL_DHT_SECONDS=3
+   ```
+
+Hinweise:
+- Das Weather-Modul rotiert kompakt zwischen 3 Screens: `Oxx.xC` (Outdoor), `Ixx.xC` (Indoor), `Hxx%` (Indoor Luftfeuchte).
+- Die Umschaltzeit ist im Modul über `Screen-Wechsel (Sek.)` einstellbar.
+- Datenquellen: Outdoor aus Open-Meteo, Indoor/Feuchte aus DHT11.
+- DHT-Debug live: `GET /api/debug/dht` zeigt GPIO-Level, Rohwerte, Read-Dauer, Fehler und Verarbeitungs-Pipeline.
+
+### Kurz erklärt: Signalverarbeitung & GPIO (DHT11 ↔ Raspberry Pi)
+
+- **Leitung/Protokoll:** Der DHT11 nutzt eine einzelne **DATA-Leitung** (Single-Wire, proprietäres Timing-Protokoll).
+- **GPIO-Belegung:** In diesem Projekt hängt DATA standardmäßig auf **BCM GPIO4** (`DHT_GPIO_PIN=4`), Versorgung über **3.3V** und **GND**.
+- **Signalstabilität:** Ein **Pull-Up (typisch 10kΩ)** zwischen DATA und 3.3V hält das Signal im Idle-Zustand auf HIGH.
+- **Messablauf in der App:** Der DHT-Poller in `ExternalDataService` ruft zyklisch `Adafruit_DHT.read_retry(...)` auf. Die Library erzeugt die nötigen Timing-Sequenzen am GPIO und dekodiert daraus Temperatur/Feuchte.
+- **Weiterverarbeitung:** Die dekodierten Werte werden als `weather_indoor_temp` und `weather_indoor_humidity` im Cache abgelegt; Open-Meteo bleibt separat als `weather_outdoor_temp`.
+- **Anzeige:** Das Weather-Modul schaltet zeitgesteuert zwischen Outdoor-Temp, Indoor-Temp und Indoor-Feuchte um.
