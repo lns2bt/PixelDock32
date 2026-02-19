@@ -719,6 +719,13 @@ async function refreshDhtDebug() {
 
 
 
+
+async function runGpioEnvironmentCheck() {
+  const data = await apiRequest('/api/debug/gpio/environment');
+  if (!data?.result) return;
+  renderGpioResult('GPIO-Umgebungscheck', data.result);
+}
+
 function renderGpioResult(title, result) {
   const el = document.getElementById('gpioFinderResult');
   if (!el) return;

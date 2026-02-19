@@ -116,6 +116,13 @@ async def dht_debug(request: Request, _: str = Depends(get_current_user)):
     }
 
 
+
+
+@router.get("/gpio/environment")
+async def gpio_environment(request: Request, _: str = Depends(get_current_user)):
+    result = _external(request).get_gpio_environment_report()
+    return {"ok": True, "result": result}
+
 @router.post("/gpio/output-test")
 async def gpio_output_test(payload: GpioOutputTestRequest, request: Request, _: str = Depends(get_current_user)):
     result = _external(request).run_gpio_output_test(
