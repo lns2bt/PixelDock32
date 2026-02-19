@@ -12,7 +12,11 @@ pip install Adafruit_DHT==1.4.0 --config-settings="--build-option=--force-pi"
 # Alternative (falls Adafruit_DHT/Plattform-Erkennung fehlschlägt):
 pip install adafruit-circuitpython-dht adafruit-blinka
 # optionaler GPIO-Backend-Fallback (v. a. bei Python 3.13):
+# lgpio aus pip braucht Build-Tools UND die native lgpio-Library
+sudo apt update && sudo apt install -y swig python3-dev liblgpio-dev
 pip install lgpio
+# Alternative ohne pip-Build (Systempaket):
+# sudo apt install -y python3-lgpio
 cp .env.example .env
 ```
 
@@ -65,7 +69,11 @@ pip install Adafruit_DHT==1.4.0 --config-settings="--build-option=--force-pi"
 # Alternative (falls Adafruit_DHT/Plattform-Erkennung fehlschlägt):
 pip install adafruit-circuitpython-dht adafruit-blinka
 # optionaler GPIO-Backend-Fallback (v. a. bei Python 3.13):
+# lgpio aus pip braucht Build-Tools UND die native lgpio-Library
+sudo apt update && sudo apt install -y swig python3-dev liblgpio-dev
 pip install lgpio
+# Alternative ohne pip-Build (Systempaket):
+# sudo apt install -y python3-lgpio
 ```
 
 Danach `uvicorn app.main:app --host 0.0.0.0 --port 8000` erneut starten.
@@ -75,6 +83,7 @@ Weitere häufige GPIO/DHT-Fehler:
 
 - `RPi.GPIO library not available in this environment`
 - `DHT polling failed: Unknown platform.`
+- `cannot find -llgpio: No such file or directory`
 
 Ursache: App läuft nicht direkt auf dem Raspberry Pi (oder ohne GPIO-Rechte), bzw. die GPIO-/DHT-Bibliotheken fehlen in genau dieser Runtime (venv, Service-User, Container).
 
@@ -98,7 +107,11 @@ sudo apt install -y python3-rpi-gpio || sudo apt install -y python3-rpi-lgpio
 source .venv/bin/activate
 pip install adafruit-circuitpython-dht adafruit-blinka
 # wenn RPi.GPIO im venv nicht importierbar ist (häufig auf Python 3.13):
+# lgpio aus pip braucht Build-Tools UND die native lgpio-Library
+sudo apt install -y swig python3-dev liblgpio-dev
 pip install lgpio
+# Alternative ohne pip-Build (Systempaket):
+# sudo apt install -y python3-lgpio
 ```
 
 Anschließend App/Service neu starten.

@@ -16,7 +16,11 @@ pip install Adafruit_DHT==1.4.0 --config-settings="--build-option=--force-pi"
 # Alternative (falls Adafruit_DHT/Plattform-Erkennung fehlschlägt):
 pip install adafruit-circuitpython-dht adafruit-blinka
 # optionaler GPIO-Backend-Fallback:
+# lgpio aus pip braucht Build-Tools UND die native lgpio-Library
+sudo apt update && sudo apt install -y swig python3-dev liblgpio-dev
 pip install lgpio
+# Alternative ohne pip-Build (Systempaket):
+# sudo apt install -y python3-lgpio
 cp .env.example .env
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
