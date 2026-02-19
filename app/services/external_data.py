@@ -101,6 +101,7 @@ class ExternalDataService:
             "dht_last_duration_ms": None,
             "dht_raw_temperature": None,
             "dht_raw_humidity": None,
+            "dht_backend": None,
             "dht_processing": None,
             "btc_trend": "flat",
             "btc_block_height": None,
@@ -185,13 +186,14 @@ class ExternalDataService:
             self.cache["dht_last_attempt_at"] = time.time()
             self.cache["dht_gpio_level"] = self._read_gpio_level()
             try:
-                humidity, temperature = await asyncio.to_thread(self._read_dht, model)
+                humidity, temperature, backend = await asyncio.to_thread(self._read_dht, model)
                 if humidity is None or temperature is None:
                     raise RuntimeError("DHT read returned no data")
                 raw_temp = float(temperature)
                 raw_humidity = float(humidity)
                 self.cache["dht_raw_temperature"] = raw_temp
                 self.cache["dht_raw_humidity"] = raw_humidity
+                self.cache["dht_backend"] = backend
                 self.cache["weather_indoor_temp"] = round(raw_temp, 1)
                 self.cache["weather_indoor_humidity"] = round(raw_humidity, 1)
                 self.cache["dht_processing"] = self._build_dht_processing(raw_humidity, raw_temp)
@@ -208,11 +210,19 @@ class ExternalDataService:
                 self.cache["dht_gpio_level"] = self._read_gpio_level()
             await asyncio.sleep(self.settings.poll_dht_seconds)
 
-    def _read_dht(self, model: str) -> tuple[float | None, float | None]:
+    def _read_dht(self, model: str) -> tuple[float | None, float | None, str]:
         if Adafruit_DHT:
             sensor = Adafruit_DHT.DHT22 if model == "DHT22" else Adafruit_DHT.DHT11
-            humidity, temperature = Adafruit_DHT.read_retry(sensor, self.settings.dht_gpio_pin)
-            return humidity, temperature
+            try:
+                humidity, temperature = Adafruit_DHT.read_retry(sensor, self.settings.dht_gpio_pin)
+                return humidity, temperature, "Adafruit_DHT"
+            except Exception as exc:  # noqa: BLE001
+                if adafruit_dht is None or board is None:
+                    raise
+                logger.warning(
+                    "Adafruit_DHT read failed (%s). Falling back to CircuitPython backend.",
+                    exc,
+                )
 
         if adafruit_dht is None or board is None:
             raise RuntimeError(
@@ -228,10 +238,46 @@ class ExternalDataService:
         try:
             temperature = sensor.temperature
             humidity = sensor.humidity
-            return humidity, temperature
+            return humidity, temperature, "adafruit_dht"
         finally:
             with suppress(Exception):
                 sensor.exit()
+
+    def read_dht_debug_snapshot(self) -> dict:
+        model = self.settings.dht_model.strip().upper()
+        started = time.perf_counter()
+        gpio_before = self._read_gpio_level()
+        try:
+            humidity, temperature, backend = self._read_dht(model)
+            duration_ms = round((time.perf_counter() - started) * 1000, 2)
+            gpio_after = self._read_gpio_level()
+            return {
+                "ok": humidity is not None and temperature is not None,
+                "model": model,
+                "gpio_pin": self.settings.dht_gpio_pin,
+                "backend": backend,
+                "gpio_level_before": gpio_before,
+                "gpio_level_after": gpio_after,
+                "duration_ms": duration_ms,
+                "temperature": temperature,
+                "humidity": humidity,
+                "error": None,
+            }
+        except Exception as exc:  # noqa: BLE001
+            duration_ms = round((time.perf_counter() - started) * 1000, 2)
+            gpio_after = self._read_gpio_level()
+            return {
+                "ok": False,
+                "model": model,
+                "gpio_pin": self.settings.dht_gpio_pin,
+                "backend": self.cache.get("dht_backend"),
+                "gpio_level_before": gpio_before,
+                "gpio_level_after": gpio_after,
+                "duration_ms": duration_ms,
+                "temperature": None,
+                "humidity": None,
+                "error": str(exc),
+            }
 
     def _gpio_backend_name(self) -> str:
         if GPIO is not None:
