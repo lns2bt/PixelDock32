@@ -11,6 +11,8 @@ pip install -r requirements.txt
 pip install Adafruit_DHT==1.4.0 --config-settings="--build-option=--force-pi"
 # Alternative (falls Adafruit_DHT/Plattform-Erkennung fehlschlägt):
 pip install adafruit-circuitpython-dht adafruit-blinka
+# optionaler GPIO-Backend-Fallback (v. a. bei Python 3.13):
+pip install lgpio
 cp .env.example .env
 ```
 
@@ -62,6 +64,8 @@ pip install -r requirements.txt
 pip install Adafruit_DHT==1.4.0 --config-settings="--build-option=--force-pi"
 # Alternative (falls Adafruit_DHT/Plattform-Erkennung fehlschlägt):
 pip install adafruit-circuitpython-dht adafruit-blinka
+# optionaler GPIO-Backend-Fallback (v. a. bei Python 3.13):
+pip install lgpio
 ```
 
 Danach `uvicorn app.main:app --host 0.0.0.0 --port 8000` erneut starten.
@@ -93,6 +97,8 @@ sudo apt install -y python3-rpi-gpio || sudo apt install -y python3-rpi-lgpio
 
 source .venv/bin/activate
 pip install adafruit-circuitpython-dht adafruit-blinka
+# wenn RPi.GPIO im venv nicht importierbar ist (häufig auf Python 3.13):
+pip install lgpio
 ```
 
 Anschließend App/Service neu starten.

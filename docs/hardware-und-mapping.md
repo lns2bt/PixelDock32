@@ -72,6 +72,8 @@ Das Weather-Modul kann optional direkt vom DHT-Sensor lesen (statt Open-Meteo):
    pip install Adafruit_DHT==1.4.0 --config-settings="--build-option=--force-pi"
 # Alternative (falls Adafruit_DHT/Plattform-Erkennung fehlschlägt):
 pip install adafruit-circuitpython-dht adafruit-blinka
+# optionaler GPIO-Backend-Fallback (v. a. bei Python 3.13):
+pip install lgpio
    ```
 3. In `.env` aktivieren:
    ```env
