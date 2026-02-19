@@ -67,6 +67,7 @@ Das Weather-Modul kann optional direkt vom DHT-Sensor lesen (statt Open-Meteo):
 2. Python-Bibliothek installieren:
    ```bash
    pip install -r requirements.txt
+   pip install Adafruit_DHT==1.4.0 --config-settings="--build-option=--force-pi"
    ```
 3. In `.env` aktivieren:
    ```env
