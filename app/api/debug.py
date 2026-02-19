@@ -32,8 +32,19 @@ async def status(request: Request, _: str = Depends(get_current_user)):
             "btc_updated_at": cache.get("btc_updated_at"),
             "btc_error": cache.get("btc_error"),
             "weather_temp": cache.get("weather_temp"),
+            "weather_outdoor_temp": cache.get("weather_outdoor_temp"),
+            "weather_indoor_temp": cache.get("weather_indoor_temp"),
+            "weather_indoor_humidity": cache.get("weather_indoor_humidity"),
             "weather_updated_at": cache.get("weather_updated_at"),
             "weather_error": cache.get("weather_error"),
+            "weather_source": cache.get("weather_source"),
+            "dht_updated_at": cache.get("dht_updated_at"),
+            "dht_error": cache.get("dht_error"),
+            "dht_gpio_level": cache.get("dht_gpio_level"),
+            "dht_last_attempt_at": cache.get("dht_last_attempt_at"),
+            "dht_last_duration_ms": cache.get("dht_last_duration_ms"),
+            "dht_raw_temperature": cache.get("dht_raw_temperature"),
+            "dht_raw_humidity": cache.get("dht_raw_humidity"),
         },
     }
 
@@ -67,3 +78,30 @@ async def start_pattern(payload: DebugPatternRequest, request: Request, _: str =
 async def stop_pattern(request: Request, _: str = Depends(get_current_user)):
     _display(request).clear_debug_pattern()
     return {"ok": True}
+
+
+@router.get("/dht")
+async def dht_debug(request: Request, _: str = Depends(get_current_user)):
+    external = getattr(request.app.state, "external_data_service", None)
+    cache = external.cache if external else {}
+    return {
+        "enabled": bool(getattr(getattr(external, "settings", None), "dht_enabled", False)),
+        "gpio_pin": getattr(getattr(external, "settings", None), "dht_gpio_pin", None),
+        "model": getattr(getattr(external, "settings", None), "dht_model", None),
+        "signal": {
+            "gpio_level": cache.get("dht_gpio_level"),
+            "last_attempt_at": cache.get("dht_last_attempt_at"),
+            "last_duration_ms": cache.get("dht_last_duration_ms"),
+            "raw_temperature": cache.get("dht_raw_temperature"),
+            "raw_humidity": cache.get("dht_raw_humidity"),
+            "last_error": cache.get("dht_error"),
+            "last_updated_at": cache.get("dht_updated_at"),
+        },
+        "processing": cache.get("dht_processing"),
+        "derived_cache": {
+            "weather_indoor_temp": cache.get("weather_indoor_temp"),
+            "weather_indoor_humidity": cache.get("weather_indoor_humidity"),
+            "weather_outdoor_temp": cache.get("weather_outdoor_temp"),
+            "weather_source": cache.get("weather_source"),
+        },
+    }

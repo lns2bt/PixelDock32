@@ -59,6 +59,8 @@ DEFAULT_MODULES = [
             "color_cold": "#3b82f6",
             "color_warm": "#f97316",
             "color_fallback": "#9ca3af",
+            "color_humidity": "#6ed2ff",
+            "screen_seconds": 4,
             "transition_direction": "down",
             "transition_ms": 350,
         },

@@ -1,3 +1,5 @@
+import time
+
 from app.modules.base import ModuleBase, ModulePayload
 from app.services.colors import clamp, lerp_color, parse_hex_color
 
@@ -12,19 +14,37 @@ class WeatherModule(ModuleBase):
     key = "weather"
 
     async def render(self, settings: dict, cache: dict) -> ModulePayload:
-        temp = cache.get("weather_temp")
+        outdoor_temp = cache.get("weather_outdoor_temp")
+        indoor_temp = cache.get("weather_indoor_temp")
+        indoor_humidity = cache.get("weather_indoor_humidity")
+
         font_size = settings.get("font_size", "normal")
         x_offset = clamp(int(settings.get("x_offset", 0)), -16, 16)
         y_offset = clamp(int(settings.get("y_offset", 0)), -4, 4)
         char_spacing = clamp(int(settings.get("char_spacing", 1)), 0, 4)
+        screen_seconds = clamp(int(settings.get("screen_seconds", 4)), 1, 60)
 
         cold_color = parse_hex_color(settings.get("color_cold"), (50, 120, 255))
         warm_color = parse_hex_color(settings.get("color_warm"), (255, 100, 70))
+        humidity_color = parse_hex_color(settings.get("color_humidity"), (110, 210, 255))
         fallback_color = parse_hex_color(settings.get("color_fallback"), (120, 120, 120))
 
-        if temp is None:
+        screens: list[tuple[str, tuple[int, int, int]]] = []
+
+        if outdoor_temp is not None:
+            outdoor_value = float(outdoor_temp)
+            screens.append((f"O{outdoor_value:.1f}C", temperature_to_rgb(outdoor_value, cold_color, warm_color)))
+
+        if indoor_temp is not None:
+            indoor_value = float(indoor_temp)
+            screens.append((f"I{indoor_value:.1f}C", temperature_to_rgb(indoor_value, cold_color, warm_color)))
+
+        if indoor_humidity is not None:
+            screens.append((f"H{float(indoor_humidity):.0f}%", humidity_color))
+
+        if not screens:
             return ModulePayload(
-                text="...C",
+                text="W...",
                 font_size=font_size,
                 x_offset=x_offset,
                 y_offset=y_offset,
@@ -32,9 +52,12 @@ class WeatherModule(ModuleBase):
                 char_spacing=char_spacing,
             )
 
-        value = float(temp)
-        text = f"{value:.1f}C"
-        color = temperature_to_rgb(value, cold_color, warm_color)
+        now = cache.get("now")
+        if not isinstance(now, (int, float)):
+            now = time.time()
+        screen_slot = int(now / screen_seconds) % len(screens)
+        text, color = screens[screen_slot]
+
         return ModulePayload(
             text=text,
             font_size=font_size,
