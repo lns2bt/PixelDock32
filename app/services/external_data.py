@@ -186,6 +186,102 @@ class ExternalDataService:
             ],
         }
 
+
+    def run_gpio_output_test(self, gpio_pin: int, pulses: int = 3, hold_ms: int = 220) -> dict:
+        if GPIO is None:
+            return {
+                "ok": False,
+                "gpio_pin": gpio_pin,
+                "message": "RPi.GPIO library not available in this environment",
+            }
+
+        import time as _time
+
+        try:
+            GPIO.setmode(GPIO.BCM)
+            GPIO.setup(gpio_pin, GPIO.OUT, initial=GPIO.LOW)
+            started = _time.perf_counter()
+            hold_s = hold_ms / 1000
+            for _ in range(pulses):
+                GPIO.output(gpio_pin, GPIO.HIGH)
+                _time.sleep(hold_s)
+                GPIO.output(gpio_pin, GPIO.LOW)
+                _time.sleep(hold_s)
+            GPIO.output(gpio_pin, GPIO.LOW)
+            return {
+                "ok": True,
+                "gpio_pin": gpio_pin,
+                "pulses": pulses,
+                "hold_ms": hold_ms,
+                "duration_ms": round((_time.perf_counter() - started) * 1000, 2),
+                "message": "Output pulse test completed",
+            }
+        except Exception as exc:  # noqa: BLE001
+            return {
+                "ok": False,
+                "gpio_pin": gpio_pin,
+                "message": str(exc),
+            }
+
+    def run_gpio_input_probe(self, gpio_pin: int, sample_ms: int = 1000, pull_up: bool = True) -> dict:
+        if GPIO is None:
+            return {
+                "ok": False,
+                "gpio_pin": gpio_pin,
+                "message": "RPi.GPIO library not available in this environment",
+            }
+
+        import time as _time
+
+        started = _time.perf_counter()
+        high_count = 0
+        low_count = 0
+        samples = 0
+        transitions = 0
+        last = None
+
+        try:
+            GPIO.setmode(GPIO.BCM)
+            pud = GPIO.PUD_UP if pull_up else GPIO.PUD_DOWN
+            GPIO.setup(gpio_pin, GPIO.IN, pull_up_down=pud)
+            deadline = _time.perf_counter() + (sample_ms / 1000)
+            while _time.perf_counter() < deadline:
+                value = int(GPIO.input(gpio_pin))
+                if value == 1:
+                    high_count += 1
+                else:
+                    low_count += 1
+                if last is not None and value != last:
+                    transitions += 1
+                last = value
+                samples += 1
+                _time.sleep(0.002)
+
+            ratio_high = (high_count / samples) if samples else 0.0
+            ratio_low = (low_count / samples) if samples else 0.0
+            state = "mostly_high" if ratio_high > 0.8 else "mostly_low" if ratio_low > 0.8 else "toggling"
+
+            return {
+                "ok": True,
+                "gpio_pin": gpio_pin,
+                "sample_ms": sample_ms,
+                "pull": "up" if pull_up else "down",
+                "samples": samples,
+                "high_count": high_count,
+                "low_count": low_count,
+                "high_ratio": round(ratio_high, 3),
+                "low_ratio": round(ratio_low, 3),
+                "transitions": transitions,
+                "state": state,
+                "duration_ms": round((_time.perf_counter() - started) * 1000, 2),
+            }
+        except Exception as exc:  # noqa: BLE001
+            return {
+                "ok": False,
+                "gpio_pin": gpio_pin,
+                "message": str(exc),
+            }
+
     async def _poll_btc_block_height(self):
         while self._running:
             try:
