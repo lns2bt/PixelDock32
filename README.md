@@ -2,46 +2,9 @@
 
 PixelDock32 ist ein modularer 8x32-Controller für 4x WS2812B-8x8 Panels auf Raspberry Pi (GPIO18 + `rpi_ws281x`).
 
-## Kurz-Architektur (MVP)
+Das README ist bewusst kurz gehalten. Die ausführliche, aufgeteilte Projektdokumentation liegt unter [`/docs`](docs).
 
-- **FastAPI API + Web UI** für Verwaltung und direkte Anzeige-Befehle.
-- **SQLite** speichert Modul-Konfigurationen (`enabled`, `duration`, `order`, `settings`).
-- **Render-Loop (async, non-blocking)** läuft im Hintergrund und rotiert aktive Module.
-- **Hintergrund-Poller** holen BTC-Preis + Wetter zyklisch und cachen die Werte.
-- **LED-Mapping Layer** übersetzt logische Koordinaten (x=0 links) auf physische Daisy-Chain (Datenstart rechts).
-- **Auth** via Login + JWT für UI/API Schutz im LAN.
-
-## Ordnerstruktur
-
-```text
-app/
-  api/            # FastAPI Endpunkte
-  modules/        # Anzeige-Module (Clock, BTC, Weather)
-  services/       # Render-Loop, Polling, LED Driver, Mapping
-  static/         # Web UI (HTML/CSS/JS)
-  config.py       # .env Settings
-  database.py     # SQLAlchemy Engine/Session
-  models.py       # DB Modelle
-  schemas.py      # API Schemas
-  main.py         # App Entry + Startup/Lifespan
-systemd/
-  pixeldock32.service
-.env.example
-requirements.txt
-```
-
-## Hardware-Mapping Hinweise
-
-- Verkabelung: `GPIO18 -> rechtes Panel IN -> ... -> linkes Panel`.
-- Standard-Config ist darauf ausgelegt:
-  - `DATA_STARTS_RIGHT=true`
-  - `SERPENTINE=true`
-  - `FIRST_PIXEL_OFFSET=0`
-  - `PANEL_ORDER=0,1,2,3`
-  - `PANEL_ROTATIONS=0,0,0,0`
-- Logische API-Koordinaten bleiben immer **links nach rechts**.
-
-## Setup
+## Schnellstart
 
 ```bash
 cd /path/to/PixelDock32
@@ -49,236 +12,21 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-```
-
-Optional: Admin-Passwort in `.env` anpassen.
-
-## Start
-
-```bash
-source .venv/bin/activate
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-Dann im LAN öffnen: `http://<raspberrypi-ip>:8000`
+Im LAN öffnen: `http://<raspberrypi-ip>:8000`
 
-## API-Übersicht (MVP)
+## Dokumentation
 
-- `POST /api/auth/login` → JWT holen
-- `GET /api/modules` → Module laden
-- `PUT /api/modules/{id}` → Modul ändern
-- `POST /api/display/text` → Sofort-Text anzeigen
-- `POST /api/display/draw` → 8x32 Pixel-Frame anzeigen
-- `POST /api/display/brightness` → Helligkeit setzen
-- `POST /api/debug/pattern` → Kalibrier-/Debug-Pattern starten
-- `DELETE /api/debug/pattern` → Debug-Pattern stoppen
-- `GET /api/debug/status` → Laufzeit-/Debug-Status (FPS, aktive Quelle, Polling-Stand)
-- `GET /api/debug/preview` → aktueller 8x32 Frame für virtuelle Vorschau
-- `GET /api/debug/mapping/coordinate?x=&y=` → Mapping-Erklärung für einzelne Koordinate
+- [Projektüberblick & Architektur](docs/overview.md)
+- [Setup, Betrieb, .env und Troubleshooting](docs/setup-und-betrieb.md)
+- [API-Übersicht](docs/api.md)
+- [Hardware, Mapping, Kalibrierung & DHT11](docs/hardware-und-mapping.md)
+- [Module und Features](docs/module-und-feature-doku.md)
+- [Roadmap](docs/roadmap.md)
 
+## Hinweise
 
-
-### Schnelles Mapping-Schema (neu)
-
-Wenn Panels verdreht oder vertauscht montiert wurden, kannst du das jetzt mit zwei Werten korrigieren:
-
-- `PANEL_ORDER`: Reihenfolge der **physisch verketteten Panels** auf die logischen Panel-Slots.
-  - Format: Komma-Liste mit 4 Zahlen (`0..3`)
-  - Beispiel `3,2,1,0`: komplett gespiegelt
-- `PANEL_ROTATIONS`: Rotation je **logischem Panel-Index** in Grad.
-  - Erlaubt: `0`, `90`, `180`, `270`
-  - Beispiel `0,180,0,180`: jedes zweite Panel auf dem Kopf
-
-Empfohlener Ablauf:
-
-1. `panel_walk` nutzen, bis die Reihenfolge passt (`PANEL_ORDER`).
-2. Danach mit `pixel_walk` die Laufrichtung prüfen und pro Panel die Rotation setzen (`PANEL_ROTATIONS`).
-3. Optional mit `border` final gegenprüfen.
-
-So kannst du typische Hardware-Fehler mit wenigen Zahlenwerten beheben, ohne Code anzufassen.
-
-## Panel-Kalibrierung & Hardware-Debug
-
-Neue Debug-Pattern helfen beim Verkabeln und Mapping-Check:
-
-- `pixel_walk`: wandert Pixel für Pixel durch das 8x32 Feld
-- `panel_walk`: schaltet panelweise 8x8 Blöcke
-- `stripes`: blinkende vertikale Streifen
-- `border`: statischer Rahmen
-
-Über die Web-UI im Abschnitt **Hardware-Debug / Kalibrierung** oder per CLI:
-
-```bash
-python3 scripts_calibrate.py --pattern pixel_walk --seconds 30 --interval-ms 200
-```
-
-
-## Modul-Settings (UI)
-
-In der Modul-Verwaltung können jetzt modul-spezifische Einstellungen direkt bearbeitet und gespeichert werden:
-
-- **Clock**: `timezone`, Sekundenanzeige an/aus, einstellbarer `char_spacing`
-- **BTC**: kompakte Anzeige im k-Format (z. B. `56.8k`), einstellbarer `char_spacing`
-- **Weather**: Temperatur in Celsius (Stadtname ausgeblendet), optional Postleitzahl-Info, einstellbarer `char_spacing`
-- **Text Box**: Zeilen-/Ticker-Text mit einstellbarem `char_spacing`
-
-Die Werte werden über `PUT /api/modules/{id}` gespeichert.
-
-
-## Mapping-Wizard & Virtuelle Vorschau
-
-
-Die Web-UI enthält jetzt einen geführten Mapping-Bereich mit:
-
-- Schritt-Buttons für Panel-Reihenfolge/Serpentine/Rand-Check
-- Koordinaten-Inspektor (`x`,`y`) mit Rückgabe des physikalischen LED-Index
-- Virtuelle Live-Vorschau (8x32) über `GET /api/debug/preview`
-
-Damit kannst du Mapping-Fehler systematisch finden, ohne nur auf das physische Panel schauen zu müssen.
-
-
-## Farb-Logik der Module
-
-- **BTC**: Führendes `B` ist orange. Preis in `k`-Format wird grün bei steigendem Kurs, rot bei fallendem Kurs, gelb bei unverändert.
-- **Weather**: Temperatur wird farbcodiert von kalt (blau) bis warm (rot) angezeigt.
-- **Virtuelle Vorschau**: zeigt diese Farben live über `GET /api/debug/preview` an.
-
-## Multiline & Transition-Animation
-
-- Neues Modul **Text Box** für kurze mehrzeilige Texte (`lines`) mit automatischem Zeilenwechsel (`line_seconds`).
-- Alle Text-Module unterstützen vertikale Transitionen bei Inhaltswechsel:
-  - `transition_direction=down` (neue Zeile von oben nach unten)
-  - `transition_direction=up` (neue Zeile von unten nach oben)
-- Übergangsdauer über `transition_ms` einstellbar (0 = ohne Animation).
-- Beim **Clock-Modul** ist das Sekundentakt-Sliding standardmäßig deaktiviert (`transition_on_content_change=false`), damit der Slide primär beim Modulwechsel sichtbar ist.
-
-## Clock-Sekundenrand (neu)
-
-Das Clock-Modul unterstützt jetzt optional einen dynamischen 1px-Rand als Sekunden-Visualisierung:
-
-- `seconds_border_mode=off`: deaktiviert
-- `seconds_border_mode=linear`: linearer Fortschritt über die Minute
-- `seconds_border_mode=two_forward_one_back`: animierter "2 vor, 1 zurück" Verlauf
-- `seconds_border_mode=dual_edge`: zusätzlicher Modus mit Wachstum von zwei Startpunkten
-- `seconds_border_color`: Farbe des Sekundenrands
-
-Der Rand ist bei `0s` leer und bei `59s` vollständig gefüllt.
-
-## Bitmap-Modul (32px breit, vertikales Scrolling)
-
-- Neues Modul **Bitmap** lädt Bitmap-Dateien aus `app/bitmaps/` (Monochrom **und RGB**).
-- Unterstützte Formate:
-  - Plaintext-Bitmaps (`0/1`, `#`, `X`, `@`)
-  - Plaintext-Farb-Token pro Pixel (z. B. `#RRGGBB`, `r:g:b`, `0xRRGGBB`, `off`)
-  - `P1`-PBM (Monochrom)
-  - `P3`-PPM (RGB)
-- Erwartete Breite: **32 Pixel**. Höhe darf größer als 8 sein.
-- Bei Höhe `> 8` wird ein 8-Zeilen-Fenster vertikal gescrollt:
-  - `scroll_direction=top_to_bottom`
-  - `scroll_direction=bottom_to_top`
-- Scroll-Geschwindigkeit über `scroll_speed` (empfohlen 0.25 bis 20).
-
-Beispiel-Files: `app/bitmaps/sample_arrow.txt` (mono) und `app/bitmaps/sample_gradient.ppm` (RGB)
-
-
-## systemd Autostart
-
-Service-Datei: `systemd/pixeldock32.service`
-
-Installation am Pi:
-
-```bash
-sudo cp systemd/pixeldock32.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable pixeldock32
-sudo systemctl start pixeldock32
-sudo systemctl status pixeldock32
-```
-
-## Wichtige .env Parameter
-
-- LED Treiber: `LED_*`
-- Mapping: `DATA_STARTS_RIGHT`, `SERPENTINE`, `FIRST_PIXEL_OFFSET`
-- Render/Polling: `RENDER_FPS`, `POLL_BTC_SECONDS`, `POLL_WEATHER_SECONDS`
-- Wetter/BTC APIs: `WEATHER_*`, `BTC_API_URL`
-
-## Nächste sinnvolle Schritte
-
-1. **Panel-Kalibrierungstest**: kleines Testscript für Pixel-Walk + Mapping-Verifikation je Panel.
-2. **Mapping-Wizard**: geführte Kalibrierung für Panel-Reihenfolge, Serpentine und Offset.
-3. **Bessere Text-Engine**: Scrolling + größere Font-Auswahl + UTF-8 Glyphen.
-4. **API-Resilience**: Retry/Backoff + sichtbarer Status in UI (letztes Update, Fehlerzustand).
-5. **Sicherheits-Hardening**: HTTPS via Reverse Proxy, rate limit, Passwort-Hash verpflichtend.
-
-
-## UI/UX Verbesserungen (Sprint A)
-
-- Globales **System-Status Panel** in der Web-UI (API online, Quelle, Modul, FPS, Debug-Status, Daten-Updates).
-- **Toast-Feedback** bei allen UI-Aktionen inklusive Fehlern/Netzwerkproblemen.
-- **Quick Presets** für Debug-Pattern (Wiring/Serpentine/Noise Check).
-- Neues Backend-Status-API: `GET /api/debug/status`.
-
-
-## Troubleshooting
-
-Wenn beim Start folgender Fehler kommt:
-
-- `ValueError: the greenlet library is required to use this function. No module named "greenlet"`
-
-Dann wurden die Python-Abhängigkeiten unvollständig installiert. Neu installieren:
-
-```bash
-source .venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
-```
-
-Danach `uvicorn app.main:app --host 0.0.0.0 --port 8000` erneut starten.
-
-
-## GIF-Support (Roadmap)
-
-Aktuell rendert das Bitmap-Modul statische Dateien mit vertikalem Scrolling. Für kleine GIF-Animationen sind als nächster Schritt nötig:
-
-- Frame-Decoder (z. B. `Pillow`) zum Extrahieren einzelner GIF-Frames inkl. Frame-Dauer.
-- In-Memory-Framecache (pro Datei + `mtime`) analog zum Bitmap-Cache.
-- Zeitbasierte Frame-Auswahl im Renderloop (`now -> frame_index`) mit sauberem Looping.
-- Optionales Dithering/Farbreduktion für bessere Lesbarkeit auf 32x8.
-- Einheitliche Einstellungen im Modul (`playback_speed`, `loop_mode`, optional `fit/crop`).
-
-
-## DHT11 am Raspberry Pi (lokale Temperatur + Luftfeuchte)
-
-Das Weather-Modul kann optional direkt vom DHT-Sensor lesen (statt Open-Meteo):
-
-1. Verdrahtung DHT11
-   - VCC -> 3.3V (Pin 1)
-   - GND -> GND (z. B. Pin 6)
-   - DATA -> GPIO4 (Pin 7, anpassbar über `DHT_GPIO_PIN`)
-   - Bei nacktem Sensor: 10k Pull-Up zwischen DATA und VCC
-2. Python-Bibliothek installieren:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. In `.env` aktivieren:
-   ```env
-   DHT_ENABLED=true  # default aktiv
-   DHT_MODEL=DHT11
-   DHT_GPIO_PIN=4
-   POLL_DHT_SECONDS=3
-   ```
-
-Hinweise:
-- Das Weather-Modul rotiert kompakt zwischen 3 Screens: `Oxx.xC` (Outdoor), `Ixx.xC` (Indoor), `Hxx%` (Indoor Luftfeuchte).
-- Die Umschaltzeit ist im Modul über `Screen-Wechsel (Sek.)` einstellbar.
-- Datenquellen: Outdoor aus Open-Meteo, Indoor/Feuchte aus DHT11.
-- DHT-Debug live: `GET /api/debug/dht` zeigt GPIO-Level, Rohwerte, Read-Dauer, Fehler und Verarbeitungs-Pipeline.
-
-### Kurz erklärt: Signalverarbeitung & GPIO (DHT11 ↔ Raspberry Pi)
-
-- **Leitung/Protokoll:** Der DHT11 nutzt eine einzelne **DATA-Leitung** (Single-Wire, proprietäres Timing-Protokoll).
-- **GPIO-Belegung:** In diesem Projekt hängt DATA standardmäßig auf **BCM GPIO4** (`DHT_GPIO_PIN=4`), Versorgung über **3.3V** und **GND**.
-- **Signalstabilität:** Ein **Pull-Up (typisch 10kΩ)** zwischen DATA und 3.3V hält das Signal im Idle-Zustand auf HIGH.
-- **Messablauf in der App:** Der DHT-Poller in `ExternalDataService` ruft zyklisch `Adafruit_DHT.read_retry(...)` auf. Die Library erzeugt die nötigen Timing-Sequenzen am GPIO und dekodiert daraus Temperatur/Feuchte.
-- **Weiterverarbeitung:** Die dekodierten Werte werden als `weather_indoor_temp` und `weather_indoor_humidity` im Cache abgelegt; Open-Meteo bleibt separat als `weather_outdoor_temp`.
-- **Anzeige:** Das Weather-Modul schaltet zeitgesteuert zwischen Outdoor-Temp, Indoor-Temp und Indoor-Feuchte um.
+- Es wurden keine Inhalte entfernt; alle bisherigen README-Informationen wurden in thematisch getrennte Dateien unter `docs/` ausgelagert.
+- Service-Setup bleibt unter `systemd/pixeldock32.service`.
