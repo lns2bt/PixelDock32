@@ -12,3 +12,4 @@
 - `GET /api/debug/preview` → aktueller 8x32 Frame für virtuelle Vorschau
 - `GET /api/debug/mapping/coordinate?x=&y=` → Mapping-Erklärung für einzelne Koordinate
 - `GET /api/debug/dht` → DHT-Debug live mit GPIO-Level, Rohwerten, Read-Dauer, Fehlern und Verarbeitungs-Pipeline
+- `POST /api/debug/dht/read-once` → erzwungener Einzel-Read inkl. Backend, GPIO-Level vor/nach Read und Fehlerdetails
