@@ -151,6 +151,47 @@
     </section>
 
 
+
+
+    <section class="card">
+      <h2>GPIO Pin Finder</h2>
+      <p class="subtle">Sicherer Helfer beim Zusammenbau: sende kurze Testsignale oder prüfe den Eingangspegel für einen gewählten GPIO.</p>
+      <div class="form-row gpio-row">
+        <div class="field">
+          <label for="gpioPin">GPIO (BCM)</label>
+          <input id="gpioPin" type="number" min="2" max="27" value="18" />
+        </div>
+        <div class="field">
+          <label for="gpioPulses">LED-Test Pulse</label>
+          <input id="gpioPulses" type="number" min="1" max="12" value="3" />
+        </div>
+        <div class="field">
+          <label for="gpioHoldMs">Pulse Dauer (ms)</label>
+          <input id="gpioHoldMs" type="number" min="80" max="2000" value="220" />
+        </div>
+        <div class="field actions-end">
+          <button class="btn" onclick="runGpioOutputTest()">LED-Datenpin testen</button>
+        </div>
+      </div>
+      <div class="form-row gpio-row" style="margin-top: 8px;">
+        <div class="field">
+          <label for="gpioSampleMs">Input-Probe Dauer (ms)</label>
+          <input id="gpioSampleMs" type="number" min="250" max="10000" value="1200" />
+        </div>
+        <div class="field">
+          <label for="gpioPull">Input Pull</label>
+          <select id="gpioPull">
+            <option value="up" selected>Pull-Up</option>
+            <option value="down">Pull-Down</option>
+          </select>
+        </div>
+        <div class="field actions-end">
+          <button class="btn btn-secondary" onclick="runGpioInputProbe()">Sensor-Pin prüfen</button>
+        </div>
+      </div>
+      <div id="gpioFinderResult" class="mapping-info">Noch kein GPIO-Test ausgeführt.</div>
+    </section>
+
     <section class="card">
       <h2>Mapping-Wizard</h2>
       <p class="subtle">Nutze die Schritte zur Verkabelungsprüfung und prüfe einzelne Koordinaten gegen den physikalischen LED-Index.</p>

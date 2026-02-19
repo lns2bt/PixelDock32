@@ -717,6 +717,46 @@ async function refreshDhtDebug() {
   el.innerText = JSON.stringify(data, null, 2);
 }
 
+
+
+function renderGpioResult(title, result) {
+  const el = document.getElementById('gpioFinderResult');
+  if (!el) return;
+  const safe = result || {};
+  const status = safe.ok ? '✅ OK' : '⚠️ Fehler';
+  el.innerText = `${title}\nStatus: ${status}\n${JSON.stringify(safe, null, 2)}`;
+}
+
+async function runGpioOutputTest() {
+  const gpioPin = parseInt(document.getElementById('gpioPin').value, 10);
+  const pulses = parseInt(document.getElementById('gpioPulses').value, 10);
+  const holdMs = parseInt(document.getElementById('gpioHoldMs').value, 10);
+
+  const data = await apiRequest('/api/debug/gpio/output-test', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ gpio_pin: gpioPin, pulses, hold_ms: holdMs }),
+  }, 'GPIO Output-Test abgeschlossen');
+
+  if (!data?.result) return;
+  renderGpioResult(`LED-Datenpin-Test auf GPIO ${gpioPin}`, data.result);
+}
+
+async function runGpioInputProbe() {
+  const gpioPin = parseInt(document.getElementById('gpioPin').value, 10);
+  const sampleMs = parseInt(document.getElementById('gpioSampleMs').value, 10);
+  const pullUp = document.getElementById('gpioPull').value === 'up';
+
+  const data = await apiRequest('/api/debug/gpio/input-probe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ gpio_pin: gpioPin, sample_ms: sampleMs, pull_up: pullUp }),
+  }, 'GPIO Input-Probe abgeschlossen');
+
+  if (!data?.result) return;
+  renderGpioResult(`Sensor-Probe auf GPIO ${gpioPin}`, data.result);
+}
+
 function initPreviewGrid() {
   const container = document.getElementById('previewGrid');
   if (!container || container.childElementCount > 0) return;

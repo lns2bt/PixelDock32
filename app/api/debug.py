@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.api.deps import get_current_user
-from app.schemas_debug import DebugPatternRequest
+from app.schemas_debug import DebugPatternRequest, GpioInputProbeRequest, GpioOutputTestRequest
 
 router = APIRouter(prefix="/api/debug", tags=["debug"])
 
@@ -18,6 +18,13 @@ def _mapper(request: Request):
     if mapper is None:
         raise HTTPException(status_code=503, detail="mapper unavailable")
     return mapper
+
+
+def _external(request: Request):
+    external = getattr(request.app.state, "external_data_service", None)
+    if external is None:
+        raise HTTPException(status_code=503, detail="external data service unavailable")
+    return external
 
 
 @router.get("/status")
@@ -60,10 +67,12 @@ async def preview(request: Request, _: str = Depends(get_current_user)):
 @router.get("/mapping/coordinate")
 async def explain_coordinate(
     request: Request,
-    x: int = Query(ge=0, le=31),
-    y: int = Query(ge=0, le=7),
+    x: int,
+    y: int,
     _: str = Depends(get_current_user),
 ):
+    if x < 0 or x > 31 or y < 0 or y > 7:
+        raise HTTPException(status_code=422, detail="x/y out of range")
     components = _mapper(request).map_components(x, y)
     return {"ok": True, "mapping": components}
 
@@ -105,3 +114,23 @@ async def dht_debug(request: Request, _: str = Depends(get_current_user)):
             "weather_source": cache.get("weather_source"),
         },
     }
+
+
+@router.post("/gpio/output-test")
+async def gpio_output_test(payload: GpioOutputTestRequest, request: Request, _: str = Depends(get_current_user)):
+    result = _external(request).run_gpio_output_test(
+        gpio_pin=payload.gpio_pin,
+        pulses=payload.pulses,
+        hold_ms=payload.hold_ms,
+    )
+    return {"ok": True, "result": result}
+
+
+@router.post("/gpio/input-probe")
+async def gpio_input_probe(payload: GpioInputProbeRequest, request: Request, _: str = Depends(get_current_user)):
+    result = _external(request).run_gpio_input_probe(
+        gpio_pin=payload.gpio_pin,
+        sample_ms=payload.sample_ms,
+        pull_up=payload.pull_up,
+    )
+    return {"ok": True, "result": result}
