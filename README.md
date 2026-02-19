@@ -13,6 +13,10 @@ source .venv/bin/activate
 pip install -r requirements.txt
 # nur auf Raspberry Pi mit DHT-Sensor erforderlich:
 pip install Adafruit_DHT==1.4.0 --config-settings="--build-option=--force-pi"
+# Alternative (falls Adafruit_DHT/Plattform-Erkennung fehlschlägt):
+pip install adafruit-circuitpython-dht adafruit-blinka
+# optionaler GPIO-Backend-Fallback:
+pip install lgpio
 cp .env.example .env
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```

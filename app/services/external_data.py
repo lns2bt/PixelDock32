@@ -1,7 +1,11 @@
 import asyncio
 import datetime
+import importlib.util
 import logging
+import os
+import platform
 import time
+from contextlib import suppress
 
 import httpx
 
@@ -13,11 +17,67 @@ except ImportError:  # pragma: no cover - optional on non-RPi systems
     Adafruit_DHT = None
 
 try:
+    import adafruit_dht
+    import board
+except ImportError:  # pragma: no cover - optional on non-RPi systems
+    adafruit_dht = None
+    board = None
+
+try:
     import RPi.GPIO as GPIO
 except ImportError:  # pragma: no cover - optional on non-RPi systems
     GPIO = None
 
+try:
+    import lgpio
+except ImportError:  # pragma: no cover - optional on non-RPi systems
+    lgpio = None
+
 logger = logging.getLogger(__name__)
+
+def _module_available(module_name: str) -> bool:
+    with suppress(Exception):
+        return importlib.util.find_spec(module_name) is not None
+    return False
+
+
+def _module_version(distribution_name: str) -> str | None:
+    try:
+        from importlib.metadata import version
+
+        return version(distribution_name)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+BCM_TO_BOARD_PIN = {
+    2: "D2",
+    3: "D3",
+    4: "D4",
+    5: "D5",
+    6: "D6",
+    7: "D7",
+    8: "D8",
+    9: "D9",
+    10: "D10",
+    11: "D11",
+    12: "D12",
+    13: "D13",
+    14: "D14",
+    15: "D15",
+    16: "D16",
+    17: "D17",
+    18: "D18",
+    19: "D19",
+    20: "D20",
+    21: "D21",
+    22: "D22",
+    23: "D23",
+    24: "D24",
+    25: "D25",
+    26: "D26",
+    27: "D27",
+}
 
 
 class ExternalDataService:
@@ -118,23 +178,14 @@ class ExternalDataService:
             await asyncio.sleep(self.settings.poll_weather_seconds)
 
     async def _poll_dht(self):
-        sensor = None
         model = self.settings.dht_model.strip().upper()
-        if model == "DHT22":
-            sensor = Adafruit_DHT.DHT22 if Adafruit_DHT else None
-        else:
-            sensor = Adafruit_DHT.DHT11 if Adafruit_DHT else None
 
         while self._running:
             started = time.perf_counter()
             self.cache["dht_last_attempt_at"] = time.time()
             self.cache["dht_gpio_level"] = self._read_gpio_level()
             try:
-                if Adafruit_DHT is None or sensor is None:
-                    raise RuntimeError("Adafruit_DHT library not available")
-                humidity, temperature = await asyncio.to_thread(
-                    Adafruit_DHT.read_retry, sensor, self.settings.dht_gpio_pin
-                )
+                humidity, temperature = await asyncio.to_thread(self._read_dht, model)
                 if humidity is None or temperature is None:
                     raise RuntimeError("DHT read returned no data")
                 raw_temp = float(temperature)
@@ -157,15 +208,58 @@ class ExternalDataService:
                 self.cache["dht_gpio_level"] = self._read_gpio_level()
             await asyncio.sleep(self.settings.poll_dht_seconds)
 
-    def _read_gpio_level(self) -> int | None:
-        if GPIO is None:
-            return None
+    def _read_dht(self, model: str) -> tuple[float | None, float | None]:
+        if Adafruit_DHT:
+            sensor = Adafruit_DHT.DHT22 if model == "DHT22" else Adafruit_DHT.DHT11
+            humidity, temperature = Adafruit_DHT.read_retry(sensor, self.settings.dht_gpio_pin)
+            return humidity, temperature
+
+        if adafruit_dht is None or board is None:
+            raise RuntimeError(
+                "No DHT backend available (install Adafruit_DHT legacy package or adafruit-circuitpython-dht + adafruit-blinka)"
+            )
+
+        pin_name = BCM_TO_BOARD_PIN.get(self.settings.dht_gpio_pin)
+        if not pin_name or not hasattr(board, pin_name):
+            raise RuntimeError(f"Unsupported DHT GPIO pin for CircuitPython backend: {self.settings.dht_gpio_pin}")
+
+        pin = getattr(board, pin_name)
+        sensor = adafruit_dht.DHT22(pin, use_pulseio=False) if model == "DHT22" else adafruit_dht.DHT11(pin, use_pulseio=False)
         try:
-            GPIO.setmode(GPIO.BCM)
-            GPIO.setup(self.settings.dht_gpio_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-            return int(GPIO.input(self.settings.dht_gpio_pin))
+            temperature = sensor.temperature
+            humidity = sensor.humidity
+            return humidity, temperature
+        finally:
+            with suppress(Exception):
+                sensor.exit()
+
+    def _gpio_backend_name(self) -> str:
+        if GPIO is not None:
+            return "RPi.GPIO"
+        if lgpio is not None:
+            return "lgpio"
+        return "unavailable"
+
+    def _read_gpio_level(self) -> int | None:
+        try:
+            if GPIO is not None:
+                GPIO.setmode(GPIO.BCM)
+                GPIO.setup(self.settings.dht_gpio_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+                return int(GPIO.input(self.settings.dht_gpio_pin))
+            if lgpio is not None:
+                handle = lgpio.gpiochip_open(0)
+                try:
+                    pull_up_flag = getattr(lgpio, "SET_PULL_UP", 2)
+                    lgpio.gpio_claim_input(handle, self.settings.dht_gpio_pin, pull_up_flag)
+                    return int(lgpio.gpio_read(handle, self.settings.dht_gpio_pin))
+                finally:
+                    with suppress(Exception):
+                        lgpio.gpio_free(handle, self.settings.dht_gpio_pin)
+                    lgpio.gpiochip_close(handle)
         except Exception:  # noqa: BLE001
             return None
+        return None
+
 
     def _build_dht_processing(self, humidity: float, temperature: float) -> dict:
         now_iso = datetime.datetime.now(datetime.UTC).isoformat()
@@ -187,30 +281,120 @@ class ExternalDataService:
         }
 
 
+    def get_gpio_environment_report(self) -> dict:
+        backend = self._gpio_backend_name()
+        problems: list[str] = []
+
+        gpiomem_exists = os.path.exists("/dev/gpiomem")
+        gpiomem_rw = os.access("/dev/gpiomem", os.R_OK | os.W_OK) if gpiomem_exists else False
+        devmem_exists = os.path.exists("/dev/mem")
+        devmem_rw = os.access("/dev/mem", os.R_OK | os.W_OK) if devmem_exists else False
+
+        if backend == "unavailable":
+            problems.append("Kein GPIO-Backend importierbar (RPi.GPIO oder lgpio)")
+        if not gpiomem_exists and not devmem_exists:
+            problems.append("Weder /dev/gpiomem noch /dev/mem vorhanden")
+        if gpiomem_exists and not gpiomem_rw:
+            problems.append("Keine RW-Berechtigung auf /dev/gpiomem")
+
+        can_setup_input = False
+        input_error = None
+        try:
+            if backend == "RPi.GPIO":
+                GPIO.setmode(GPIO.BCM)
+                GPIO.setup(self.settings.dht_gpio_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+                _ = int(GPIO.input(self.settings.dht_gpio_pin))
+                can_setup_input = True
+            elif backend == "lgpio":
+                handle = lgpio.gpiochip_open(0)
+                try:
+                    pull_up_flag = getattr(lgpio, "SET_PULL_UP", 2)
+                    lgpio.gpio_claim_input(handle, self.settings.dht_gpio_pin, pull_up_flag)
+                    _ = int(lgpio.gpio_read(handle, self.settings.dht_gpio_pin))
+                    can_setup_input = True
+                finally:
+                    with suppress(Exception):
+                        lgpio.gpio_free(handle, self.settings.dht_gpio_pin)
+                    lgpio.gpiochip_close(handle)
+        except Exception as exc:  # noqa: BLE001
+            input_error = str(exc)
+            problems.append(f"GPIO setup/input fehlgeschlagen: {exc}")
+
+        return {
+            "ok": len(problems) == 0,
+            "platform": {
+                "system": platform.system(),
+                "release": platform.release(),
+                "machine": platform.machine(),
+                "python": platform.python_version(),
+            },
+            "gpio": {
+                "backend": backend,
+                "dht_gpio_pin": self.settings.dht_gpio_pin,
+                "can_setup_input": can_setup_input,
+                "input_error": input_error,
+                "dev_gpiomem_exists": gpiomem_exists,
+                "dev_gpiomem_rw": gpiomem_rw,
+                "dev_mem_exists": devmem_exists,
+                "dev_mem_rw": devmem_rw,
+            },
+            "libraries": {
+                "RPi.GPIO_importable": _module_available("RPi.GPIO"),
+                "lgpio_importable": _module_available("lgpio"),
+                "Adafruit_DHT_importable": _module_available("Adafruit_DHT"),
+                "adafruit_dht_importable": _module_available("adafruit_dht"),
+                "board_importable": _module_available("board"),
+                "RPi.GPIO_version": _module_version("RPi.GPIO") or _module_version("rpi-lgpio"),
+                "lgpio_version": _module_version("lgpio"),
+                "Adafruit_DHT_version": _module_version("Adafruit_DHT"),
+                "adafruit_circuitpython_dht_version": _module_version("adafruit-circuitpython-dht"),
+                "adafruit_blinka_version": _module_version("Adafruit-Blinka"),
+            },
+            "problems": problems,
+            "hint": "Wenn RPi.GPIO unter Python 3.13 fehlt: 'pip install lgpio' testen oder OS-Paket/venv angleichen.",
+        }
+
+
     def run_gpio_output_test(self, gpio_pin: int, pulses: int = 3, hold_ms: int = 220) -> dict:
-        if GPIO is None:
+        backend = self._gpio_backend_name()
+        if backend == "unavailable":
             return {
                 "ok": False,
                 "gpio_pin": gpio_pin,
-                "message": "RPi.GPIO library not available in this environment",
+                "message": "No GPIO backend available (install RPi.GPIO/rpi-lgpio or lgpio)",
             }
 
         import time as _time
 
         try:
-            GPIO.setmode(GPIO.BCM)
-            GPIO.setup(gpio_pin, GPIO.OUT, initial=GPIO.LOW)
             started = _time.perf_counter()
             hold_s = hold_ms / 1000
-            for _ in range(pulses):
-                GPIO.output(gpio_pin, GPIO.HIGH)
-                _time.sleep(hold_s)
+            if backend == "RPi.GPIO":
+                GPIO.setmode(GPIO.BCM)
+                GPIO.setup(gpio_pin, GPIO.OUT, initial=GPIO.LOW)
+                for _ in range(pulses):
+                    GPIO.output(gpio_pin, GPIO.HIGH)
+                    _time.sleep(hold_s)
+                    GPIO.output(gpio_pin, GPIO.LOW)
+                    _time.sleep(hold_s)
                 GPIO.output(gpio_pin, GPIO.LOW)
-                _time.sleep(hold_s)
-            GPIO.output(gpio_pin, GPIO.LOW)
+            else:
+                handle = lgpio.gpiochip_open(0)
+                try:
+                    lgpio.gpio_claim_output(handle, gpio_pin, 0)
+                    for _ in range(pulses):
+                        lgpio.gpio_write(handle, gpio_pin, 1)
+                        _time.sleep(hold_s)
+                        lgpio.gpio_write(handle, gpio_pin, 0)
+                        _time.sleep(hold_s)
+                finally:
+                    with suppress(Exception):
+                        lgpio.gpio_free(handle, gpio_pin)
+                    lgpio.gpiochip_close(handle)
             return {
                 "ok": True,
                 "gpio_pin": gpio_pin,
+                "backend": backend,
                 "pulses": pulses,
                 "hold_ms": hold_ms,
                 "duration_ms": round((_time.perf_counter() - started) * 1000, 2),
@@ -220,15 +404,18 @@ class ExternalDataService:
             return {
                 "ok": False,
                 "gpio_pin": gpio_pin,
+                "backend": backend,
                 "message": str(exc),
             }
 
+
     def run_gpio_input_probe(self, gpio_pin: int, sample_ms: int = 1000, pull_up: bool = True) -> dict:
-        if GPIO is None:
+        backend = self._gpio_backend_name()
+        if backend == "unavailable":
             return {
                 "ok": False,
                 "gpio_pin": gpio_pin,
-                "message": "RPi.GPIO library not available in this environment",
+                "message": "No GPIO backend available (install RPi.GPIO/rpi-lgpio or lgpio)",
             }
 
         import time as _time
@@ -241,12 +428,22 @@ class ExternalDataService:
         last = None
 
         try:
-            GPIO.setmode(GPIO.BCM)
-            pud = GPIO.PUD_UP if pull_up else GPIO.PUD_DOWN
-            GPIO.setup(gpio_pin, GPIO.IN, pull_up_down=pud)
+            if backend == "RPi.GPIO":
+                GPIO.setmode(GPIO.BCM)
+                pud = GPIO.PUD_UP if pull_up else GPIO.PUD_DOWN
+                GPIO.setup(gpio_pin, GPIO.IN, pull_up_down=pud)
+                def _read_value():
+                    return int(GPIO.input(gpio_pin))
+            else:
+                handle = lgpio.gpiochip_open(0)
+                pull_flag = getattr(lgpio, "SET_PULL_UP", 2) if pull_up else getattr(lgpio, "SET_PULL_DOWN", 1)
+                lgpio.gpio_claim_input(handle, gpio_pin, pull_flag)
+                def _read_value():
+                    return int(lgpio.gpio_read(handle, gpio_pin))
+
             deadline = _time.perf_counter() + (sample_ms / 1000)
             while _time.perf_counter() < deadline:
-                value = int(GPIO.input(gpio_pin))
+                value = _read_value()
                 if value == 1:
                     high_count += 1
                 else:
@@ -264,6 +461,7 @@ class ExternalDataService:
             return {
                 "ok": True,
                 "gpio_pin": gpio_pin,
+                "backend": backend,
                 "sample_ms": sample_ms,
                 "pull": "up" if pull_up else "down",
                 "samples": samples,
@@ -279,8 +477,16 @@ class ExternalDataService:
             return {
                 "ok": False,
                 "gpio_pin": gpio_pin,
+                "backend": backend,
                 "message": str(exc),
             }
+        finally:
+            if backend == "lgpio":
+                with suppress(Exception):
+                    lgpio.gpio_free(handle, gpio_pin)
+                with suppress(Exception):
+                    lgpio.gpiochip_close(handle)
+
 
     async def _poll_btc_block_height(self):
         while self._running:
