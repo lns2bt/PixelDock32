@@ -18,9 +18,11 @@ def main() -> None:
         assert pixels_small > 0, f"missing small glyph for {ch}"
         assert pixels_normal > 0, f"missing normal glyph for {ch}"
 
-    # Ensure a known problematic sample word still renders with enough pixels.
+    # Ensure known problematic samples still render with enough pixels.
     assert lit_pixels("PIXEL", "small") > 20
     assert lit_pixels("STATUS", "small") > 20
+    assert lit_pixels("H75%", "small") > 10
+    assert lit_pixels("H75%", "normal") > 20
 
     print("glyph-regression-ok")
 
