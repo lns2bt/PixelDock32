@@ -81,7 +81,10 @@ body {
 }
 
 .app-shell { max-width: 1100px; margin: 102px auto 0; padding: 0 14px 32px; }
-.app-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.app-header { display: block; margin-bottom: 12px; }
+.app-header.section-anchor::before {
+  margin-bottom: 6px;
+}
 .section-anchor { scroll-margin-top: 90px; }
 .section-anchor::before {
   content: attr(data-section-title);

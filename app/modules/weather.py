@@ -33,11 +33,11 @@ class WeatherModule(ModuleBase):
 
         if outdoor_temp is not None:
             outdoor_value = float(outdoor_temp)
-            screens.append((f"O{outdoor_value:.1f}C", temperature_to_rgb(outdoor_value, cold_color, warm_color)))
+            screens.append((f"Out {outdoor_value:.1f}C", temperature_to_rgb(outdoor_value, cold_color, warm_color)))
 
         if indoor_temp is not None:
             indoor_value = float(indoor_temp)
-            screens.append((f"I{indoor_value:.1f}C", temperature_to_rgb(indoor_value, cold_color, warm_color)))
+            screens.append((f"In {indoor_value:.1f}C", temperature_to_rgb(indoor_value, cold_color, warm_color)))
 
         if indoor_humidity is not None:
             screens.append((f"H{float(indoor_humidity):.0f}%", humidity_color))
