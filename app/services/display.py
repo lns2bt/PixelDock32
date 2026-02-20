@@ -110,6 +110,52 @@ class DisplayService:
         self.clock_border_path = _clock_border_path(32, 8)
         self.last_cache_snapshot: dict = {}
         self.last_cache_snapshot_ts: float | None = None
+        self.last_render_debug: dict = {
+            "module_key": None,
+            "module_text": None,
+            "module_settings": {},
+            "panel_values": {},
+            "cache_missing_keys": [],
+            "cache_has_any_values": False,
+            "updated_at": None,
+        }
+
+    @staticmethod
+    def _module_cache_keys(module_key: str | None) -> list[str]:
+        common_keys = ["weather_source", "btc_error", "weather_error", "dht_error"]
+        if module_key == "btc":
+            return [
+                "btc_eur",
+                "btc_trend",
+                "btc_block_height",
+                "btc_updated_at",
+                "btc_block_height_updated_at",
+                "btc_block_height_error",
+            ] + common_keys
+        if module_key == "weather":
+            return [
+                "weather_outdoor_temp",
+                "weather_indoor_temp",
+                "weather_indoor_humidity",
+                "weather_updated_at",
+                "dht_updated_at",
+                "dht_backend",
+                "dht_last_attempt_at",
+            ] + common_keys
+        return common_keys
+
+    def _update_live_debug(self, module_key: str | None, settings: dict, cache: dict, payload: ModulePayload | None = None):
+        keys = self._module_cache_keys(module_key)
+        panel_values = {key: cache.get(key) for key in keys}
+        self.last_render_debug = {
+            "module_key": module_key,
+            "module_text": payload.text if payload else None,
+            "module_settings": settings,
+            "panel_values": panel_values,
+            "cache_missing_keys": [key for key in keys if key not in cache],
+            "cache_has_any_values": any(value is not None for value in panel_values.values()),
+            "updated_at": time.time(),
+        }
 
     async def start(self):
         self._running = True
@@ -354,6 +400,7 @@ class DisplayService:
         if not module:
             self.last_source = "module"
             self.last_module_key = None
+            self._update_live_debug(None, {}, {}, None)
             return [[0 for _ in range(32)] for _ in range(8)], blank_color_frame(32, 8)
 
         self.last_source = "module"
@@ -392,8 +439,10 @@ class DisplayService:
             except (ValueError, TypeError):
                 frame = [[0 for _ in range(32)] for _ in range(8)]
                 color_frame = blank_color_frame(32, 8)
+            self._update_live_debug(selected["key"], settings, live_cache, None)
         else:
             payload: ModulePayload = await module.render(settings, live_cache)
+            self._update_live_debug(selected["key"], settings, live_cache, payload)
             if payload.frame is not None:
                 frame = payload.frame
             else:

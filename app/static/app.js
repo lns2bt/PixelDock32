@@ -111,7 +111,14 @@ function getStatusSnapshot(payload) {
   const liveDataDebug = root.live_data_debug && typeof root.live_data_debug === 'object'
     ? root.live_data_debug
     : {};
-  return { display, sourceData, externalData, liveDataDebug };
+  const renderDebug = liveDataDebug.render_debug && typeof liveDataDebug.render_debug === 'object'
+    ? liveDataDebug.render_debug
+    : {};
+  const panelValues = renderDebug.panel_values && typeof renderDebug.panel_values === 'object'
+    ? renderDebug.panel_values
+    : {};
+  const panelSourceData = { ...sourceData, ...panelValues };
+  return { display, sourceData: panelSourceData, externalData, liveDataDebug };
 }
 
 function formatDebugValue(value) {
@@ -134,14 +141,42 @@ function formatAgeSeconds(timestamp) {
 function getLiveDataWaitReason(display, sourceData, liveDataDebug) {
   const snapshotTs = liveDataDebug.snapshot_ts || display.cache_snapshot_ts;
   const hasAnyValues = !!liveDataDebug.has_any_values;
+  const renderDebug = liveDataDebug.render_debug || {};
+  const moduleHasValues = !!renderDebug.cache_has_any_values;
+  const activeModule = renderDebug.module_key || display.last_module;
   if (!snapshotTs) {
     return 'warte auf den ersten Cache-Snapshot aus dem Render-Loop (display.cache_snapshot_ts ist leer)';
+  }
+  if (activeModule && !moduleHasValues && hasAnyValues) {
+    return `Global sind Daten vorhanden, aber das aktive Modul (${activeModule}) hat aktuell keine Nutzwerte im Cache`;
   }
   if (!hasAnyValues) {
     const weatherSource = sourceData.weather_source || sourceData.dht_backend || '-';
     return `Snapshot vorhanden, aber noch keine Nutzdaten (BTC/Wetter/DHT). Wetterquelle aktuell: ${weatherSource}`;
   }
   return 'ok';
+}
+
+function getModuleFieldMap(moduleKey) {
+  if (moduleKey === 'btc') {
+    return {
+      overviewBtcPrice: ['btc_eur'],
+      overviewBtcTrend: ['btc_trend'],
+      overviewBlockHeight: ['btc_block_height'],
+      overviewBlockHeightUpdated: ['btc_block_height_updated_at', 'btc_block_height_error'],
+    };
+  }
+  if (moduleKey === 'weather') {
+    return {
+      overviewOutdoorTemp: ['weather_outdoor_temp', 'weather_temp'],
+      overviewWeatherSource: ['weather_source', 'dht_backend'],
+      overviewIndoorTemp: ['weather_indoor_temp', 'dht_raw_temperature'],
+      overviewDhtBackend: ['dht_backend'],
+      overviewHumidity: ['weather_indoor_humidity', 'dht_raw_humidity'],
+      overviewDhtUpdated: ['dht_updated_at', 'weather_updated_at'],
+    };
+  }
+  return {};
 }
 
 function renderOverviewLiveDataDebug(display, sourceData, externalData, liveDataDebug) {
@@ -162,6 +197,9 @@ function renderOverviewLiveDataDebug(display, sourceData, externalData, liveData
   const errors = liveDataDebug.errors || {};
   const pollState = liveDataDebug.poll_state || {};
   const pollIntervals = pollState.poll_intervals || {};
+  const renderDebug = liveDataDebug.render_debug || {};
+  const renderFields = renderDebug.panel_values || {};
+  const moduleMap = getModuleFieldMap(renderDebug.module_key || display.last_module);
 
   const lines = [
     `Status: ${waitReason === 'ok' ? 'Daten vorhanden' : 'Warten auf Daten'}`,
@@ -169,10 +207,15 @@ function renderOverviewLiveDataDebug(display, sourceData, externalData, liveData
     `Quelle: ${liveDataDebug.source || 'unbekannt'}`,
     `Render-Quelle: ${display.last_source || '-'}`,
     `Aktives Modul: ${display.last_module || '-'}`,
+    `Render-Hook Modul: ${renderDebug.module_key || '-'}`,
+    `Render-Hook Text: ${renderDebug.module_text || '-'}`,
+    `Render-Hook Update: ${formatTs(renderDebug.updated_at)} | ${formatAgeSeconds(renderDebug.updated_at)}`,
     `Snapshot: ${formatTs(liveDataDebug.snapshot_ts || display.cache_snapshot_ts)}`,
     `LiveData hat Werte: ${liveDataDebug.has_any_values ? 'ja' : 'nein'}`,
+    `Aktives Modul hat Werte: ${renderDebug.cache_has_any_values ? 'ja' : 'nein'}`,
     `Display-Cache-Keys: ${(liveDataDebug.display_cache_keys || []).length}`,
     `External-Cache-Keys: ${(liveDataDebug.external_cache_keys || []).length}`,
+    `Fehlende Modul-Keys: ${(renderDebug.cache_missing_keys || []).join(', ') || '-'}`,
     '',
     'Polling:',
     `- ExternalDataService läuft: ${pollState.external_running ? 'ja' : 'nein'} (Tasks: ${pollState.poll_task_count ?? 0})`,
@@ -191,8 +234,24 @@ function renderOverviewLiveDataDebug(display, sourceData, externalData, liveData
     `- Weather: ${errors.weather_error || '-'}`,
     `- DHT: ${errors.dht_error || '-'}`,
     '',
-    'Vergleich display-cache vs external-cache:',
+    'Modul-Hook (Werte, die das aktive Modul direkt nutzt):',
   ];
+
+  Object.entries(renderFields).forEach(([key, value]) => {
+    lines.push(`• ${key}: ${formatDebugValue(value)}`);
+  });
+
+  lines.push('');
+  lines.push('UI-Verknüpfung (Overview-Feld -> Datenkeys):');
+  Object.entries(moduleMap).forEach(([uiKey, keys]) => {
+    lines.push(`• ${uiKey} <= ${keys.join(' | ')}`);
+  });
+  if (!Object.keys(moduleMap).length) {
+    lines.push('• keine direkte Modul-Verknüpfung (z. B. clock/textbox/bitmap)');
+  }
+
+  lines.push('');
+  lines.push('Vergleich display-cache vs external-cache:');
 
   fields.forEach((key) => {
     const live = sourceData?.[key];
