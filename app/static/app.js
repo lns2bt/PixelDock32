@@ -104,10 +104,33 @@ function parseLiveNumber(...values) {
 function getStatusSnapshot(payload) {
   const root = payload || {};
   const display = root.display || {};
-  const sourceData = root.live_data || root.data || root.cache || root;
-  const externalData = root.data || root.cache || {};
-  const liveDataDebug = root.live_data_debug || {};
+  const sourceDataRaw = root.live_data || root.data || root.cache || root;
+  const externalDataRaw = root.data || root.cache || {};
+  const sourceData = sourceDataRaw && typeof sourceDataRaw === 'object' ? sourceDataRaw : {};
+  const externalData = externalDataRaw && typeof externalDataRaw === 'object' ? externalDataRaw : {};
+  const liveDataDebug = root.live_data_debug && typeof root.live_data_debug === 'object'
+    ? root.live_data_debug
+    : {};
   return { display, sourceData, externalData, liveDataDebug };
+}
+
+function formatDebugValue(value) {
+  if (value === null || value === undefined) return '-';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return `${value}`;
+  return JSON.stringify(value);
+}
+
+function getLiveDataWaitReason(display, sourceData, liveDataDebug) {
+  const snapshotTs = liveDataDebug.snapshot_ts || display.cache_snapshot_ts;
+  const hasAnyValues = !!liveDataDebug.has_any_values;
+  if (!snapshotTs) {
+    return 'warte auf den ersten Cache-Snapshot aus dem Render-Loop (display.cache_snapshot_ts ist leer)';
+  }
+  if (!hasAnyValues) {
+    const weatherSource = sourceData.weather_source || sourceData.dht_backend || '-';
+    return `Snapshot vorhanden, aber noch keine Nutzdaten (BTC/Wetter/DHT). Wetterquelle aktuell: ${weatherSource}`;
+  }
+  return 'ok';
 }
 
 function renderOverviewLiveDataDebug(display, sourceData, externalData, liveDataDebug) {
@@ -123,12 +146,18 @@ function renderOverviewLiveDataDebug(display, sourceData, externalData, liveData
     'dht_raw_temperature',
     'dht_raw_humidity',
   ];
+  const waitReason = getLiveDataWaitReason(display, sourceData, liveDataDebug);
+
   const lines = [
+    `Status: ${waitReason === 'ok' ? 'Daten vorhanden' : 'Warten auf Daten'}`,
+    `Wartegrund: ${waitReason === 'ok' ? '-' : waitReason}`,
     `Quelle: ${liveDataDebug.source || 'unbekannt'}`,
     `Render-Quelle: ${display.last_source || '-'}`,
     `Aktives Modul: ${display.last_module || '-'}`,
     `Snapshot: ${formatTs(liveDataDebug.snapshot_ts || display.cache_snapshot_ts)}`,
     `LiveData hat Werte: ${liveDataDebug.has_any_values ? 'ja' : 'nein'}`,
+    `Display-Cache-Keys: ${(liveDataDebug.display_cache_keys || []).length}`,
+    `External-Cache-Keys: ${(liveDataDebug.external_cache_keys || []).length}`,
     '',
     'Vergleich display-cache vs external-cache:',
   ];
@@ -137,7 +166,7 @@ function renderOverviewLiveDataDebug(display, sourceData, externalData, liveData
     const live = sourceData?.[key];
     const ext = externalData?.[key];
     const marker = live !== null && live !== undefined ? '✓' : '✗';
-    lines.push(`${marker} ${key}: live=${JSON.stringify(live)} | ext=${JSON.stringify(ext)}`);
+    lines.push(`${marker} ${key}: live=${formatDebugValue(live)} | ext=${formatDebugValue(ext)}`);
   });
   el.innerText = lines.join('\n');
 }
