@@ -286,6 +286,42 @@ class ExternalDataService:
                 "error": str(exc),
             }
 
+    def read_dht_debug_snapshot(self) -> dict:
+        model = self.settings.dht_model.strip().upper()
+        started = time.perf_counter()
+        gpio_before = self._read_gpio_level()
+        try:
+            humidity, temperature, backend = self._read_dht(model)
+            duration_ms = round((time.perf_counter() - started) * 1000, 2)
+            gpio_after = self._read_gpio_level()
+            return {
+                "ok": humidity is not None and temperature is not None,
+                "model": model,
+                "gpio_pin": self.settings.dht_gpio_pin,
+                "backend": backend,
+                "gpio_level_before": gpio_before,
+                "gpio_level_after": gpio_after,
+                "duration_ms": duration_ms,
+                "temperature": temperature,
+                "humidity": humidity,
+                "error": None,
+            }
+        except Exception as exc:  # noqa: BLE001
+            duration_ms = round((time.perf_counter() - started) * 1000, 2)
+            gpio_after = self._read_gpio_level()
+            return {
+                "ok": False,
+                "model": model,
+                "gpio_pin": self.settings.dht_gpio_pin,
+                "backend": self.cache.get("dht_backend"),
+                "gpio_level_before": gpio_before,
+                "gpio_level_after": gpio_after,
+                "duration_ms": duration_ms,
+                "temperature": None,
+                "humidity": None,
+                "error": str(exc),
+            }
+
     def _gpio_backend_name(self) -> str:
         if GPIO is not None:
             return "RPi.GPIO"
