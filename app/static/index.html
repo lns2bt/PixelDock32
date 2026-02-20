@@ -149,8 +149,14 @@
         <button class="btn" onclick="runDhtReadOnce()">DHT Read Once</button>
         <button class="btn btn-secondary" onclick="runGpioEnvironmentCheck()">GPIO-Umgebung prüfen</button>
       </div>
-      <div id="dhtReadOnceResult" class="mapping-info" style="margin-top:8px;">Noch kein DHT Einzel-Read ausgeführt.</div>
-      <pre id="dhtDebugInfo">-</pre>
+      <details class="debug-panel" open>
+        <summary>DHT Read-Once Ergebnis</summary>
+        <div id="dhtReadOnceResult" class="mapping-info" style="margin-top:8px;">Noch kein DHT Einzel-Read ausgeführt.</div>
+      </details>
+      <details class="debug-panel" open>
+        <summary>DHT Debug (JSON)</summary>
+        <pre id="dhtDebugInfo" class="debug-pre">-</pre>
+      </details>
     </section>
 
 
@@ -195,7 +201,10 @@
           <button class="btn btn-secondary" onclick="runGpioInputProbe()">Sensor-Pin prüfen</button>
         </div>
       </div>
-      <div id="gpioFinderResult" class="mapping-info">Noch kein GPIO-Test ausgeführt.</div>
+      <details class="debug-panel" open>
+        <summary>GPIO Debug-Ausgabe</summary>
+        <div id="gpioFinderResult" class="mapping-info">Noch kein GPIO-Test ausgeführt.</div>
+      </details>
     </section>
 
     <section class="card">

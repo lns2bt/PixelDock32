@@ -118,6 +118,7 @@ async def dht_debug(request: Request, _: str = Depends(get_current_user)):
         "attempts": {
             "source_stats": cache.get("dht_source_stats"),
             "backend_stats": cache.get("dht_backend_stats"),
+            "disabled_backends": cache.get("dht_disabled_backends"),
             "trace": cache.get("dht_trace"),
         },
         "diagnostics": cache.get("dht_diagnostics"),

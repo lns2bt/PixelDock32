@@ -109,6 +109,7 @@ class ExternalDataService:
             "dht_trace": [],
             "dht_source_stats": {},
             "dht_backend_stats": {},
+            "dht_disabled_backends": {},
             "dht_diagnostics": None,
             "btc_trend": "flat",
             "btc_block_height": None,
@@ -210,8 +211,13 @@ class ExternalDataService:
                 self.cache["weather_updated_at"] = self.cache["dht_updated_at"]
                 self.cache["weather_error"] = None
                 self.cache["dht_error"] = None
+                logger.info(
+                    "DHT read ok (%s): %.1f°C, %.1f%%",
+                    backend,
+                    raw_temp,
+                    raw_humidity,
+                )
             except Exception as exc:  # noqa: BLE001
-                logger.warning("DHT polling failed: %s", exc)
                 self.cache["dht_error"] = str(exc)
                 self.cache["dht_last_error_source"] = "poller"
             finally:
@@ -229,7 +235,7 @@ class ExternalDataService:
         temperature: float | None = None,
         humidity: float | None = None,
     ) -> None:
-        now_iso = datetime.datetime.now(datetime.UTC).isoformat()
+        now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
         trace = collections.deque(self.cache.get("dht_trace") or [], maxlen=40)
         trace.append(
             {
@@ -262,6 +268,7 @@ class ExternalDataService:
     def _build_dht_diagnostics(self) -> dict:
         source_stats = self.cache.get("dht_source_stats") or {}
         backend_stats = self.cache.get("dht_backend_stats") or {}
+        disabled_backends = self.cache.get("dht_disabled_backends") or {}
 
         noisy_sources = [
             name
@@ -297,13 +304,42 @@ class ExternalDataService:
             "dominant_success_backend": dominant_success_backend,
             "noisy_sources": noisy_sources,
             "noisy_backends": noisy_backends,
+            "disabled_backends": disabled_backends,
             "recommendation": recommendation,
         }
+
+    def _is_backend_disabled(self, backend: str) -> bool:
+        disabled = self.cache.get("dht_disabled_backends") or {}
+        return backend in disabled
+
+    def _disable_backend(self, backend: str, reason: str) -> None:
+        disabled = dict(self.cache.get("dht_disabled_backends") or {})
+        if backend in disabled:
+            return
+        disabled[backend] = {
+            "reason": reason,
+            "disabled_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        }
+        self.cache["dht_disabled_backends"] = disabled
+
+    def _consider_disabling_backend(self, backend: str, error_message: str | None = None) -> None:
+        stats = (self.cache.get("dht_backend_stats") or {}).get(backend) or {}
+        ok_count = int(stats.get("ok", 0))
+        error_count = int(stats.get("error", 0))
+        if ok_count > 0:
+            return
+        if error_message and "unknown platform" in error_message.lower() and error_count >= 3:
+            self._disable_backend(backend, "repeated 'Unknown platform' errors")
+            return
+        if error_count >= 10:
+            self._disable_backend(backend, "10 consecutive errors without a successful read")
 
     def _read_dht(self, model: str, source: str = "unknown") -> tuple[float | None, float | None, str]:
         backend_errors: list[str] = []
 
-        if Adafruit_DHT:
+        if self._is_backend_disabled("Adafruit_DHT"):
+            backend_errors.append("Adafruit_DHT: skipped (disabled after repeated failures)")
+        elif Adafruit_DHT:
             sensor = Adafruit_DHT.DHT22 if model == "DHT22" else Adafruit_DHT.DHT11
             try:
                 humidity, temperature = Adafruit_DHT.read_retry(sensor, self.settings.dht_gpio_pin)
@@ -326,13 +362,19 @@ class ExternalDataService:
             except Exception as exc:  # noqa: BLE001
                 self._record_dht_attempt(source=source, backend="Adafruit_DHT", ok=False, error=str(exc))
                 backend_errors.append(f"Adafruit_DHT: {exc}")
+                self._consider_disabling_backend("Adafruit_DHT", str(exc))
+        elif not Adafruit_DHT:
+            backend_errors.append("Adafruit_DHT: not importable")
 
-        if adafruit_dht is not None and board is not None:
+        if self._is_backend_disabled("adafruit_dht"):
+            backend_errors.append("adafruit_dht: skipped (disabled after repeated failures)")
+        elif adafruit_dht is not None and board is not None:
             pin_name = BCM_TO_BOARD_PIN.get(self.settings.dht_gpio_pin)
             if not pin_name or not hasattr(board, pin_name):
                 message = f"unsupported GPIO pin for board backend ({self.settings.dht_gpio_pin})"
                 self._record_dht_attempt(source=source, backend="adafruit_dht", ok=False, error=message)
                 backend_errors.append(f"adafruit_dht: {message}")
+                self._consider_disabling_backend("adafruit_dht", message)
             else:
                 pin = getattr(board, pin_name)
                 sensor = adafruit_dht.DHT22(pin, use_pulseio=False) if model == "DHT22" else adafruit_dht.DHT11(pin, use_pulseio=False)
@@ -358,6 +400,7 @@ class ExternalDataService:
                 except Exception as exc:  # noqa: BLE001
                     self._record_dht_attempt(source=source, backend="adafruit_dht", ok=False, error=str(exc))
                     backend_errors.append(f"adafruit_dht: {exc}")
+                    self._consider_disabling_backend("adafruit_dht", str(exc))
                 finally:
                     with suppress(Exception):
                         sensor.exit()
@@ -365,8 +408,11 @@ class ExternalDataService:
             message = "backend unavailable (install adafruit-circuitpython-dht + adafruit-blinka)"
             self._record_dht_attempt(source=source, backend="adafruit_dht", ok=False, error=message)
             backend_errors.append(f"adafruit_dht: {message}")
+            self._consider_disabling_backend("adafruit_dht", message)
 
-        if lgpio is not None:
+        if self._is_backend_disabled("lgpio-bitbang"):
+            backend_errors.append("lgpio-bitbang: skipped (disabled after repeated failures)")
+        elif lgpio is not None:
             try:
                 humidity, temperature = self._read_dht_via_lgpio_with_retries(model)
                 self._record_dht_attempt(
@@ -380,9 +426,11 @@ class ExternalDataService:
             except Exception as exc:  # noqa: BLE001
                 self._record_dht_attempt(source=source, backend="lgpio-bitbang", ok=False, error=str(exc))
                 backend_errors.append(f"lgpio-bitbang: {exc}")
+                self._consider_disabling_backend("lgpio-bitbang", str(exc))
         else:
             self._record_dht_attempt(source=source, backend="lgpio-bitbang", ok=False, error="lgpio not importable")
             backend_errors.append("lgpio-bitbang: lgpio not importable")
+            self._consider_disabling_backend("lgpio-bitbang", "lgpio not importable")
 
         if not backend_errors:
             backend_errors.append("no DHT backend available")
@@ -540,7 +588,7 @@ class ExternalDataService:
 
 
     def _build_dht_processing(self, humidity: float, temperature: float) -> dict:
-        now_iso = datetime.datetime.now(datetime.UTC).isoformat()
+        now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
         return {
             "timestamp": now_iso,
             "model": self.settings.dht_model.strip().upper(),

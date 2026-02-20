@@ -101,6 +101,57 @@ input:focus, select:focus, textarea:focus {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 13px;
 }
+
+.debug-panel {
+  margin-top: 10px;
+  border: 1px solid #dbe3ee;
+  border-radius: 10px;
+  background: #fbfdff;
+  overflow: hidden;
+}
+
+.debug-panel > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 700;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  border-bottom: 1px solid #e8edf6;
+}
+
+.debug-panel > summary::-webkit-details-marker { display: none; }
+
+.debug-panel > summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: 8px;
+  color: #516897;
+  transition: transform .15s ease;
+}
+
+.debug-panel[open] > summary::before { transform: rotate(90deg); }
+
+.debug-panel .mapping-info {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.debug-pre {
+  margin: 0;
+  padding: 10px 12px;
+  max-height: 360px;
+  overflow: auto;
+  background: #f8fbff;
+  color: #17243f;
+  font-size: 12px;
+  line-height: 1.4;
+}
 #previewGrid {
   display: grid;
   grid-template-columns: repeat(32, minmax(10px, 14px));
