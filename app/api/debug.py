@@ -52,6 +52,7 @@ async def status(request: Request, _: str = Depends(get_current_user)):
             "dht_last_duration_ms": cache.get("dht_last_duration_ms"),
             "dht_raw_temperature": cache.get("dht_raw_temperature"),
             "dht_raw_humidity": cache.get("dht_raw_humidity"),
+            "dht_backend": cache.get("dht_backend"),
         },
     }
 
@@ -105,6 +106,7 @@ async def dht_debug(request: Request, _: str = Depends(get_current_user)):
             "raw_humidity": cache.get("dht_raw_humidity"),
             "last_error": cache.get("dht_error"),
             "last_updated_at": cache.get("dht_updated_at"),
+            "backend": cache.get("dht_backend"),
         },
         "processing": cache.get("dht_processing"),
         "derived_cache": {
@@ -116,6 +118,12 @@ async def dht_debug(request: Request, _: str = Depends(get_current_user)):
     }
 
 
+
+@router.post("/dht/read-once")
+async def dht_read_once(request: Request, _: str = Depends(get_current_user)):
+    external = _external(request)
+    result = external.read_dht_debug_snapshot()
+    return {"ok": True, "result": result}
 
 
 @router.get("/gpio/environment")
