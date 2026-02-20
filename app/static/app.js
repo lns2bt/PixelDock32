@@ -84,6 +84,61 @@ function setTextIfExists(id, value) {
   el.innerText = value;
 }
 
+function parseLiveNumber(...values) {
+  for (const value of values) {
+    if (value === null || value === undefined) continue;
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string') {
+      const normalized = value
+        .trim()
+        .replace(',', '.')
+        .replace(/[^0-9+\-.]/g, '');
+      if (!normalized) continue;
+      const parsed = Number(normalized);
+      if (!Number.isNaN(parsed) && Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return null;
+}
+
+function getStatusSnapshot(payload) {
+  const root = payload || {};
+  const display = root.display || {};
+  const sourceData = root.data || root.live_data || root.cache || root;
+  return { display, sourceData };
+}
+
+function renderLiveDataSection(sourceData) {
+  const weatherOutdoorTemp = parseLiveNumber(sourceData.weather_outdoor_temp, sourceData.weather_temp);
+  const weatherIndoorTemp = parseLiveNumber(sourceData.weather_indoor_temp, sourceData.dht_raw_temperature);
+  const weatherIndoorHumidity = parseLiveNumber(sourceData.weather_indoor_humidity, sourceData.dht_raw_humidity);
+  const weatherSource = sourceData.weather_source || sourceData.dht_backend || 'api';
+
+  setTextIfExists('overviewBtcPrice', sourceData.btc_eur === null || sourceData.btc_eur === undefined
+    ? '-'
+    : `${formatNumber(sourceData.btc_eur, 0)} €`);
+  setTextIfExists('overviewBtcTrend', `Trend: ${sourceData.btc_trend || '-'}`);
+  setTextIfExists('overviewBlockHeight', sourceData.btc_block_height === null || sourceData.btc_block_height === undefined
+    ? '-'
+    : formatNumber(sourceData.btc_block_height, 0));
+  setTextIfExists('overviewBlockHeightUpdated', sourceData.btc_block_height_error
+    ? `Fehler: ${String(sourceData.btc_block_height_error).slice(0, 28)}`
+    : `Update: ${formatTs(sourceData.btc_block_height_updated_at)}`);
+
+  setTextIfExists('overviewOutdoorTemp', weatherOutdoorTemp === null
+    ? '-'
+    : `${formatNumber(weatherOutdoorTemp, 1)} °C`);
+  setTextIfExists('overviewWeatherSource', `Quelle: ${weatherSource}`);
+  setTextIfExists('overviewIndoorTemp', weatherIndoorTemp === null
+    ? '-'
+    : `${formatNumber(weatherIndoorTemp, 1)} °C`);
+  setTextIfExists('overviewDhtBackend', `Backend: ${sourceData.dht_backend || '-'}`);
+  setTextIfExists('overviewHumidity', weatherIndoorHumidity === null
+    ? '-'
+    : `${formatNumber(weatherIndoorHumidity, 1)} %`);
+  setTextIfExists('overviewDhtUpdated', `Update: ${formatTs(sourceData.dht_updated_at)}`);
+}
+
 async function apiRequest(path, options = {}, okMessage = '') {
   try {
     const res = await fetch(path, {
@@ -770,20 +825,7 @@ async function refreshStatus() {
     return;
   }
 
-  const display = data.display || {};
-  const sourceData = data.data || data.live_data || data.cache || data;
-  const pickFirstNumber = (...values) => {
-    for (const value of values) {
-      if (value === null || value === undefined) continue;
-      const parsed = Number(value);
-      if (!Number.isNaN(parsed)) return parsed;
-    }
-    return null;
-  };
-
-  const weatherOutdoorTemp = pickFirstNumber(sourceData.weather_outdoor_temp, sourceData.weather_temp);
-  const weatherIndoorTemp = pickFirstNumber(sourceData.weather_indoor_temp, sourceData.dht_raw_temperature);
-  const weatherIndoorHumidity = pickFirstNumber(sourceData.weather_indoor_humidity, sourceData.dht_raw_humidity);
+  const { display, sourceData } = getStatusSnapshot(data);
   const weatherSource = sourceData.weather_source || sourceData.dht_backend || 'api';
   const shortError = (value, maxLen = 28) => {
     if (!value) return null;
@@ -810,28 +852,7 @@ async function refreshStatus() {
     ? `Fehler (${shortError(sourceData.dht_error, 24)})`
     : `${formatTs(sourceData.dht_updated_at)} / ${sourceData.dht_last_duration_ms ?? '-'}ms / ${sourceData.dht_backend || 'n/a'}`);
 
-  setTextIfExists('overviewBtcPrice', sourceData.btc_eur === null || sourceData.btc_eur === undefined
-    ? '-'
-    : `${formatNumber(sourceData.btc_eur, 0)} €`);
-  setTextIfExists('overviewBtcTrend', `Trend: ${sourceData.btc_trend || '-'}`);
-  setTextIfExists('overviewBlockHeight', sourceData.btc_block_height === null || sourceData.btc_block_height === undefined
-    ? '-'
-    : formatNumber(sourceData.btc_block_height, 0));
-  setTextIfExists('overviewBlockHeightUpdated', shortError(sourceData.btc_block_height_error)
-    ? `Fehler: ${shortError(sourceData.btc_block_height_error)}`
-    : `Update: ${formatTs(sourceData.btc_block_height_updated_at)}`);
-  setTextIfExists('overviewOutdoorTemp', weatherOutdoorTemp === null
-    ? '-'
-    : `${formatNumber(weatherOutdoorTemp, 1)} °C`);
-  setTextIfExists('overviewWeatherSource', `Quelle: ${weatherSource}`);
-  setTextIfExists('overviewIndoorTemp', weatherIndoorTemp === null
-    ? '-'
-    : `${formatNumber(weatherIndoorTemp, 1)} °C`);
-  setTextIfExists('overviewDhtBackend', `Backend: ${sourceData.dht_backend || '-'}`);
-  setTextIfExists('overviewHumidity', weatherIndoorHumidity === null
-    ? '-'
-    : `${formatNumber(weatherIndoorHumidity, 1)} %`);
-  setTextIfExists('overviewDhtUpdated', `Update: ${formatTs(sourceData.dht_updated_at)}`);
+  renderLiveDataSection(sourceData);
 
   await refreshDhtDebug();
 }
