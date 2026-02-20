@@ -763,46 +763,55 @@ async function refreshStatus() {
     return;
   }
 
-  statusApiEl.innerText = 'online';
-  document.getElementById('statusSource').innerText = data.display.last_source || '-';
-  document.getElementById('statusModule').innerText = data.display.last_module || '-';
-  document.getElementById('statusFps').innerText = `${data.display.target_fps} / ${data.display.actual_fps}`;
-  document.getElementById('statusDebug').innerText = data.display.debug_active
-    ? `${data.display.debug_pattern} bis ${formatTs(data.display.debug_until)}`
-    : 'inaktiv';
-  document.getElementById('statusBtc').innerText = data.data.btc_error
-    ? `Fehler (${data.data.btc_error.slice(0, 28)}...)`
-    : formatTs(data.data.btc_updated_at);
-  document.getElementById('statusWeather').innerText = data.data.weather_error
-    ? `Fehler (${data.data.weather_error.slice(0, 28)}...)`
-    : `${formatTs(data.data.weather_updated_at)} (${data.data.weather_source || 'api'})`;
-  document.getElementById('statusDhtLevel').innerText = data.data.dht_gpio_level === null ? '-' : `${data.data.dht_gpio_level}`;
-  document.getElementById('statusDhtRead').innerText = data.data.dht_error
-    ? `Fehler (${data.data.dht_error.slice(0, 24)}...)`
-    : `${formatTs(data.data.dht_updated_at)} / ${data.data.dht_last_duration_ms ?? '-'}ms / ${data.data.dht_backend || 'n/a'}`;
+  const display = data.display || {};
+  const sourceData = data.data || data.live_data || data.cache || data;
+  const shortError = (value, maxLen = 28) => {
+    if (!value) return null;
+    const text = typeof value === 'string' ? value : JSON.stringify(value);
+    if (!text) return null;
+    return text.length > maxLen ? `${text.slice(0, maxLen)}...` : text;
+  };
 
-  setTextIfExists('overviewBtcPrice', data.data.btc_eur === null || data.data.btc_eur === undefined
+  statusApiEl.innerText = 'online';
+  document.getElementById('statusSource').innerText = display.last_source || '-';
+  document.getElementById('statusModule').innerText = display.last_module || '-';
+  document.getElementById('statusFps').innerText = `${display.target_fps ?? '-'} / ${display.actual_fps ?? '-'}`;
+  document.getElementById('statusDebug').innerText = display.debug_active
+    ? `${display.debug_pattern} bis ${formatTs(display.debug_until)}`
+    : 'inaktiv';
+  document.getElementById('statusBtc').innerText = shortError(sourceData.btc_error)
+    ? `Fehler (${shortError(sourceData.btc_error)})`
+    : formatTs(sourceData.btc_updated_at);
+  document.getElementById('statusWeather').innerText = shortError(sourceData.weather_error)
+    ? `Fehler (${shortError(sourceData.weather_error)})`
+    : `${formatTs(sourceData.weather_updated_at)} (${sourceData.weather_source || 'api'})`;
+  document.getElementById('statusDhtLevel').innerText = sourceData.dht_gpio_level === null || sourceData.dht_gpio_level === undefined ? '-' : `${sourceData.dht_gpio_level}`;
+  document.getElementById('statusDhtRead').innerText = shortError(sourceData.dht_error, 24)
+    ? `Fehler (${shortError(sourceData.dht_error, 24)})`
+    : `${formatTs(sourceData.dht_updated_at)} / ${sourceData.dht_last_duration_ms ?? '-'}ms / ${sourceData.dht_backend || 'n/a'}`;
+
+  setTextIfExists('overviewBtcPrice', sourceData.btc_eur === null || sourceData.btc_eur === undefined
     ? '-'
-    : `${formatNumber(data.data.btc_eur, 0)} €`);
-  setTextIfExists('overviewBtcTrend', `Trend: ${data.data.btc_trend || '-'}`);
-  setTextIfExists('overviewBlockHeight', data.data.btc_block_height === null || data.data.btc_block_height === undefined
+    : `${formatNumber(sourceData.btc_eur, 0)} €`);
+  setTextIfExists('overviewBtcTrend', `Trend: ${sourceData.btc_trend || '-'}`);
+  setTextIfExists('overviewBlockHeight', sourceData.btc_block_height === null || sourceData.btc_block_height === undefined
     ? '-'
-    : formatNumber(data.data.btc_block_height, 0));
-  setTextIfExists('overviewBlockHeightUpdated', data.data.btc_block_height_error
-    ? `Fehler: ${data.data.btc_block_height_error.slice(0, 28)}...`
-    : `Update: ${formatTs(data.data.btc_block_height_updated_at)}`);
-  setTextIfExists('overviewOutdoorTemp', data.data.weather_outdoor_temp === null || data.data.weather_outdoor_temp === undefined
+    : formatNumber(sourceData.btc_block_height, 0));
+  setTextIfExists('overviewBlockHeightUpdated', shortError(sourceData.btc_block_height_error)
+    ? `Fehler: ${shortError(sourceData.btc_block_height_error)}`
+    : `Update: ${formatTs(sourceData.btc_block_height_updated_at)}`);
+  setTextIfExists('overviewOutdoorTemp', sourceData.weather_outdoor_temp === null || sourceData.weather_outdoor_temp === undefined
     ? '-'
-    : `${formatNumber(data.data.weather_outdoor_temp, 1)} °C`);
-  setTextIfExists('overviewWeatherSource', `Quelle: ${data.data.weather_source || 'api'}`);
-  setTextIfExists('overviewIndoorTemp', data.data.weather_indoor_temp === null || data.data.weather_indoor_temp === undefined
+    : `${formatNumber(sourceData.weather_outdoor_temp, 1)} °C`);
+  setTextIfExists('overviewWeatherSource', `Quelle: ${sourceData.weather_source || 'api'}`);
+  setTextIfExists('overviewIndoorTemp', sourceData.weather_indoor_temp === null || sourceData.weather_indoor_temp === undefined
     ? '-'
-    : `${formatNumber(data.data.weather_indoor_temp, 1)} °C`);
-  setTextIfExists('overviewDhtBackend', `Backend: ${data.data.dht_backend || '-'}`);
-  setTextIfExists('overviewHumidity', data.data.weather_indoor_humidity === null || data.data.weather_indoor_humidity === undefined
+    : `${formatNumber(sourceData.weather_indoor_temp, 1)} °C`);
+  setTextIfExists('overviewDhtBackend', `Backend: ${sourceData.dht_backend || '-'}`);
+  setTextIfExists('overviewHumidity', sourceData.weather_indoor_humidity === null || sourceData.weather_indoor_humidity === undefined
     ? '-'
-    : `${formatNumber(data.data.weather_indoor_humidity, 1)} %`);
-  setTextIfExists('overviewDhtUpdated', `Update: ${formatTs(data.data.dht_updated_at)}`);
+    : `${formatNumber(sourceData.weather_indoor_humidity, 1)} %`);
+  setTextIfExists('overviewDhtUpdated', `Update: ${formatTs(sourceData.dht_updated_at)}`);
 
   await refreshDhtDebug();
 }
