@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     dht_enabled: bool = True
     dht_model: str = "DHT11"
     dht_gpio_pin: int = 4
-    poll_dht_seconds: int = Field(default=3, ge=2)
+    poll_dht_seconds: int = Field(default=15, ge=2)
 
     poll_btc_seconds: int = Field(default=60, ge=15)
     poll_weather_seconds: int = Field(default=300, ge=60)
