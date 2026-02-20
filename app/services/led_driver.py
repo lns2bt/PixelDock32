@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import logging
 
 from app.config import Settings
 
@@ -41,9 +42,9 @@ class MockStrip:
 class LEDDriver:
     def __init__(self, settings: Settings):
         self.settings = settings
+        self._logger = logging.getLogger(__name__)
         if PixelStrip is None:
-            self.strip = MockStrip(settings.led_count)
-            self._color = lambda r, g, b: (r, g, b)
+            self._activate_mock_strip("rpi_ws281x is not installed (pip install rpi-ws281x==5.0.0)")
         else:
             self.strip = PixelStrip(
                 settings.led_count,
@@ -55,6 +56,19 @@ class LEDDriver:
                 settings.led_channel,
             )
             self._color = Color
+            try:
+                self.strip.begin()
+            except RuntimeError as exc:
+                self._logger.warning(
+                    "LED hardware initialization failed (%s). Falling back to mock strip.",
+                    exc,
+                )
+                self._activate_mock_strip("LED hardware initialization failed")
+
+    def _activate_mock_strip(self, reason: str):
+        self._logger.warning("Using mock LED strip: %s", reason)
+        self.strip = MockStrip(self.settings.led_count)
+        self._color = lambda r, g, b: (r, g, b)
         self.strip.begin()
 
     def set_brightness(self, brightness: int):
