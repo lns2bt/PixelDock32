@@ -103,6 +103,13 @@ async function apiRequest(path, options = {}, okMessage = '') {
 
     if (!res.ok) {
       const msg = data?.detail || `HTTP ${res.status}`;
+      if (res.status === 401 && token) {
+        token = '';
+        localStorage.removeItem('token');
+        setTimeout(() => {
+          window.location.replace('/login');
+        }, 250);
+      }
       toast(`Fehler: ${msg}`, true);
       return null;
     }
@@ -765,6 +772,19 @@ async function refreshStatus() {
 
   const display = data.display || {};
   const sourceData = data.data || data.live_data || data.cache || data;
+  const pickFirstNumber = (...values) => {
+    for (const value of values) {
+      if (value === null || value === undefined) continue;
+      const parsed = Number(value);
+      if (!Number.isNaN(parsed)) return parsed;
+    }
+    return null;
+  };
+
+  const weatherOutdoorTemp = pickFirstNumber(sourceData.weather_outdoor_temp, sourceData.weather_temp);
+  const weatherIndoorTemp = pickFirstNumber(sourceData.weather_indoor_temp, sourceData.dht_raw_temperature);
+  const weatherIndoorHumidity = pickFirstNumber(sourceData.weather_indoor_humidity, sourceData.dht_raw_humidity);
+  const weatherSource = sourceData.weather_source || sourceData.dht_backend || 'api';
   const shortError = (value, maxLen = 28) => {
     if (!value) return null;
     const text = typeof value === 'string' ? value : JSON.stringify(value);
@@ -773,22 +793,22 @@ async function refreshStatus() {
   };
 
   statusApiEl.innerText = 'online';
-  document.getElementById('statusSource').innerText = display.last_source || '-';
-  document.getElementById('statusModule').innerText = display.last_module || '-';
-  document.getElementById('statusFps').innerText = `${display.target_fps ?? '-'} / ${display.actual_fps ?? '-'}`;
-  document.getElementById('statusDebug').innerText = display.debug_active
+  setTextIfExists('statusSource', display.last_source || '-');
+  setTextIfExists('statusModule', display.last_module || '-');
+  setTextIfExists('statusFps', `${display.target_fps ?? '-'} / ${display.actual_fps ?? '-'}`);
+  setTextIfExists('statusDebug', display.debug_active
     ? `${display.debug_pattern} bis ${formatTs(display.debug_until)}`
-    : 'inaktiv';
-  document.getElementById('statusBtc').innerText = shortError(sourceData.btc_error)
+    : 'inaktiv');
+  setTextIfExists('statusBtc', shortError(sourceData.btc_error)
     ? `Fehler (${shortError(sourceData.btc_error)})`
-    : formatTs(sourceData.btc_updated_at);
-  document.getElementById('statusWeather').innerText = shortError(sourceData.weather_error)
+    : formatTs(sourceData.btc_updated_at));
+  setTextIfExists('statusWeather', shortError(sourceData.weather_error)
     ? `Fehler (${shortError(sourceData.weather_error)})`
-    : `${formatTs(sourceData.weather_updated_at)} (${sourceData.weather_source || 'api'})`;
-  document.getElementById('statusDhtLevel').innerText = sourceData.dht_gpio_level === null || sourceData.dht_gpio_level === undefined ? '-' : `${sourceData.dht_gpio_level}`;
-  document.getElementById('statusDhtRead').innerText = shortError(sourceData.dht_error, 24)
+    : `${formatTs(sourceData.weather_updated_at)} (${weatherSource})`);
+  setTextIfExists('statusDhtLevel', sourceData.dht_gpio_level === null || sourceData.dht_gpio_level === undefined ? '-' : `${sourceData.dht_gpio_level}`);
+  setTextIfExists('statusDhtRead', shortError(sourceData.dht_error, 24)
     ? `Fehler (${shortError(sourceData.dht_error, 24)})`
-    : `${formatTs(sourceData.dht_updated_at)} / ${sourceData.dht_last_duration_ms ?? '-'}ms / ${sourceData.dht_backend || 'n/a'}`;
+    : `${formatTs(sourceData.dht_updated_at)} / ${sourceData.dht_last_duration_ms ?? '-'}ms / ${sourceData.dht_backend || 'n/a'}`);
 
   setTextIfExists('overviewBtcPrice', sourceData.btc_eur === null || sourceData.btc_eur === undefined
     ? '-'
@@ -800,17 +820,17 @@ async function refreshStatus() {
   setTextIfExists('overviewBlockHeightUpdated', shortError(sourceData.btc_block_height_error)
     ? `Fehler: ${shortError(sourceData.btc_block_height_error)}`
     : `Update: ${formatTs(sourceData.btc_block_height_updated_at)}`);
-  setTextIfExists('overviewOutdoorTemp', sourceData.weather_outdoor_temp === null || sourceData.weather_outdoor_temp === undefined
+  setTextIfExists('overviewOutdoorTemp', weatherOutdoorTemp === null
     ? '-'
-    : `${formatNumber(sourceData.weather_outdoor_temp, 1)} °C`);
-  setTextIfExists('overviewWeatherSource', `Quelle: ${sourceData.weather_source || 'api'}`);
-  setTextIfExists('overviewIndoorTemp', sourceData.weather_indoor_temp === null || sourceData.weather_indoor_temp === undefined
+    : `${formatNumber(weatherOutdoorTemp, 1)} °C`);
+  setTextIfExists('overviewWeatherSource', `Quelle: ${weatherSource}`);
+  setTextIfExists('overviewIndoorTemp', weatherIndoorTemp === null
     ? '-'
-    : `${formatNumber(sourceData.weather_indoor_temp, 1)} °C`);
+    : `${formatNumber(weatherIndoorTemp, 1)} °C`);
   setTextIfExists('overviewDhtBackend', `Backend: ${sourceData.dht_backend || '-'}`);
-  setTextIfExists('overviewHumidity', sourceData.weather_indoor_humidity === null || sourceData.weather_indoor_humidity === undefined
+  setTextIfExists('overviewHumidity', weatherIndoorHumidity === null
     ? '-'
-    : `${formatNumber(sourceData.weather_indoor_humidity, 1)} %`);
+    : `${formatNumber(weatherIndoorHumidity, 1)} %`);
   setTextIfExists('overviewDhtUpdated', `Update: ${formatTs(sourceData.dht_updated_at)}`);
 
   await refreshDhtDebug();
