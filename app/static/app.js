@@ -104,8 +104,42 @@ function parseLiveNumber(...values) {
 function getStatusSnapshot(payload) {
   const root = payload || {};
   const display = root.display || {};
-  const sourceData = root.data || root.live_data || root.cache || root;
-  return { display, sourceData };
+  const sourceData = root.live_data || root.data || root.cache || root;
+  const externalData = root.data || root.cache || {};
+  const liveDataDebug = root.live_data_debug || {};
+  return { display, sourceData, externalData, liveDataDebug };
+}
+
+function renderOverviewLiveDataDebug(display, sourceData, externalData, liveDataDebug) {
+  const el = document.getElementById('overviewLiveDataDebug');
+  if (!el) return;
+  const fields = [
+    'btc_eur',
+    'btc_trend',
+    'btc_block_height',
+    'weather_outdoor_temp',
+    'weather_indoor_temp',
+    'weather_indoor_humidity',
+    'dht_raw_temperature',
+    'dht_raw_humidity',
+  ];
+  const lines = [
+    `Quelle: ${liveDataDebug.source || 'unbekannt'}`,
+    `Render-Quelle: ${display.last_source || '-'}`,
+    `Aktives Modul: ${display.last_module || '-'}`,
+    `Snapshot: ${formatTs(liveDataDebug.snapshot_ts || display.cache_snapshot_ts)}`,
+    `LiveData hat Werte: ${liveDataDebug.has_any_values ? 'ja' : 'nein'}`,
+    '',
+    'Vergleich display-cache vs external-cache:',
+  ];
+
+  fields.forEach((key) => {
+    const live = sourceData?.[key];
+    const ext = externalData?.[key];
+    const marker = live !== null && live !== undefined ? '✓' : '✗';
+    lines.push(`${marker} ${key}: live=${JSON.stringify(live)} | ext=${JSON.stringify(ext)}`);
+  });
+  el.innerText = lines.join('\n');
 }
 
 function renderLiveDataSection(sourceData) {
@@ -825,7 +859,12 @@ async function refreshStatus() {
     return;
   }
 
-  const { display, sourceData } = getStatusSnapshot(data);
+  const {
+    display,
+    sourceData,
+    externalData,
+    liveDataDebug,
+  } = getStatusSnapshot(data);
   const weatherSource = sourceData.weather_source || sourceData.dht_backend || 'api';
   const shortError = (value, maxLen = 28) => {
     if (!value) return null;
@@ -853,6 +892,7 @@ async function refreshStatus() {
     : `${formatTs(sourceData.dht_updated_at)} / ${sourceData.dht_last_duration_ms ?? '-'}ms / ${sourceData.dht_backend || 'n/a'}`);
 
   renderLiveDataSection(sourceData);
+  renderOverviewLiveDataDebug(display, sourceData, externalData, liveDataDebug);
 
   await refreshDhtDebug();
 }

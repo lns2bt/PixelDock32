@@ -32,8 +32,17 @@ async def status(request: Request, _: str = Depends(get_current_user)):
     display_service = _display(request)
     external = getattr(request.app.state, "external_data_service", None)
     cache = external.cache if external else {}
+    live_data = display_service.get_live_data_snapshot()
     return {
         "display": display_service.get_status(),
+        "live_data": live_data,
+        "live_data_debug": {
+            "source": "display_cache_snapshot",
+            "snapshot_ts": display_service.last_cache_snapshot_ts,
+            "has_any_values": any(value is not None for value in live_data.values()),
+            "external_cache_keys": sorted(list(cache.keys())),
+            "display_cache_keys": sorted(list(display_service.last_cache_snapshot.keys())),
+        },
         "data": {
             "btc_eur": cache.get("btc_eur"),
             "btc_trend": cache.get("btc_trend"),

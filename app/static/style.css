@@ -127,6 +127,28 @@ h2 { margin: 0 0 12px; font-size: 30px; line-height: 1.05; }
   gap: 10px;
 }
 
+.overview-debug {
+  margin: 10px 0;
+}
+
+.overview-debug summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: #334155;
+}
+
+.overview-debug pre {
+  margin: 8px 0 0;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #dde6f8;
+  background: #f8fbff;
+  color: #0f172a;
+  font-size: 12px;
+  line-height: 1.35;
+  white-space: pre-wrap;
+}
+
 .overview-metric-card {
   border: 1px solid #dde6f8;
   border-radius: 12px;
