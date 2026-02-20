@@ -53,6 +53,11 @@ async def status(request: Request, _: str = Depends(get_current_user)):
             "dht_raw_temperature": cache.get("dht_raw_temperature"),
             "dht_raw_humidity": cache.get("dht_raw_humidity"),
             "dht_backend": cache.get("dht_backend"),
+            "dht_last_success_source": cache.get("dht_last_success_source"),
+            "dht_last_error_source": cache.get("dht_last_error_source"),
+            "dht_source_stats": cache.get("dht_source_stats"),
+            "dht_backend_stats": cache.get("dht_backend_stats"),
+            "dht_diagnostics": cache.get("dht_diagnostics"),
         },
     }
 
@@ -107,7 +112,15 @@ async def dht_debug(request: Request, _: str = Depends(get_current_user)):
             "last_error": cache.get("dht_error"),
             "last_updated_at": cache.get("dht_updated_at"),
             "backend": cache.get("dht_backend"),
+            "last_success_source": cache.get("dht_last_success_source"),
+            "last_error_source": cache.get("dht_last_error_source"),
         },
+        "attempts": {
+            "source_stats": cache.get("dht_source_stats"),
+            "backend_stats": cache.get("dht_backend_stats"),
+            "trace": cache.get("dht_trace"),
+        },
+        "diagnostics": cache.get("dht_diagnostics"),
         "processing": cache.get("dht_processing"),
         "derived_cache": {
             "weather_indoor_temp": cache.get("weather_indoor_temp"),

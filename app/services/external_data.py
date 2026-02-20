@@ -1,4 +1,5 @@
 import asyncio
+import collections
 import datetime
 import importlib.util
 import logging
@@ -103,6 +104,12 @@ class ExternalDataService:
             "dht_raw_humidity": None,
             "dht_backend": None,
             "dht_processing": None,
+            "dht_last_success_source": None,
+            "dht_last_error_source": None,
+            "dht_trace": [],
+            "dht_source_stats": {},
+            "dht_backend_stats": {},
+            "dht_diagnostics": None,
             "btc_trend": "flat",
             "btc_block_height": None,
             "btc_block_height_updated_at": None,
@@ -186,7 +193,7 @@ class ExternalDataService:
             self.cache["dht_last_attempt_at"] = time.time()
             self.cache["dht_gpio_level"] = self._read_gpio_level()
             try:
-                humidity, temperature, backend = await asyncio.to_thread(self._read_dht, model)
+                humidity, temperature, backend = await asyncio.to_thread(self._read_dht, model, "poller")
                 if humidity is None or temperature is None:
                     raise RuntimeError("DHT read returned no data")
                 raw_temp = float(temperature)
@@ -197,6 +204,7 @@ class ExternalDataService:
                 self.cache["weather_indoor_temp"] = round(raw_temp, 1)
                 self.cache["weather_indoor_humidity"] = round(raw_humidity, 1)
                 self.cache["dht_processing"] = self._build_dht_processing(raw_humidity, raw_temp)
+                self.cache["dht_last_success_source"] = "poller"
                 self.cache["weather_source"] = "dht"
                 self.cache["dht_updated_at"] = time.time()
                 self.cache["weather_updated_at"] = self.cache["dht_updated_at"]
@@ -205,52 +213,175 @@ class ExternalDataService:
             except Exception as exc:  # noqa: BLE001
                 logger.warning("DHT polling failed: %s", exc)
                 self.cache["dht_error"] = str(exc)
+                self.cache["dht_last_error_source"] = "poller"
             finally:
                 self.cache["dht_last_duration_ms"] = round((time.perf_counter() - started) * 1000, 2)
                 self.cache["dht_gpio_level"] = self._read_gpio_level()
             await asyncio.sleep(self.settings.poll_dht_seconds)
 
-    def _read_dht(self, model: str) -> tuple[float | None, float | None, str]:
+    def _record_dht_attempt(
+        self,
+        *,
+        source: str,
+        backend: str,
+        ok: bool,
+        error: str | None = None,
+        temperature: float | None = None,
+        humidity: float | None = None,
+    ) -> None:
+        now_iso = datetime.datetime.now(datetime.UTC).isoformat()
+        trace = collections.deque(self.cache.get("dht_trace") or [], maxlen=40)
+        trace.append(
+            {
+                "timestamp": now_iso,
+                "source": source,
+                "backend": backend,
+                "ok": ok,
+                "temperature": temperature,
+                "humidity": humidity,
+                "error": error,
+            }
+        )
+        self.cache["dht_trace"] = list(trace)
+
+        source_stats = self.cache.setdefault("dht_source_stats", {})
+        src_entry = source_stats.setdefault(source, {"ok": 0, "error": 0})
+        src_entry["ok" if ok else "error"] += 1
+
+        backend_stats = self.cache.setdefault("dht_backend_stats", {})
+        backend_entry = backend_stats.setdefault(backend, {"ok": 0, "error": 0})
+        backend_entry["ok" if ok else "error"] += 1
+
+        if ok:
+            self.cache["dht_last_success_source"] = source
+        else:
+            self.cache["dht_last_error_source"] = source
+
+        self.cache["dht_diagnostics"] = self._build_dht_diagnostics()
+
+    def _build_dht_diagnostics(self) -> dict:
+        source_stats = self.cache.get("dht_source_stats") or {}
+        backend_stats = self.cache.get("dht_backend_stats") or {}
+
+        noisy_sources = [
+            name
+            for name, stat in source_stats.items()
+            if int(stat.get("error", 0)) > int(stat.get("ok", 0))
+        ]
+        noisy_backends = [
+            name
+            for name, stat in backend_stats.items()
+            if int(stat.get("error", 0)) > int(stat.get("ok", 0))
+        ]
+
+        dominant_success_backend = None
+        best_ok = -1
+        for name, stat in backend_stats.items():
+            ok_count = int(stat.get("ok", 0))
+            if ok_count > best_ok:
+                best_ok = ok_count
+                dominant_success_backend = name
+
+        recommendation = "Insufficient data yet"
+        if dominant_success_backend and noisy_backends:
+            recommendation = (
+                f"Primary working backend appears to be '{dominant_success_backend}'. "
+                f"Investigate noisy backends: {', '.join(noisy_backends)}"
+            )
+        elif dominant_success_backend:
+            recommendation = f"Primary working backend appears to be '{dominant_success_backend}'."
+        elif noisy_backends:
+            recommendation = f"No successful backend yet. Check wiring and backends: {', '.join(noisy_backends)}"
+
+        return {
+            "dominant_success_backend": dominant_success_backend,
+            "noisy_sources": noisy_sources,
+            "noisy_backends": noisy_backends,
+            "recommendation": recommendation,
+        }
+
+    def _read_dht(self, model: str, source: str = "unknown") -> tuple[float | None, float | None, str]:
         backend_errors: list[str] = []
 
         if Adafruit_DHT:
             sensor = Adafruit_DHT.DHT22 if model == "DHT22" else Adafruit_DHT.DHT11
             try:
                 humidity, temperature = Adafruit_DHT.read_retry(sensor, self.settings.dht_gpio_pin)
-                return humidity, temperature, "Adafruit_DHT"
+                if humidity is not None and temperature is not None:
+                    self._record_dht_attempt(
+                        source=source,
+                        backend="Adafruit_DHT",
+                        ok=True,
+                        temperature=float(temperature),
+                        humidity=float(humidity),
+                    )
+                    return humidity, temperature, "Adafruit_DHT"
+                self._record_dht_attempt(
+                    source=source,
+                    backend="Adafruit_DHT",
+                    ok=False,
+                    error="read_retry returned no data",
+                )
+                backend_errors.append("Adafruit_DHT: read_retry returned no data")
             except Exception as exc:  # noqa: BLE001
+                self._record_dht_attempt(source=source, backend="Adafruit_DHT", ok=False, error=str(exc))
                 backend_errors.append(f"Adafruit_DHT: {exc}")
 
         if adafruit_dht is not None and board is not None:
             pin_name = BCM_TO_BOARD_PIN.get(self.settings.dht_gpio_pin)
             if not pin_name or not hasattr(board, pin_name):
-                backend_errors.append(
-                    f"adafruit_dht: unsupported GPIO pin for board backend ({self.settings.dht_gpio_pin})"
-                )
+                message = f"unsupported GPIO pin for board backend ({self.settings.dht_gpio_pin})"
+                self._record_dht_attempt(source=source, backend="adafruit_dht", ok=False, error=message)
+                backend_errors.append(f"adafruit_dht: {message}")
             else:
                 pin = getattr(board, pin_name)
                 sensor = adafruit_dht.DHT22(pin, use_pulseio=False) if model == "DHT22" else adafruit_dht.DHT11(pin, use_pulseio=False)
                 try:
                     temperature = sensor.temperature
                     humidity = sensor.humidity
-                    return humidity, temperature, "adafruit_dht"
+                    if humidity is not None and temperature is not None:
+                        self._record_dht_attempt(
+                            source=source,
+                            backend="adafruit_dht",
+                            ok=True,
+                            temperature=float(temperature),
+                            humidity=float(humidity),
+                        )
+                        return humidity, temperature, "adafruit_dht"
+                    self._record_dht_attempt(
+                        source=source,
+                        backend="adafruit_dht",
+                        ok=False,
+                        error="sensor returned no data",
+                    )
+                    backend_errors.append("adafruit_dht: sensor returned no data")
                 except Exception as exc:  # noqa: BLE001
+                    self._record_dht_attempt(source=source, backend="adafruit_dht", ok=False, error=str(exc))
                     backend_errors.append(f"adafruit_dht: {exc}")
                 finally:
                     with suppress(Exception):
                         sensor.exit()
         else:
-            backend_errors.append(
-                "adafruit_dht: backend unavailable (install adafruit-circuitpython-dht + adafruit-blinka)"
-            )
+            message = "backend unavailable (install adafruit-circuitpython-dht + adafruit-blinka)"
+            self._record_dht_attempt(source=source, backend="adafruit_dht", ok=False, error=message)
+            backend_errors.append(f"adafruit_dht: {message}")
 
         if lgpio is not None:
             try:
                 humidity, temperature = self._read_dht_via_lgpio_with_retries(model)
+                self._record_dht_attempt(
+                    source=source,
+                    backend="lgpio-bitbang",
+                    ok=True,
+                    temperature=float(temperature),
+                    humidity=float(humidity),
+                )
                 return humidity, temperature, "lgpio-bitbang"
             except Exception as exc:  # noqa: BLE001
+                self._record_dht_attempt(source=source, backend="lgpio-bitbang", ok=False, error=str(exc))
                 backend_errors.append(f"lgpio-bitbang: {exc}")
         else:
+            self._record_dht_attempt(source=source, backend="lgpio-bitbang", ok=False, error="lgpio not importable")
             backend_errors.append("lgpio-bitbang: lgpio not importable")
 
         if not backend_errors:
@@ -345,7 +476,7 @@ class ExternalDataService:
         started = time.perf_counter()
         gpio_before = self._read_gpio_level()
         try:
-            humidity, temperature, backend = self._read_dht(model)
+            humidity, temperature, backend = self._read_dht(model, source="read-once")
             duration_ms = round((time.perf_counter() - started) * 1000, 2)
             gpio_after = self._read_gpio_level()
             return {
@@ -353,12 +484,14 @@ class ExternalDataService:
                 "model": model,
                 "gpio_pin": self.settings.dht_gpio_pin,
                 "backend": backend,
+                "source": "read-once",
                 "gpio_level_before": gpio_before,
                 "gpio_level_after": gpio_after,
                 "duration_ms": duration_ms,
                 "temperature": temperature,
                 "humidity": humidity,
                 "error": None,
+                "diagnostics": self.cache.get("dht_diagnostics"),
             }
         except Exception as exc:  # noqa: BLE001
             duration_ms = round((time.perf_counter() - started) * 1000, 2)
@@ -368,12 +501,14 @@ class ExternalDataService:
                 "model": model,
                 "gpio_pin": self.settings.dht_gpio_pin,
                 "backend": self.cache.get("dht_backend"),
+                "source": "read-once",
                 "gpio_level_before": gpio_before,
                 "gpio_level_after": gpio_after,
                 "duration_ms": duration_ms,
                 "temperature": None,
                 "humidity": None,
                 "error": str(exc),
+                "diagnostics": self.cache.get("dht_diagnostics"),
             }
 
     def _gpio_backend_name(self) -> str:
