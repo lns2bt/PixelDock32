@@ -70,6 +70,20 @@ function formatTs(ts) {
   return new Date(ts * 1000).toLocaleTimeString();
 }
 
+function formatNumber(value, digits = 0) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '-';
+  return Number(value).toLocaleString('de-DE', {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+}
+
+function setTextIfExists(id, value) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerText = value;
+}
+
 async function apiRequest(path, options = {}, okMessage = '') {
   try {
     const res = await fetch(path, {
@@ -766,6 +780,30 @@ async function refreshStatus() {
   document.getElementById('statusDhtRead').innerText = data.data.dht_error
     ? `Fehler (${data.data.dht_error.slice(0, 24)}...)`
     : `${formatTs(data.data.dht_updated_at)} / ${data.data.dht_last_duration_ms ?? '-'}ms / ${data.data.dht_backend || 'n/a'}`;
+
+  setTextIfExists('overviewBtcPrice', data.data.btc_eur === null || data.data.btc_eur === undefined
+    ? '-'
+    : `${formatNumber(data.data.btc_eur, 0)} €`);
+  setTextIfExists('overviewBtcTrend', `Trend: ${data.data.btc_trend || '-'}`);
+  setTextIfExists('overviewBlockHeight', data.data.btc_block_height === null || data.data.btc_block_height === undefined
+    ? '-'
+    : formatNumber(data.data.btc_block_height, 0));
+  setTextIfExists('overviewBlockHeightUpdated', data.data.btc_block_height_error
+    ? `Fehler: ${data.data.btc_block_height_error.slice(0, 28)}...`
+    : `Update: ${formatTs(data.data.btc_block_height_updated_at)}`);
+  setTextIfExists('overviewOutdoorTemp', data.data.weather_outdoor_temp === null || data.data.weather_outdoor_temp === undefined
+    ? '-'
+    : `${formatNumber(data.data.weather_outdoor_temp, 1)} °C`);
+  setTextIfExists('overviewWeatherSource', `Quelle: ${data.data.weather_source || 'api'}`);
+  setTextIfExists('overviewIndoorTemp', data.data.weather_indoor_temp === null || data.data.weather_indoor_temp === undefined
+    ? '-'
+    : `${formatNumber(data.data.weather_indoor_temp, 1)} °C`);
+  setTextIfExists('overviewDhtBackend', `Backend: ${data.data.dht_backend || '-'}`);
+  setTextIfExists('overviewHumidity', data.data.weather_indoor_humidity === null || data.data.weather_indoor_humidity === undefined
+    ? '-'
+    : `${formatNumber(data.data.weather_indoor_humidity, 1)} %`);
+  setTextIfExists('overviewDhtUpdated', `Update: ${formatTs(data.data.dht_updated_at)}`);
+
   await refreshDhtDebug();
 }
 
