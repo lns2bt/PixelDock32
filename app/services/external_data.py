@@ -211,37 +211,80 @@ class ExternalDataService:
             await asyncio.sleep(self.settings.poll_dht_seconds)
 
     def _read_dht(self, model: str) -> tuple[float | None, float | None, str]:
+        backend_errors: list[str] = []
+
         if Adafruit_DHT:
             sensor = Adafruit_DHT.DHT22 if model == "DHT22" else Adafruit_DHT.DHT11
             try:
                 humidity, temperature = Adafruit_DHT.read_retry(sensor, self.settings.dht_gpio_pin)
                 return humidity, temperature, "Adafruit_DHT"
             except Exception as exc:  # noqa: BLE001
-                if adafruit_dht is None or board is None:
-                    raise
-                logger.warning(
-                    "Adafruit_DHT read failed (%s). Falling back to CircuitPython backend.",
-                    exc,
-                )
+                backend_errors.append(f"Adafruit_DHT: {exc}")
 
-        if adafruit_dht is None or board is None:
-            raise RuntimeError(
-                "No DHT backend available (install Adafruit_DHT legacy package or adafruit-circuitpython-dht + adafruit-blinka)"
+        if adafruit_dht is not None and board is not None:
+            pin_name = BCM_TO_BOARD_PIN.get(self.settings.dht_gpio_pin)
+            if not pin_name or not hasattr(board, pin_name):
+                backend_errors.append(
+                    f"adafruit_dht: unsupported GPIO pin for board backend ({self.settings.dht_gpio_pin})"
+                )
+            else:
+                pin = getattr(board, pin_name)
+                sensor = adafruit_dht.DHT22(pin, use_pulseio=False) if model == "DHT22" else adafruit_dht.DHT11(pin, use_pulseio=False)
+                try:
+                    temperature = sensor.temperature
+                    humidity = sensor.humidity
+                    return humidity, temperature, "adafruit_dht"
+                except Exception as exc:  # noqa: BLE001
+                    backend_errors.append(f"adafruit_dht: {exc}")
+                finally:
+                    with suppress(Exception):
+                        sensor.exit()
+        else:
+            backend_errors.append(
+                "adafruit_dht: backend unavailable (install adafruit-circuitpython-dht + adafruit-blinka)"
             )
 
-        pin_name = BCM_TO_BOARD_PIN.get(self.settings.dht_gpio_pin)
-        if not pin_name or not hasattr(board, pin_name):
-            raise RuntimeError(f"Unsupported DHT GPIO pin for CircuitPython backend: {self.settings.dht_gpio_pin}")
+        if not backend_errors:
+            backend_errors.append("no DHT backend available")
 
-        pin = getattr(board, pin_name)
-        sensor = adafruit_dht.DHT22(pin, use_pulseio=False) if model == "DHT22" else adafruit_dht.DHT11(pin, use_pulseio=False)
+        raise RuntimeError("All DHT backends failed: " + " | ".join(backend_errors))
+
+
+    def read_dht_debug_snapshot(self) -> dict:
+        model = self.settings.dht_model.strip().upper()
+        started = time.perf_counter()
+        gpio_before = self._read_gpio_level()
         try:
-            temperature = sensor.temperature
-            humidity = sensor.humidity
-            return humidity, temperature, "adafruit_dht"
-        finally:
-            with suppress(Exception):
-                sensor.exit()
+            humidity, temperature, backend = self._read_dht(model)
+            duration_ms = round((time.perf_counter() - started) * 1000, 2)
+            gpio_after = self._read_gpio_level()
+            return {
+                "ok": humidity is not None and temperature is not None,
+                "model": model,
+                "gpio_pin": self.settings.dht_gpio_pin,
+                "backend": backend,
+                "gpio_level_before": gpio_before,
+                "gpio_level_after": gpio_after,
+                "duration_ms": duration_ms,
+                "temperature": temperature,
+                "humidity": humidity,
+                "error": None,
+            }
+        except Exception as exc:  # noqa: BLE001
+            duration_ms = round((time.perf_counter() - started) * 1000, 2)
+            gpio_after = self._read_gpio_level()
+            return {
+                "ok": False,
+                "model": model,
+                "gpio_pin": self.settings.dht_gpio_pin,
+                "backend": self.cache.get("dht_backend"),
+                "gpio_level_before": gpio_before,
+                "gpio_level_after": gpio_after,
+                "duration_ms": duration_ms,
+                "temperature": None,
+                "humidity": None,
+                "error": str(exc),
+            }
 
     def read_dht_debug_snapshot(self) -> dict:
         model = self.settings.dht_model.strip().upper()

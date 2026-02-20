@@ -705,7 +705,7 @@ async function refreshStatus() {
   document.getElementById('statusDhtLevel').innerText = data.data.dht_gpio_level === null ? '-' : `${data.data.dht_gpio_level}`;
   document.getElementById('statusDhtRead').innerText = data.data.dht_error
     ? `Fehler (${data.data.dht_error.slice(0, 24)}...)`
-    : `${formatTs(data.data.dht_updated_at)} / ${data.data.dht_last_duration_ms ?? '-'}ms`;
+    : `${formatTs(data.data.dht_updated_at)} / ${data.data.dht_last_duration_ms ?? '-'}ms / ${data.data.dht_backend || 'n/a'}`;
   await refreshDhtDebug();
 }
 
@@ -719,6 +719,30 @@ async function refreshDhtDebug() {
 
 
 
+
+async function runDhtReadOnce() {
+  const data = await apiRequest('/api/debug/dht/read-once', { method: 'POST' }, 'DHT Einzel-Read ausgeführt');
+  if (!data?.result) return;
+
+  const el = document.getElementById('dhtReadOnceResult');
+  if (!el) return;
+
+  const result = data.result;
+  const state = result.ok ? '✅ OK' : '⚠️ Fehler';
+  const temp = result.temperature === null || result.temperature === undefined ? '-' : `${result.temperature} °C`;
+  const hum = result.humidity === null || result.humidity === undefined ? '-' : `${result.humidity} %`;
+  el.innerText = [
+    `Status: ${state}`,
+    `Backend: ${result.backend || 'unbekannt'}`,
+    `GPIO ${result.gpio_pin}: level before=${result.gpio_level_before} after=${result.gpio_level_after}`,
+    `Read-Dauer: ${result.duration_ms} ms`,
+    `Temperatur: ${temp}`,
+    `Luftfeuchte: ${hum}`,
+    result.error ? `Fehler: ${result.error}` : 'Fehler: -',
+  ].join('\n');
+
+  await refreshDhtDebug();
+}
 
 async function runGpioEnvironmentCheck() {
   const data = await apiRequest('/api/debug/gpio/environment');

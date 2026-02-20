@@ -144,9 +144,12 @@
         <button class="btn btn-secondary" onclick="runPreset('pixel_walk', 60, 120)">Serpentine Check</button>
         <button class="btn btn-secondary" onclick="runPreset('stripes', 20, 300)">Noise Check</button>
       </div>
-      <div class="field" style="margin-top: 12px;">
+      <div class="preset-row" style="margin-top: 12px;">
         <button class="btn btn-secondary" onclick="refreshDhtDebug()">DHT Debug aktualisieren</button>
+        <button class="btn" onclick="runDhtReadOnce()">DHT Read Once</button>
+        <button class="btn btn-secondary" onclick="runGpioEnvironmentCheck()">GPIO-Umgebung prüfen</button>
       </div>
+      <div id="dhtReadOnceResult" class="mapping-info" style="margin-top:8px;">Noch kein DHT Einzel-Read ausgeführt.</div>
       <pre id="dhtDebugInfo">-</pre>
     </section>
 

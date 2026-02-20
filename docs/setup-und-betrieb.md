@@ -96,6 +96,7 @@ Empfohlene Debug-Methode (Web-UI):
    - `/dev/gpiomem` Existenz/Berechtigung
    - erkannte DHT/GPIO-Libraries unter `libraries`
 3. Danach erst **Output-Test** (LED-Datenpin) und **Input-Probe** (Sensor-Pin) starten.
+4. Im Bereich **Debug & Tools** zusätzlich **DHT Read Once** ausführen und prüfen, ob Temperatur/Feuchte oder ein klarer Backend-Fehler angezeigt wird.
 
 Typische Fixes auf dem Pi:
 
