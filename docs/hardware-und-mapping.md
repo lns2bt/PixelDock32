@@ -84,7 +84,7 @@ pip install lgpio
    DHT_ENABLED=true  # default aktiv
    DHT_MODEL=DHT11
    DHT_GPIO_PIN=4
-   POLL_DHT_SECONDS=3
+   POLL_DHT_SECONDS=15
    ```
 
 Hinweise:
