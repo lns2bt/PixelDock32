@@ -65,3 +65,23 @@ app.mount("/static", StaticFiles(directory=static_dir), name="static")
 @app.get("/")
 async def root():
     return FileResponse(static_dir / "index.html")
+
+
+@app.get("/modules")
+async def modules_page():
+    return FileResponse(static_dir / "modules.html")
+
+
+@app.get("/debug")
+async def debug_page():
+    return FileResponse(static_dir / "debug.html")
+
+
+@app.get("/tools")
+async def tools_page():
+    return FileResponse(static_dir / "tools.html")
+
+
+@app.get("/login")
+async def login_page():
+    return FileResponse(static_dir / "login.html")

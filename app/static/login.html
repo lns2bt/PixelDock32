@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PixelDock32 • Login</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body data-page="login" data-requires-auth="false">
+  <header class="top-nav">
+    <div class="top-nav-inner">
+      <a class="brand" href="/">PixelDock32</a>
+      <nav class="top-nav-links" aria-label="Hauptnavigation">
+        <a data-page-link="overview" href="/">Overview</a>
+        <a data-page-link="modules" href="/modules">Modules</a>
+        <a data-page-link="debug" href="/debug">Debugging</a>
+        <a data-page-link="tools" href="/tools">Preview & Tools</a>
+        <a data-page-link="login" href="/login">Login</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="app-shell auth-shell">
+    <section class="card auth-card" data-section-title="Login">
+      <h2>Anmelden</h2>
+      <p class="subtle">Bitte melde dich an, um die PixelDock32-Steuerung zu öffnen.</p>
+      <div class="form-row three">
+        <div class="field"><label for="username">Benutzername</label><input id="username" placeholder="z. B. admin" value="admin" /></div>
+        <div class="field"><label for="password">Passwort</label><input id="password" type="password" placeholder="••••••••" /></div>
+        <div class="field actions-end"><button class="btn" onclick="login()">Einloggen</button></div>
+      </div>
+      <p id="loginStatus" class="subtle"></p>
+    </section>
+  </main>
+
+  <div id="toast"></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

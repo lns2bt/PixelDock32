@@ -345,3 +345,26 @@ input:focus, select:focus, textarea:focus {
   .top-nav-inner { flex-wrap: wrap; }
   .top-nav .btn { margin-left: 0; }
 }
+
+
+.top-nav-inner .btn + .btn { margin-left: 6px; }
+.top-nav-links a.is-active { box-shadow: inset 0 0 0 1px #bfd0ff; }
+
+.auth-shell {
+  min-height: calc(100vh - 96px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-card {
+  width: min(780px, 100%);
+}
+
+#logoutBtn { display: none; }
+body[data-requires-auth='true'] #logoutBtn { display: inline-flex; align-items: center; }
+
+@media (max-width: 900px) {
+  .top-nav-inner { flex-wrap: wrap; }
+  .top-nav .btn { margin-left: 0; }
+}

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PixelDock32 • Preview & Tools</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body data-page="tools" data-requires-auth="true">
+  <header class="top-nav">
+    <div class="top-nav-inner">
+      <a class="brand" href="/">PixelDock32</a>
+      <nav class="top-nav-links" aria-label="Hauptnavigation">
+        <a data-page-link="overview" href="/">Overview</a>
+        <a data-page-link="modules" href="/modules">Modules</a>
+        <a data-page-link="debug" href="/debug">Debugging</a>
+        <a data-page-link="tools" href="/tools">Preview & Tools</a>
+        <a data-page-link="login" href="/login">Login</a>
+      </nav>
+      <button class="btn btn-secondary" onclick="refreshPreview()">Vorschau aktualisieren</button>
+      <button class="btn btn-secondary" id="logoutBtn" onclick="logout()">Logout</button>
+    </div>
+  </header>
+
+  <main class="app-shell">
+    <section class="card section-anchor" data-section-title="Preview & Tools">
+      <div class="section-head">
+        <h2>Virtuelle Vorschau (8x32)</h2>
+      </div>
+      <div id="previewGrid"></div>
+    </section>
+
+    <section class="card section-anchor" data-section-title="Preview & Tools">
+      <div class="section-head">
+        <h2>8×32 Pixel-Zeichenbox</h2>
+        <div class="inline-actions">
+          <button class="btn btn-secondary" onclick="clearGrid()">Leeren</button>
+          <button class="btn" onclick="sendGrid()">Zeichnung anzeigen</button>
+        </div>
+      </div>
+      <div id="grid"></div>
+    </section>
+  </main>
+
+  <div id="toast"></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
