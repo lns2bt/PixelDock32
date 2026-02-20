@@ -7,17 +7,30 @@
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
+  <header class="top-nav">
+    <div class="top-nav-inner">
+      <a class="brand" href="#overview">PixelDock32</a>
+      <nav class="top-nav-links" aria-label="Hauptnavigation">
+        <a href="#overview">Overview</a>
+        <a href="#modulesSection">Modules</a>
+        <a href="#debugSection">Debugging</a>
+        <a href="#previewSection">Preview & Tools</a>
+        <a href="#loginSection">Login</a>
+      </nav>
+      <button class="btn btn-secondary" onclick="refreshStatus()">Status aktualisieren</button>
+    </div>
+  </header>
+
   <main class="app-shell">
-    <header class="app-header">
+    <header id="overview" class="app-header card section-anchor" data-section-title="Overview">
       <div>
         <p class="eyebrow">Raspberry Pi LED Controller</p>
         <h1>PixelDock32</h1>
-        <p class="subtle">Farben, Schriftgröße und Offsets pro Modul frei anpassbar.</p>
+        <p class="subtle">Farben, Schriftgröße und Offsets pro Modul frei anpassbar. Alle Bereiche sind jetzt über die fixe Navigation direkt erreichbar.</p>
       </div>
-      <button class="btn btn-secondary" onclick="refreshStatus()">Status aktualisieren</button>
     </header>
 
-    <section id="statusSection" class="card">
+    <section id="statusSection" class="card section-anchor" data-section-title="Overview">
       <h2>System-Status</h2>
       <div class="status-grid">
         <span>API</span><strong id="statusApi">unbekannt</strong>
@@ -32,7 +45,7 @@
       </div>
     </section>
 
-    <section id="loginSection" class="card">
+    <section id="loginSection" class="card section-anchor" data-section-title="Login">
       <h2>Login</h2>
       <div class="form-row three">
         <div class="field">
@@ -50,7 +63,7 @@
       <p id="loginStatus" class="subtle"></p>
     </section>
 
-    <section class="card">
+    <section id="modulesSection" class="card section-anchor" data-section-title="Modules">
       <div class="section-head">
         <h2>Module</h2>
         <button class="btn btn-secondary" onclick="loadModules()">Module neu laden</button>
@@ -58,7 +71,7 @@
       <div id="modules"></div>
     </section>
 
-    <section class="card">
+    <section class="card section-anchor" data-section-title="Modules">
       <h2>Sofort-Text anzeigen</h2>
       <div class="form-row manual-row">
         <div class="field">
@@ -94,7 +107,7 @@
       </div>
     </section>
 
-    <section class="card">
+    <section class="card section-anchor" data-section-title="Modules">
       <h2>Helligkeit</h2>
       <div class="form-row three">
         <div class="field field-wide">
@@ -111,7 +124,7 @@
       </div>
     </section>
 
-    <section class="card">
+    <section id="debugSection" class="card section-anchor" data-section-title="Debugging">
       <h2>Hardware-Debug & Kalibrierung</h2>
       <p class="subtle">Schnellkorrektur in <code>.env</code>: <code>PANEL_ORDER=0,1,2,3</code> (Panel-Reihenfolge) und <code>PANEL_ROTATIONS=0,0,0,0</code> (Rotation je Panel).</p>
       <div class="form-row debug-row">
@@ -162,7 +175,7 @@
 
 
 
-    <section class="card">
+    <section class="card section-anchor" data-section-title="Debugging">
       <h2>GPIO Pin Finder</h2>
       <p class="subtle">Sicherer Helfer beim Zusammenbau: sende kurze Testsignale oder prüfe den Eingangspegel für einen gewählten GPIO.</p>
       <div class="form-row gpio-row">
@@ -207,7 +220,7 @@
       </details>
     </section>
 
-    <section class="card">
+    <section class="card section-anchor" data-section-title="Debugging">
       <h2>Mapping-Wizard</h2>
       <p class="subtle">Nutze die Schritte zur Verkabelungsprüfung und prüfe einzelne Koordinaten gegen den physikalischen LED-Index.</p>
       <div class="preset-row">
@@ -231,7 +244,7 @@
       <div id="mappingInfo" class="mapping-info">Noch keine Koordinate geprüft.</div>
     </section>
 
-    <section class="card">
+    <section id="previewSection" class="card section-anchor" data-section-title="Preview & Tools">
       <div class="section-head">
         <h2>Virtuelle Vorschau (8x32)</h2>
         <button class="btn btn-secondary" onclick="refreshPreview()">Vorschau aktualisieren</button>
@@ -239,7 +252,7 @@
       <div id="previewGrid"></div>
     </section>
 
-    <section class="card">
+    <section class="card section-anchor" data-section-title="Preview & Tools">
       <div class="section-head">
         <h2>8×32 Pixel-Zeichenbox</h2>
         <div class="inline-actions">

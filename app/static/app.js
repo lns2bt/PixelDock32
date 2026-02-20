@@ -15,6 +15,36 @@ function startPollingLoops() {
   pollTimerPreview = setInterval(refreshPreview, 1000);
 }
 
+
+function initTopNavigation() {
+  const links = Array.from(document.querySelectorAll('.top-nav-links a'));
+  if (!links.length) return;
+
+  const updateActive = () => {
+    const y = window.scrollY + 120;
+    let current = null;
+    links.forEach((link) => {
+      const target = document.querySelector(link.getAttribute('href'));
+      if (target && target.offsetTop <= y) current = link;
+    });
+    links.forEach((link) => link.classList.toggle('is-active', link === current));
+  };
+
+  links.forEach((link) => {
+    link.addEventListener('click', (event) => {
+      const href = link.getAttribute('href');
+      const target = document.querySelector(href);
+      if (!target) return;
+      event.preventDefault();
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      history.replaceState(null, '', href);
+    });
+  });
+
+  window.addEventListener('scroll', updateActive, { passive: true });
+  updateActive();
+}
+
 function toast(message, isError = false) {
   const el = document.getElementById('toast');
   el.innerText = message;
@@ -879,6 +909,7 @@ async function sendGrid() {
   }
 }
 
+initTopNavigation();
 initGrid();
 initPreviewGrid();
 if (token) {
