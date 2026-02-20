@@ -244,47 +244,101 @@ class ExternalDataService:
                 "adafruit_dht: backend unavailable (install adafruit-circuitpython-dht + adafruit-blinka)"
             )
 
+        if lgpio is not None:
+            try:
+                humidity, temperature = self._read_dht_via_lgpio_with_retries(model)
+                return humidity, temperature, "lgpio-bitbang"
+            except Exception as exc:  # noqa: BLE001
+                backend_errors.append(f"lgpio-bitbang: {exc}")
+        else:
+            backend_errors.append("lgpio-bitbang: lgpio not importable")
+
         if not backend_errors:
             backend_errors.append("no DHT backend available")
 
         raise RuntimeError("All DHT backends failed: " + " | ".join(backend_errors))
 
+    def _read_dht_via_lgpio_with_retries(self, model: str) -> tuple[float, float]:
+        last_exc: Exception | None = None
+        for attempt in range(3):
+            try:
+                if attempt:
+                    # DHT11 requires a cooldown between reads.
+                    time.sleep(1.1)
+                return self._read_dht_via_lgpio(model)
+            except Exception as exc:  # noqa: BLE001
+                last_exc = exc
+        raise RuntimeError(f"read failed after 3 attempts: {last_exc}")
 
-    def read_dht_debug_snapshot(self) -> dict:
-        model = self.settings.dht_model.strip().upper()
-        started = time.perf_counter()
-        gpio_before = self._read_gpio_level()
+    def _read_dht_via_lgpio(self, model: str) -> tuple[float, float]:
+        if model not in {"DHT11", "DHT22"}:
+            raise RuntimeError(f"Unsupported DHT model for lgpio backend: {model}")
+
+        pin = self.settings.dht_gpio_pin
+        handle = lgpio.gpiochip_open(0)
+
+        def _wait_level(level: int, timeout_us: int) -> int:
+            start_ns = time.perf_counter_ns()
+            timeout_ns = timeout_us * 1000
+            while (time.perf_counter_ns() - start_ns) < timeout_ns:
+                if int(lgpio.gpio_read(handle, pin)) == level:
+                    return int((time.perf_counter_ns() - start_ns) / 1000)
+            raise TimeoutError(f"timeout waiting for level={level}")
+
+        def _wait_level_change(current_level: int, timeout_us: int) -> int:
+            start_ns = time.perf_counter_ns()
+            timeout_ns = timeout_us * 1000
+            while (time.perf_counter_ns() - start_ns) < timeout_ns:
+                if int(lgpio.gpio_read(handle, pin)) != current_level:
+                    return int((time.perf_counter_ns() - start_ns) / 1000)
+            raise TimeoutError(f"timeout waiting for level change from {current_level}")
+
         try:
-            humidity, temperature, backend = self._read_dht(model)
-            duration_ms = round((time.perf_counter() - started) * 1000, 2)
-            gpio_after = self._read_gpio_level()
-            return {
-                "ok": humidity is not None and temperature is not None,
-                "model": model,
-                "gpio_pin": self.settings.dht_gpio_pin,
-                "backend": backend,
-                "gpio_level_before": gpio_before,
-                "gpio_level_after": gpio_after,
-                "duration_ms": duration_ms,
-                "temperature": temperature,
-                "humidity": humidity,
-                "error": None,
-            }
-        except Exception as exc:  # noqa: BLE001
-            duration_ms = round((time.perf_counter() - started) * 1000, 2)
-            gpio_after = self._read_gpio_level()
-            return {
-                "ok": False,
-                "model": model,
-                "gpio_pin": self.settings.dht_gpio_pin,
-                "backend": self.cache.get("dht_backend"),
-                "gpio_level_before": gpio_before,
-                "gpio_level_after": gpio_after,
-                "duration_ms": duration_ms,
-                "temperature": None,
-                "humidity": None,
-                "error": str(exc),
-            }
+            # Start signal: host pulls line low, then releases.
+            lgpio.gpio_claim_output(handle, pin, 1)
+            lgpio.gpio_write(handle, pin, 0)
+            time.sleep(0.02 if model == "DHT11" else 0.002)
+            lgpio.gpio_write(handle, pin, 1)
+            time.sleep(0.00004)
+            lgpio.gpio_free(handle, pin)
+
+            pull_up_flag = getattr(lgpio, "SET_PULL_UP", 2)
+            lgpio.gpio_claim_input(handle, pin, pull_up_flag)
+
+            # Sensor response handshake.
+            _wait_level(0, 200)
+            _wait_level(1, 200)
+            _wait_level(0, 200)
+
+            bits: list[int] = []
+            for _ in range(40):
+                _wait_level(1, 120)
+                high_us = _wait_level_change(1, 120)
+                bits.append(1 if high_us > 50 else 0)
+
+            data = [0, 0, 0, 0, 0]
+            for idx, bit in enumerate(bits):
+                data[idx // 8] = (data[idx // 8] << 1) | bit
+
+            checksum = (data[0] + data[1] + data[2] + data[3]) & 0xFF
+            if checksum != data[4]:
+                raise RuntimeError(f"checksum mismatch ({checksum} != {data[4]})")
+
+            if model == "DHT11":
+                humidity = float(data[0])
+                temperature = float(data[2])
+            else:
+                humidity = ((data[0] << 8) | data[1]) / 10.0
+                temperature_raw = ((data[2] & 0x7F) << 8) | data[3]
+                temperature = temperature_raw / 10.0
+                if data[2] & 0x80:
+                    temperature = -temperature
+            return humidity, temperature
+        finally:
+            with suppress(Exception):
+                lgpio.gpio_free(handle, pin)
+            lgpio.gpiochip_close(handle)
+
 
     def read_dht_debug_snapshot(self) -> dict:
         model = self.settings.dht_model.strip().upper()
