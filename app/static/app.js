@@ -120,6 +120,17 @@ function formatDebugValue(value) {
   return JSON.stringify(value);
 }
 
+function formatAgeSeconds(timestamp) {
+  if (!timestamp) return '-';
+  const now = Date.now() / 1000;
+  const age = Math.max(0, now - Number(timestamp));
+  if (!Number.isFinite(age)) return '-';
+  if (age < 1) return '<1s';
+  if (age < 120) return `${Math.round(age)}s`;
+  if (age < 7200) return `${Math.round(age / 60)}m`;
+  return `${Math.round(age / 3600)}h`;
+}
+
 function getLiveDataWaitReason(display, sourceData, liveDataDebug) {
   const snapshotTs = liveDataDebug.snapshot_ts || display.cache_snapshot_ts;
   const hasAnyValues = !!liveDataDebug.has_any_values;
@@ -147,6 +158,10 @@ function renderOverviewLiveDataDebug(display, sourceData, externalData, liveData
     'dht_raw_humidity',
   ];
   const waitReason = getLiveDataWaitReason(display, sourceData, liveDataDebug);
+  const timestamps = liveDataDebug.timestamps || {};
+  const errors = liveDataDebug.errors || {};
+  const pollState = liveDataDebug.poll_state || {};
+  const pollIntervals = pollState.poll_intervals || {};
 
   const lines = [
     `Status: ${waitReason === 'ok' ? 'Daten vorhanden' : 'Warten auf Daten'}`,
@@ -158,6 +173,23 @@ function renderOverviewLiveDataDebug(display, sourceData, externalData, liveData
     `LiveData hat Werte: ${liveDataDebug.has_any_values ? 'ja' : 'nein'}`,
     `Display-Cache-Keys: ${(liveDataDebug.display_cache_keys || []).length}`,
     `External-Cache-Keys: ${(liveDataDebug.external_cache_keys || []).length}`,
+    '',
+    'Polling:',
+    `- ExternalDataService läuft: ${pollState.external_running ? 'ja' : 'nein'} (Tasks: ${pollState.poll_task_count ?? 0})`,
+    `- Intervalle: BTC=${pollIntervals.btc_seconds ?? '-'}s, Weather=${pollIntervals.weather_seconds ?? '-'}s, DHT=${pollIntervals.dht_seconds ?? '-'}s (enabled=${pollState.dht_enabled ? 'ja' : 'nein'})`,
+    '',
+    'Letzte Updates (Zeit | Alter):',
+    `- BTC: ${formatTs(timestamps.btc_updated_at)} | ${formatAgeSeconds(timestamps.btc_updated_at)}`,
+    `- BTC Blockheight: ${formatTs(timestamps.btc_block_height_updated_at)} | ${formatAgeSeconds(timestamps.btc_block_height_updated_at)}`,
+    `- Weather: ${formatTs(timestamps.weather_updated_at)} | ${formatAgeSeconds(timestamps.weather_updated_at)}`,
+    `- DHT: ${formatTs(timestamps.dht_updated_at)} | ${formatAgeSeconds(timestamps.dht_updated_at)}`,
+    `- DHT letzter Versuch: ${formatTs(timestamps.dht_last_attempt_at)} | ${formatAgeSeconds(timestamps.dht_last_attempt_at)}`,
+    '',
+    'Fehlerstatus:',
+    `- BTC: ${errors.btc_error || '-'}`,
+    `- BTC Blockheight: ${errors.btc_block_height_error || '-'}`,
+    `- Weather: ${errors.weather_error || '-'}`,
+    `- DHT: ${errors.dht_error || '-'}`,
     '',
     'Vergleich display-cache vs external-cache:',
   ];

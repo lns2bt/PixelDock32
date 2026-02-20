@@ -33,6 +33,16 @@ async def status(request: Request, _: str = Depends(get_current_user)):
     external = getattr(request.app.state, "external_data_service", None)
     cache = external.cache if external else {}
     live_data = display_service.get_live_data_snapshot()
+    poll_state = {
+        "external_running": bool(getattr(external, "_running", False)),
+        "poll_task_count": len(getattr(external, "_tasks", []) or []),
+        "dht_enabled": bool(getattr(getattr(external, "settings", None), "dht_enabled", False)),
+        "poll_intervals": {
+            "btc_seconds": getattr(getattr(external, "settings", None), "poll_btc_seconds", None),
+            "weather_seconds": getattr(getattr(external, "settings", None), "poll_weather_seconds", None),
+            "dht_seconds": getattr(getattr(external, "settings", None), "poll_dht_seconds", None),
+        },
+    }
     return {
         "display": display_service.get_status(),
         "live_data": live_data,
@@ -42,6 +52,21 @@ async def status(request: Request, _: str = Depends(get_current_user)):
             "has_any_values": any(value is not None for value in live_data.values()),
             "external_cache_keys": sorted(list(cache.keys())),
             "display_cache_keys": sorted(list(display_service.last_cache_snapshot.keys())),
+            "poll_state": poll_state,
+            "errors": {
+                "btc_error": cache.get("btc_error"),
+                "weather_error": cache.get("weather_error"),
+                "dht_error": cache.get("dht_error"),
+                "btc_block_height_error": cache.get("btc_block_height_error"),
+            },
+            "timestamps": {
+                "btc_updated_at": cache.get("btc_updated_at"),
+                "btc_block_height_updated_at": cache.get("btc_block_height_updated_at"),
+                "weather_updated_at": cache.get("weather_updated_at"),
+                "dht_updated_at": cache.get("dht_updated_at"),
+                "dht_last_attempt_at": cache.get("dht_last_attempt_at"),
+                "display_last_frame_ts": display_service.last_frame_ts,
+            },
         },
         "data": {
             "btc_eur": cache.get("btc_eur"),
