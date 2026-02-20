@@ -11,38 +11,50 @@ function authHeaders() {
 function startPollingLoops() {
   if (pollTimerStatus) clearInterval(pollTimerStatus);
   if (pollTimerPreview) clearInterval(pollTimerPreview);
-  pollTimerStatus = setInterval(refreshStatus, 5000);
-  pollTimerPreview = setInterval(refreshPreview, 1000);
+
+  const hasStatus = !!document.getElementById('statusApi');
+  const hasPreview = !!document.getElementById('previewGrid');
+
+  if (hasStatus || document.getElementById('dhtDebugInfo')) {
+    pollTimerStatus = setInterval(refreshStatus, 5000);
+  }
+
+  if (hasPreview) {
+    pollTimerPreview = setInterval(refreshPreview, 1000);
+  }
 }
 
 
-function initTopNavigation() {
-  const links = Array.from(document.querySelectorAll('.top-nav-links a'));
-  if (!links.length) return;
-
-  const updateActive = () => {
-    const y = window.scrollY + 120;
-    let current = null;
-    links.forEach((link) => {
-      const target = document.querySelector(link.getAttribute('href'));
-      if (target && target.offsetTop <= y) current = link;
-    });
-    links.forEach((link) => link.classList.toggle('is-active', link === current));
+function pageInfo() {
+  const body = document.body;
+  return {
+    page: body?.dataset.page || 'overview',
+    requiresAuth: body?.dataset.requiresAuth !== 'false',
   };
+}
 
+function initTopNavigation() {
+  const links = Array.from(document.querySelectorAll('[data-page-link]'));
+  if (!links.length) return;
+  const { page } = pageInfo();
   links.forEach((link) => {
-    link.addEventListener('click', (event) => {
-      const href = link.getAttribute('href');
-      const target = document.querySelector(href);
-      if (!target) return;
-      event.preventDefault();
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      history.replaceState(null, '', href);
-    });
+    link.classList.toggle('is-active', link.dataset.pageLink === page);
   });
+}
 
-  window.addEventListener('scroll', updateActive, { passive: true });
-  updateActive();
+function ensureAuthFlow() {
+  const { requiresAuth, page } = pageInfo();
+  if (requiresAuth && !token) {
+    window.location.replace('/login');
+    return false;
+  }
+
+  if (!requiresAuth && page === 'login' && token) {
+    window.location.replace('/');
+    return false;
+  }
+
+  return true;
 }
 
 function toast(message, isError = false) {
@@ -518,8 +530,18 @@ async function login() {
   localStorage.setItem('token', token);
   document.getElementById('loginStatus').innerText = 'Eingeloggt';
 
-  await Promise.all([loadModules(), refreshStatus(), refreshPreview()]);
-  startPollingLoops();
+  document.getElementById('loginStatus').innerText = 'Eingeloggt – weiter zur Übersicht';
+  setTimeout(() => { window.location.href = '/'; }, 350);
+}
+
+
+function logout() {
+  token = '';
+  localStorage.removeItem('token');
+  toast('Abgemeldet');
+  setTimeout(() => {
+    window.location.href = '/login';
+  }, 200);
 }
 
 async function loadModules() {
@@ -713,13 +735,21 @@ function runPreset(pattern, seconds, intervalMs) {
 }
 
 async function refreshStatus() {
+  const statusApiEl = document.getElementById('statusApi');
+  const hasStatusUi = !!statusApiEl;
+
   const data = await apiRequest('/api/debug/status');
   if (!data) {
-    document.getElementById('statusApi').innerText = token ? 'offline / auth?' : 'nicht eingeloggt';
+    if (hasStatusUi) statusApiEl.innerText = token ? 'offline / auth?' : 'nicht eingeloggt';
     return;
   }
 
-  document.getElementById('statusApi').innerText = 'online';
+  if (!hasStatusUi) {
+    await refreshDhtDebug();
+    return;
+  }
+
+  statusApiEl.innerText = 'online';
   document.getElementById('statusSource').innerText = data.display.last_source || '-';
   document.getElementById('statusModule').innerText = data.display.last_module || '-';
   document.getElementById('statusFps').innerText = `${data.display.target_fps} / ${data.display.actual_fps}`;
@@ -910,12 +940,20 @@ async function sendGrid() {
 }
 
 initTopNavigation();
-initGrid();
-initPreviewGrid();
-if (token) {
-  loadModules();
-  refreshStatus();
-  refreshPreview();
-  refreshDhtDebug();
-  startPollingLoops();
+
+if (ensureAuthFlow()) {
+  const { page, requiresAuth } = pageInfo();
+  if (document.getElementById('grid')) initGrid();
+  if (document.getElementById('previewGrid')) initPreviewGrid();
+
+  if (requiresAuth && token) {
+    if (page === 'modules') loadModules();
+    if (page === 'overview') refreshStatus();
+    if (page === 'tools') refreshPreview();
+    if (page === 'debug') {
+      refreshDhtDebug();
+      refreshStatus();
+    }
+    startPollingLoops();
+  }
 }
