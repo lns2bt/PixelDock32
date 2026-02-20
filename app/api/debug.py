@@ -36,6 +36,10 @@ async def status(request: Request, _: str = Depends(get_current_user)):
         "display": display_service.get_status(),
         "data": {
             "btc_eur": cache.get("btc_eur"),
+            "btc_trend": cache.get("btc_trend"),
+            "btc_block_height": cache.get("btc_block_height"),
+            "btc_block_height_updated_at": cache.get("btc_block_height_updated_at"),
+            "btc_block_height_error": cache.get("btc_block_height_error"),
             "btc_updated_at": cache.get("btc_updated_at"),
             "btc_error": cache.get("btc_error"),
             "weather_temp": cache.get("weather_temp"),
