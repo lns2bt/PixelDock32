@@ -108,6 +108,8 @@ class DisplayService:
         self.last_target_frame: list[list[int]] = [[0 for _ in range(32)] for _ in range(8)]
         self.last_target_colors: list[list[tuple[int, int, int] | None]] = blank_color_frame(32, 8)
         self.clock_border_path = _clock_border_path(32, 8)
+        self.last_cache_snapshot: dict = {}
+        self.last_cache_snapshot_ts: float | None = None
 
     async def start(self):
         self._running = True
@@ -175,6 +177,35 @@ class DisplayService:
             "debug_until": self.debug_override[1] if self.debug_override else None,
             "manual_active": bool(self.manual_override),
             "manual_until": self.manual_override[2] if self.manual_override else None,
+            "cache_snapshot_ts": self.last_cache_snapshot_ts,
+            "cache_snapshot_keys": sorted(list(self.last_cache_snapshot.keys())),
+        }
+
+    def get_live_data_snapshot(self) -> dict:
+        cache = self.last_cache_snapshot or {}
+        return {
+            "btc_eur": cache.get("btc_eur"),
+            "btc_trend": cache.get("btc_trend"),
+            "btc_block_height": cache.get("btc_block_height"),
+            "btc_block_height_updated_at": cache.get("btc_block_height_updated_at"),
+            "btc_block_height_error": cache.get("btc_block_height_error"),
+            "btc_updated_at": cache.get("btc_updated_at"),
+            "btc_error": cache.get("btc_error"),
+            "weather_temp": cache.get("weather_temp"),
+            "weather_outdoor_temp": cache.get("weather_outdoor_temp"),
+            "weather_indoor_temp": cache.get("weather_indoor_temp"),
+            "weather_indoor_humidity": cache.get("weather_indoor_humidity"),
+            "weather_updated_at": cache.get("weather_updated_at"),
+            "weather_error": cache.get("weather_error"),
+            "weather_source": cache.get("weather_source"),
+            "dht_updated_at": cache.get("dht_updated_at"),
+            "dht_error": cache.get("dht_error"),
+            "dht_gpio_level": cache.get("dht_gpio_level"),
+            "dht_last_attempt_at": cache.get("dht_last_attempt_at"),
+            "dht_last_duration_ms": cache.get("dht_last_duration_ms"),
+            "dht_raw_temperature": cache.get("dht_raw_temperature"),
+            "dht_raw_humidity": cache.get("dht_raw_humidity"),
+            "dht_backend": cache.get("dht_backend"),
         }
 
 
@@ -329,6 +360,10 @@ class DisplayService:
         self.last_module_key = selected["key"]
         settings = selected["settings"] or {}
 
+        live_cache = dict(self.cache_provider() or {})
+        self.last_cache_snapshot = live_cache
+        self.last_cache_snapshot_ts = time.time()
+
         if selected["key"] == "bitmap":
             try:
                 file_path = str(settings.get("file", "")).strip()
@@ -358,7 +393,7 @@ class DisplayService:
                 frame = [[0 for _ in range(32)] for _ in range(8)]
                 color_frame = blank_color_frame(32, 8)
         else:
-            payload: ModulePayload = await module.render(settings, self.cache_provider())
+            payload: ModulePayload = await module.render(settings, live_cache)
             if payload.frame is not None:
                 frame = payload.frame
             else:
