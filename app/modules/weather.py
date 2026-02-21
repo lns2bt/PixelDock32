@@ -13,6 +13,11 @@ def temperature_to_rgb(temp_c: float, cold: tuple[int, int, int], warm: tuple[in
 class WeatherModule(ModuleBase):
     key = "weather"
 
+    @staticmethod
+    def _format_temp(prefix: str, value: float) -> str:
+        separator = "" if value < 0 else " "
+        return f"{prefix}{separator}{value:.1f}C"
+
     async def render(self, settings: dict, cache: dict) -> ModulePayload:
         outdoor_temp = cache.get("weather_outdoor_temp")
         indoor_temp = cache.get("weather_indoor_temp")
@@ -33,11 +38,11 @@ class WeatherModule(ModuleBase):
 
         if outdoor_temp is not None:
             outdoor_value = float(outdoor_temp)
-            screens.append((f"Out {outdoor_value:.1f}C", temperature_to_rgb(outdoor_value, cold_color, warm_color)))
+            screens.append((self._format_temp("Out", outdoor_value), temperature_to_rgb(outdoor_value, cold_color, warm_color)))
 
         if indoor_temp is not None:
             indoor_value = float(indoor_temp)
-            screens.append((f"In {indoor_value:.1f}C", temperature_to_rgb(indoor_value, cold_color, warm_color)))
+            screens.append((self._format_temp("In", indoor_value), temperature_to_rgb(indoor_value, cold_color, warm_color)))
 
         if indoor_humidity is not None:
             screens.append((f"H{float(indoor_humidity):.0f}%", humidity_color))
