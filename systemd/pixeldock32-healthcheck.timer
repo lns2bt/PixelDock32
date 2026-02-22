@@ -1,0 +1,10 @@
+[Unit]
+Description=Run PixelDock32 healthcheck every minute
+
+[Timer]
+OnBootSec=90s
+OnUnitActiveSec=60s
+Unit=pixeldock32-healthcheck.service
+
+[Install]
+WantedBy=timers.target

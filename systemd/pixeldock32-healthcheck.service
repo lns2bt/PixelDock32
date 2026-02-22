@@ -1,0 +1,8 @@
+[Unit]
+Description=PixelDock32 HTTP Healthcheck
+After=pixeldock32.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/pi/PixelDock32
+ExecStart=/home/pi/PixelDock32/scripts/pixeldock32-healthcheck.sh
