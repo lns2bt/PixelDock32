@@ -33,16 +33,15 @@ Dann im LAN öffnen: `http://<raspberrypi-ip>:8000`
 
 ## systemd Autostart
 
-Service-Datei: `systemd/pixeldock32.service`
+Für den produktiven Betrieb auf dem Raspberry Pi gibt es jetzt eine vollständige Schritt-für-Schritt-Anleitung inkl. Healthcheck-Recovery bei Hängern:
 
-Installation am Pi:
+- [`docs/autostart-raspberry-pi.md`](autostart-raspberry-pi.md)
+
+Kurzvariante:
 
 ```bash
-sudo cp systemd/pixeldock32.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable pixeldock32
-sudo systemctl start pixeldock32
-sudo systemctl status pixeldock32
+cd /home/pi/PixelDock32
+sudo ./scripts/manage-autostart.sh enable --repo-dir /home/pi/PixelDock32 --user pi --group pi
 ```
 
 ## Wichtige .env Parameter
