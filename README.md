@@ -31,6 +31,7 @@ Im LAN öffnen: `http://<raspberrypi-ip>:8000`
 
 - [Projektüberblick & Architektur](docs/overview.md)
 - [Setup, Betrieb, .env und Troubleshooting](docs/setup-und-betrieb.md)
+- [Raspberry Pi Autostart + Recovery bei Hängern](docs/autostart-raspberry-pi.md)
 - [API-Übersicht](docs/api.md)
 - [Hardware, Mapping, Kalibrierung & DHT11](docs/hardware-und-mapping.md)
 - [Module und Features](docs/module-und-feature-doku.md)
