@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.api.deps import get_current_user
-from app.schemas_debug import DebugPatternRequest, GpioInputProbeRequest, GpioOutputTestRequest
+from app.schemas_debug import DebugPatternRequest, GpioInputProbeRequest, GpioOutputTestRequest, LedSerialPingRequest
 
 router = APIRouter(prefix="/api/debug", tags=["debug"])
 
@@ -19,6 +19,14 @@ def _mapper(request: Request):
         raise HTTPException(status_code=503, detail="mapper unavailable")
     return mapper
 
+
+
+
+def _led_driver(request: Request):
+    led_driver = getattr(getattr(request.app.state, "display_service", None), "led_driver", None)
+    if led_driver is None:
+        raise HTTPException(status_code=503, detail="led driver unavailable")
+    return led_driver
 
 def _external(request: Request):
     external = getattr(request.app.state, "external_data_service", None)
@@ -47,6 +55,7 @@ async def status(request: Request, _: str = Depends(get_current_user)):
     return {
         "display": display_service.get_status(),
         "live_data": live_data,
+        "led_transport": _led_driver(request).get_debug_snapshot(),
         "live_data_debug": {
             "source": "display_cache_snapshot",
             "snapshot_ts": display_service.last_cache_snapshot_ts,
@@ -203,3 +212,14 @@ async def gpio_input_probe(payload: GpioInputProbeRequest, request: Request, _: 
         pull_up=payload.pull_up,
     )
     return {"ok": True, "result": result}
+
+
+@router.get("/led")
+async def led_debug(request: Request, _: str = Depends(get_current_user)):
+    return {"ok": True, "result": _led_driver(request).get_debug_snapshot()}
+
+
+@router.post("/led/serial-ping")
+async def led_serial_ping(payload: LedSerialPingRequest, request: Request, _: str = Depends(get_current_user)):
+    result = _led_driver(request).serial_ping(nonce=payload.nonce)
+    return {"ok": bool(result.get("ok")), "result": result}

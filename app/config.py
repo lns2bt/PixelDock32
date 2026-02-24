@@ -21,12 +21,17 @@ class Settings(BaseSettings):
     tz: str = "Europe/Vienna"
 
     led_count: int = 256
+    led_transport: str = "auto"
     led_pin: int = 18
     led_freq_hz: int = 800000
     led_dma: int = 10
     led_invert: bool = False
     led_brightness: int = 64
     led_channel: int = 0
+    led_serial_port: str = "/dev/ttyUSB0"
+    led_serial_baudrate: int = 1000000
+    led_serial_timeout: float = 0.02
+    led_serial_write_timeout: float = 0.1
 
     panel_rows: int = 8
     panel_columns: int = 32
@@ -54,6 +59,18 @@ class Settings(BaseSettings):
     poll_btc_seconds: int = Field(default=60, ge=15)
     poll_weather_seconds: int = Field(default=300, ge=60)
     render_fps: int = Field(default=20, ge=1)
+
+
+    @field_validator("led_transport", mode="before")
+    @classmethod
+    def validate_led_transport(cls, value):
+        if value is None:
+            return "auto"
+        normalized = str(value).strip().lower()
+        allowed = {"auto", "rpi", "serial"}
+        if normalized not in allowed:
+            raise ValueError(f"led_transport must be one of: {', '.join(sorted(allowed))}")
+        return normalized
 
     @field_validator("panel_order", mode="before")
     @classmethod
