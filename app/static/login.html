@@ -24,11 +24,11 @@
     <section class="card auth-card" data-section-title="Login">
       <h2>Anmelden</h2>
       <p class="subtle">Bitte melde dich an, um die PixelDock32-Steuerung zu öffnen.</p>
-      <div class="form-row three">
-        <div class="field"><label for="username">Benutzername</label><input id="username" placeholder="z. B. admin" value="admin" /></div>
-        <div class="field"><label for="password">Passwort</label><input id="password" type="password" placeholder="••••••••" /></div>
-        <div class="field actions-end"><button class="btn" onclick="login()">Einloggen</button></div>
-      </div>
+      <form id="loginForm" class="form-row three" onsubmit="login(event)">
+        <div class="field"><label for="username">Benutzername</label><input id="username" autocomplete="username" placeholder="z. B. admin" value="admin" /></div>
+        <div class="field"><label for="password">Passwort</label><input id="password" type="password" autocomplete="current-password" placeholder="••••••••" /></div>
+        <div class="field actions-end"><button id="loginButton" class="btn" type="submit">Einloggen</button></div>
+      </form>
       <p id="loginStatus" class="subtle"></p>
     </section>
   </main>
