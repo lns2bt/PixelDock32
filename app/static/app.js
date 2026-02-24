@@ -1012,6 +1012,7 @@ async function refreshStatus() {
 
   if (!hasStatusUi) {
     await refreshDhtDebug();
+    await refreshLedDebug();
     return;
   }
 
@@ -1051,6 +1052,7 @@ async function refreshStatus() {
   renderOverviewLiveDataDebug(display, sourceData, externalData, liveDataDebug);
 
   await refreshDhtDebug();
+  await refreshLedDebug();
 }
 
 async function refreshDhtDebug() {
@@ -1130,6 +1132,32 @@ async function runGpioInputProbe() {
 
   if (!data?.result) return;
   renderGpioResult(`Sensor-Probe auf GPIO ${gpioPin}`, data.result);
+}
+
+async function refreshLedDebug() {
+  const data = await apiRequest('/api/debug/led');
+  if (!data?.result) return;
+  const el = document.getElementById('ledDebugInfo');
+  if (!el) return;
+  el.innerText = JSON.stringify(data.result, null, 2);
+}
+
+async function runLedSerialPing() {
+  const data = await apiRequest('/api/debug/led/serial-ping', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) }, 'Serial Ping ausgeführt');
+  if (!data?.result) return;
+
+  const el = document.getElementById('ledPingResult');
+  if (!el) return;
+  const r = data.result;
+  el.innerText = [
+    `Status: ${r.ok ? '✅ OK' : '⚠️ Fehler'}`,
+    `Roundtrip: ${r.roundtrip_ms ?? '-'} ms`,
+    `Nonce: ${r.nonce ?? '-'}`,
+    `Antwort-Nonce: ${r.response_nonce ?? '-'}`,
+    `Fehler: ${r.error || '-'}`,
+  ].join('\n');
+
+  await refreshLedDebug();
 }
 
 function initPreviewGrid() {
@@ -1237,6 +1265,7 @@ if (ensureAuthFlow()) {
     if (page === 'tools') refreshPreview();
     if (page === 'debug') {
       refreshDhtDebug();
+      refreshLedDebug();
       refreshStatus();
     }
     startPollingLoops();

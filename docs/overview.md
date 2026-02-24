@@ -1,6 +1,6 @@
 # Projektüberblick
 
-PixelDock32 ist ein modularer 8x32-Controller für 4x WS2812B-8x8 Panels auf Raspberry Pi (GPIO18 + `rpi_ws281x`).
+PixelDock32 ist ein modularer 8x32-Controller für 4x WS2812B-8x8 Panels. Der Raspberry Pi übernimmt API, Webserver und Datenbeschaffung; die LED-Signalerzeugung kann effizient per USB auf einen Arduino Nano ausgelagert werden (oder optional direkt via GPIO18 + `rpi_ws281x`).
 
 ## Kurz-Architektur (MVP)
 
@@ -9,6 +9,7 @@ PixelDock32 ist ein modularer 8x32-Controller für 4x WS2812B-8x8 Panels auf Ras
 - **Render-Loop (async, non-blocking)** läuft im Hintergrund und rotiert aktive Module.
 - **Hintergrund-Poller** holen BTC-Preis + Wetter zyklisch und cachen die Werte.
 - **LED-Mapping Layer** übersetzt logische Koordinaten (x=0 links) auf physische Daisy-Chain (Datenstart rechts).
+- **LED-Transport-Layer** sendet gerenderte Frames entweder an `rpi_ws281x` (GPIO) oder als kompaktes Binärprotokoll via USB-Serial an den Arduino Nano.
 - **Auth** via Login + JWT für UI/API Schutz im LAN.
 
 ## Ordnerstruktur

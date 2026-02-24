@@ -11,6 +11,46 @@
   - `PANEL_ROTATIONS=0,0,0,0`
 - Logische API-Koordinaten bleiben immer **links nach rechts**.
 
+## Raspberry Pi + Arduino Nano (USB)
+
+Für stabile WS2812B-Signale wird die Signalerzeugung vom Raspberry Pi auf den Arduino Nano ausgelagert:
+
+- Raspberry Pi: Rendering, Webserver, Sensoren, Internet-APIs
+- Arduino Nano: zeitkritische LED-Signalverarbeitung (`NeoPixel.show()`, PWM/Timing)
+
+### Verkabelung
+
+- Raspberry Pi USB -> Arduino Nano USB
+- Arduino Nano `D6` -> `DIN` des ersten WS2812B-Panels
+- Arduino Nano `GND` -> LED-GND
+- Raspberry Pi `GND` -> LED-GND (gemeinsame Masse empfohlen)
+- LED-Panels über separates 5V-Netzteil versorgen
+
+### Kommunikationsprotokoll (effizient)
+
+Das Backend sendet komplette RGB-Frames binär über USB-Serial an den Nano:
+
+- Header: `P`, `D`, `CMD`, `LEN_LO`, `LEN_HI`
+- Payload:
+  - `CMD=0x01`: Frame-Daten (`LED_COUNT * 3` Bytes, RGB je LED)
+  - `CMD=0x02`: Helligkeit (`1` Byte)
+- Footer: XOR-Checksumme über Header + Payload
+
+Vorteil:
+
+- kaum CPU-Last auf dem Pi für LED-Timing
+- robustere Ausgabe bei parallel laufendem Webserver, Pollern und Sensorzugriff
+
+### Serial-Ping-Debug
+
+Zur Diagnose der USB-Verbindung gibt es einen Ping-Mechanismus (`CMD_PING`/`CMD_PING_ACK`), der in der Web-UI unter Debug verfügbar ist. So kann die Pi↔Nano-Verbindung unabhängig von der Bildausgabe geprüft werden (inkl. Roundtrip-Zeit und Fehlerdetails).
+
+### Firmware
+
+- Pfad: `arduino/PixelDockNano/PixelDockNano.ino`
+- Baudrate: `1000000`
+- Arduino-Library: `Adafruit NeoPixel`
+
 ## Schnelles Mapping-Schema
 
 Wenn Panels verdreht oder vertauscht montiert wurden, kannst du das mit zwei Werten korrigieren:

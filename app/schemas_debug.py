@@ -17,3 +17,7 @@ class GpioInputProbeRequest(BaseModel):
     gpio_pin: int = Field(ge=2, le=27)
     sample_ms: int = Field(default=1000, ge=250, le=10000)
     pull_up: bool = Field(default=True)
+
+
+class LedSerialPingRequest(BaseModel):
+    nonce: int | None = Field(default=None, ge=0, le=4294967295)
