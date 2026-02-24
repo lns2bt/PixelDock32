@@ -739,9 +739,46 @@ function collectModuleSettings({ id: moduleId, key: moduleKey }) {
   return {};
 }
 
-async function login() {
-  const username = document.getElementById('username').value;
-  const password = document.getElementById('password').value;
+function setLoginUiState(isLoading = false, statusText = '') {
+  const button = document.getElementById('loginButton');
+  if (button) {
+    button.disabled = isLoading;
+    button.innerText = isLoading ? 'Logge ein…' : 'Einloggen';
+  }
+
+  const statusEl = document.getElementById('loginStatus');
+  if (statusEl) statusEl.innerText = statusText;
+}
+
+function initLoginPage() {
+  const passwordInput = document.getElementById('password');
+  const usernameInput = document.getElementById('username');
+  if (!passwordInput || !usernameInput) return;
+
+  if (usernameInput.value.trim()) {
+    passwordInput.focus();
+  } else {
+    usernameInput.focus();
+  }
+
+  [usernameInput, passwordInput].forEach((input) => {
+    input.addEventListener('input', () => setLoginUiState(false, ''));
+  });
+}
+
+async function login(event) {
+  event?.preventDefault();
+
+  const username = document.getElementById('username')?.value.trim() || '';
+  const password = document.getElementById('password')?.value || '';
+
+  if (!username || !password) {
+    setLoginUiState(false, 'Bitte Benutzername und Passwort eingeben');
+    return;
+  }
+
+  setLoginUiState(true, 'Prüfe Login…');
+
   const data = await apiRequest(
     '/api/auth/login',
     {
@@ -753,14 +790,13 @@ async function login() {
   );
 
   if (!data?.access_token) {
-    document.getElementById('loginStatus').innerText = 'Login fehlgeschlagen';
+    setLoginUiState(false, 'Login fehlgeschlagen');
     return;
   }
+
   token = data.access_token;
   localStorage.setItem('token', token);
-  document.getElementById('loginStatus').innerText = 'Eingeloggt';
-
-  document.getElementById('loginStatus').innerText = 'Eingeloggt – weiter zur Übersicht';
+  setLoginUiState(true, 'Eingeloggt – weiter zur Übersicht');
   setTimeout(() => { window.location.href = '/'; }, 350);
 }
 
@@ -1193,6 +1229,7 @@ if (ensureAuthFlow()) {
   const { page, requiresAuth } = pageInfo();
   if (document.getElementById('grid')) initGrid();
   if (document.getElementById('previewGrid')) initPreviewGrid();
+  if (page === 'login') initLoginPage();
 
   if (requiresAuth && token) {
     if (page === 'modules') loadModules();
