@@ -3,6 +3,8 @@ const gridState = Array.from({ length: 8 }, () => Array(32).fill(0));
 let pollTimerStatus = null;
 let pollTimerPreview = null;
 const moduleCollapseState = {};
+const serialPingHistory = [];
+const serialStateHistory = [];
 
 function authHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : {};
@@ -136,6 +138,107 @@ function formatAgeSeconds(timestamp) {
   if (age < 120) return `${Math.round(age)}s`;
   if (age < 7200) return `${Math.round(age / 60)}m`;
   return `${Math.round(age / 3600)}h`;
+}
+
+
+function formatMs(value, digits = 2) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '-';
+  return `${Number(value).toFixed(digits)} ms`;
+}
+
+function pushBounded(list, entry, limit = 25) {
+  list.unshift(entry);
+  if (list.length > limit) list.length = limit;
+}
+
+function renderSerialDebugView(result) {
+  const summaryEl = document.getElementById('serialDebugSummary');
+  const metricsEl = document.getElementById('serialDebugMetrics');
+  const timelineEl = document.getElementById('serialDebugTimeline');
+  if (!summaryEl && !metricsEl && !timelineEl) return;
+
+  const led = result && typeof result === 'object' ? result : {};
+  const serial = led.serial && typeof led.serial === 'object' ? led.serial : null;
+
+  if (!serial) {
+    if (summaryEl) summaryEl.innerText = `Status: ⚠️ Kein Serial-Transport aktiv
+Aktueller Transport: ${led.transport || '-'}
+Strip: ${led.strip_class || '-'}`;
+    if (metricsEl) metricsEl.innerText = 'Keine Serial-Metriken verfügbar (LED Driver läuft nicht im serial-Modus).';
+    if (timelineEl) timelineEl.innerText = 'Kein Verlauf, da kein serial-Modus aktiv ist.';
+    return;
+  }
+
+  const nowTs = Date.now() / 1000;
+  pushBounded(serialStateHistory, {
+    ts: nowTs,
+    frames: serial.frames_sent,
+    bytes: serial.bytes_sent,
+    pingOk: serial.last_ping_ok,
+    err: serial.last_error,
+  });
+
+  const latest = serialStateHistory[0];
+  const prev = serialStateHistory[1];
+  const deltaFrames = latest && prev ? Math.max(0, (latest.frames || 0) - (prev.frames || 0)) : null;
+  const deltaBytes = latest && prev ? Math.max(0, (latest.bytes || 0) - (prev.bytes || 0)) : null;
+
+  const pingState = serial.last_ping_ok === true
+    ? '✅ OK'
+    : serial.last_ping_ok === false
+      ? '⚠️ Fehler'
+      : '— noch kein Ping';
+  const healthState = serial.last_error ? '⚠️ Fehler erkannt' : '✅ stabil';
+
+  if (summaryEl) {
+    summaryEl.innerText = [
+      `Status: ${healthState}`,
+      `Port/Baud: ${serial.port || '-'} @ ${serial.baudrate || '-'}`,
+      `Frames gesendet: ${formatNumber(serial.frames_sent)}`,
+      `Letzter Frame: ${formatTs(serial.last_frame_at)} (${formatAgeSeconds(serial.last_frame_at)} alt)`,
+      `Letzter Write: ${formatMs(serial.last_frame_write_ms, 3)}`,
+      `Ping: ${pingState} (${formatMs(serial.last_ping_rtt_ms, 3)})`,
+      serial.last_error ? `Letzter Fehler: ${serial.last_error}` : 'Letzter Fehler: -',
+    ].join('\n');
+  }
+
+  if (metricsEl) {
+    metricsEl.innerText = [
+      `Transport: ${led.transport || '-'} (${led.strip_class || '-'})`,
+      `Brightness: ${serial.brightness ?? led.brightness ?? '-'} / 255`,
+      `Frame-Payload: ${formatNumber(serial.frame_payload_bytes)} bytes`,
+      `Gesamt gesendet: ${formatNumber(serial.bytes_sent)} bytes`,
+      `Δ seit letztem Refresh: ${deltaFrames === null ? '-' : `${deltaFrames} Frames`} | ${deltaBytes === null ? '-' : `${deltaBytes} bytes`}`,
+      `Brightness-Updates: ${formatNumber(serial.brightness_updates)}`,
+      `Timeout read/write: ${formatDebugValue(serial.timeout)}s / ${formatDebugValue(serial.write_timeout)}s`,
+      `Verbunden: ${serial.connected ? 'ja' : 'nein'}`,
+      `Fehlerzeitpunkt: ${formatTs(serial.last_error_at)} (${formatAgeSeconds(serial.last_error_at)} alt)`,
+    ].join('\n');
+  }
+
+  if (timelineEl) {
+    const lines = serialStateHistory.slice(0, 8).map((item, index) => {
+      const prevItem = serialStateHistory[index + 1];
+      const dFrames = prevItem ? Math.max(0, (item.frames || 0) - (prevItem.frames || 0)) : 0;
+      const dBytes = prevItem ? Math.max(0, (item.bytes || 0) - (prevItem.bytes || 0)) : 0;
+      return `${formatTs(item.ts)} | +${dFrames} Frames | +${dBytes} bytes | ping=${item.pingOk === null || item.pingOk === undefined ? '-' : item.pingOk ? 'ok' : 'fail'}${item.err ? ` | err=${item.err}` : ''}`;
+    });
+    timelineEl.innerText = lines.length ? lines.join('\n') : '-';
+  }
+}
+
+function renderSerialPingHistory() {
+  const el = document.getElementById('serialPingHistory');
+  if (!el) return;
+  if (!serialPingHistory.length) {
+    el.innerText = 'Noch kein Ping ausgeführt.';
+    return;
+  }
+
+  el.innerText = serialPingHistory
+    .slice(0, 12)
+    .map((entry) => `${formatTs(entry.ts)} | ${entry.ok ? '✅' : '⚠️'} | RTT=${formatMs(entry.roundtrip, 3)} | nonce=${entry.nonce ?? '-'} | rsp=${entry.responseNonce ?? '-'}${entry.error ? ` | ${entry.error}` : ''}`)
+    .join('\n');
 }
 
 function getLiveDataWaitReason(display, sourceData, liveDataDebug) {
@@ -1140,6 +1243,7 @@ async function refreshLedDebug() {
   const el = document.getElementById('ledDebugInfo');
   if (!el) return;
   el.innerText = JSON.stringify(data.result, null, 2);
+  renderSerialDebugView(data.result);
 }
 
 async function runLedSerialPing() {
@@ -1149,6 +1253,16 @@ async function runLedSerialPing() {
   const el = document.getElementById('ledPingResult');
   if (!el) return;
   const r = data.result;
+  pushBounded(serialPingHistory, {
+    ts: Date.now() / 1000,
+    ok: !!r.ok,
+    roundtrip: r.roundtrip_ms,
+    nonce: r.nonce,
+    responseNonce: r.response_nonce,
+    error: r.error,
+  }, 30);
+  renderSerialPingHistory();
+
   el.innerText = [
     `Status: ${r.ok ? '✅ OK' : '⚠️ Fehler'}`,
     `Roundtrip: ${r.roundtrip_ms ?? '-'} ms`,

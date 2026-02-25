@@ -48,11 +48,27 @@
       </div>
       <details class="debug-panel" open><summary>DHT Read-Once Ergebnis</summary><div id="dhtReadOnceResult" class="mapping-info" style="margin-top:8px;">Noch kein DHT Einzel-Read ausgeführt.</div></details>
       <details class="debug-panel" open><summary>DHT Debug (JSON)</summary><pre id="dhtDebugInfo" class="debug-pre">-</pre></details>
+      <details class="debug-panel" open>
+        <summary>Serieller Link (Pi ↔ Arduino) – Schnellansicht</summary>
+        <div id="serialDebugSummary" class="mapping-info">Warte auf LED/Serial-Debugdaten…</div>
+      </details>
+      <details class="debug-panel" open>
+        <summary>Serieller Link (Pi ↔ Arduino) – Metriken</summary>
+        <div id="serialDebugMetrics" class="mapping-info">-</div>
+      </details>
+      <details class="debug-panel">
+        <summary>Serieller Link (Pi ↔ Arduino) – Verlauf / letzte Ereignisse</summary>
+        <div id="serialDebugTimeline" class="mapping-info">-</div>
+      </details>
       <details class="debug-panel" open><summary>LED/Serial Debug</summary><pre id="ledDebugInfo" class="debug-pre">-</pre></details>
       <div class="preset-row" style="margin-top:8px;">
         <button class="btn" onclick="runLedSerialPing()">Serial Ping (Pi ↔ Nano)</button>
       </div>
       <details class="debug-panel" open><summary>LED Serial Ping Ergebnis</summary><div id="ledPingResult" class="mapping-info">Noch kein Serial Ping ausgeführt.</div></details>
+      <details class="debug-panel">
+        <summary>Serial Ping Verlauf</summary>
+        <div id="serialPingHistory" class="mapping-info">Noch kein Ping ausgeführt.</div>
+      </details>
     </section>
 
     <section class="card section-anchor" data-section-title="Debugging">
