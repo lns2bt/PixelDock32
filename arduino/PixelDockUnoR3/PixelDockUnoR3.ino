@@ -6,6 +6,7 @@
 // CMD=0x01 => full RGB frame payload (3 * LED_COUNT bytes)
 // CMD=0x02 => brightness payload (1 byte 0..255)
 // CMD=0x03 => ping payload (4-byte nonce), reply CMD=0x83
+// CMD=0x05 => frame v2 payload [u16 seq | RGB...], reply CMD=0x85 after strip.show()
 
 constexpr uint8_t PIN_NEOPIXEL = 6;
 constexpr uint16_t LED_COUNT = 256;
@@ -17,15 +18,21 @@ constexpr uint8_t CMD_BRIGHTNESS = 0x02;
 constexpr uint8_t CMD_PING = 0x03;
 constexpr uint8_t CMD_PING_ACK = 0x83;
 constexpr uint8_t CMD_DEBUG_SNAPSHOT = 0x04;
+constexpr uint8_t CMD_FRAME_V2 = 0x05;
 constexpr uint8_t CMD_DEBUG_SNAPSHOT_ACK = 0x84;
+constexpr uint8_t CMD_FRAME_ACK = 0x85;
 constexpr uint8_t MAGIC_0 = 'P';
 constexpr uint8_t MAGIC_1 = 'D';
-constexpr uint8_t DEBUG_PROTOCOL_VERSION = 1;
+constexpr uint8_t DEBUG_PROTOCOL_VERSION = 2;
+
+constexpr uint16_t FRAME_SEQ_BYTES = 2;
+constexpr uint16_t FRAME_V2_PAYLOAD = FRAME_PAYLOAD + FRAME_SEQ_BYTES;
 
 // Prevent parser lock on partial packets.
-constexpr uint32_t RX_PACKET_TIMEOUT_MS = 25;
+constexpr uint32_t RX_PACKET_TIMEOUT_MS = 40;
 
 Adafruit_NeoPixel strip(LED_COUNT, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
+uint8_t *stripPixels = nullptr;
 
 enum class RxState : uint8_t {
   WAIT_MAGIC_0,
@@ -50,6 +57,8 @@ uint8_t payloadSmall[4] = {0, 0, 0, 0};
 uint8_t rgbScratch[3] = {0, 0, 0};
 uint8_t rgbScratchLen = 0;
 uint16_t frameLedIndex = 0;
+uint8_t frameBrightness = 64;
+uint16_t frameSequence = 0;
 
 uint32_t lastRxByteAtMs = 0;
 
@@ -97,6 +106,7 @@ void resetRx() {
   checksum = 0;
   rgbScratchLen = 0;
   frameLedIndex = 0;
+  frameSequence = 0;
 }
 
 void resetRxWithTimeout() {
@@ -141,6 +151,9 @@ bool commandAndLengthValid(uint8_t cmd, uint16_t len) {
   if (cmd == CMD_FRAME) {
     return len == FRAME_PAYLOAD;
   }
+  if (cmd == CMD_FRAME_V2) {
+    return len == FRAME_V2_PAYLOAD;
+  }
   if (cmd == CMD_BRIGHTNESS) {
     return len == 1;
   }
@@ -153,9 +166,28 @@ bool commandAndLengthValid(uint8_t cmd, uint16_t len) {
   return false;
 }
 
+void sendFrameAck(uint16_t sequence) {
+  uint8_t payload[2] = {
+    static_cast<uint8_t>(sequence & 0xFF),
+    static_cast<uint8_t>((sequence >> 8) & 0xFF),
+  };
+  sendPacket(CMD_FRAME_ACK, payload, sizeof(payload));
+}
+
 void applyBrightness(uint8_t value) {
   strip.setBrightness(value);
   strip.show();
+}
+
+uint8_t scaleChannelForBrightness(uint8_t value, uint8_t brightness) {
+  if (brightness >= 255) {
+    return value;
+  }
+  if (brightness == 0) {
+    return 0;
+  }
+  const uint16_t scale = static_cast<uint16_t>(brightness) + 1;
+  return static_cast<uint8_t>((static_cast<uint16_t>(value) * scale) >> 8);
 }
 
 void onFramePayloadByte(uint8_t value) {
@@ -164,7 +196,25 @@ void onFramePayloadByte(uint8_t value) {
     return;
   }
 
-  strip.setPixelColor(frameLedIndex, strip.Color(rgbScratch[0], rgbScratch[1], rgbScratch[2]));
+  uint8_t r = rgbScratch[0];
+  uint8_t g = rgbScratch[1];
+  uint8_t b = rgbScratch[2];
+
+  if (frameBrightness != 255) {
+    r = scaleChannelForBrightness(r, frameBrightness);
+    g = scaleChannelForBrightness(g, frameBrightness);
+    b = scaleChannelForBrightness(b, frameBrightness);
+  }
+
+  if (stripPixels != nullptr) {
+    const uint16_t offset = frameLedIndex * 3;
+    // NEO_GRB buffer layout for the configured strip type.
+    stripPixels[offset + 0] = g;
+    stripPixels[offset + 1] = r;
+    stripPixels[offset + 2] = b;
+  } else {
+    strip.setPixelColor(frameLedIndex, strip.Color(r, g, b));
+  }
   frameLedIndex++;
   rgbScratchLen = 0;
 }
@@ -173,6 +223,7 @@ void setup() {
   Serial.begin(SERIAL_BAUDRATE);
   strip.begin();
   strip.setBrightness(64);
+  stripPixels = strip.getPixels();
   strip.show();
 }
 
@@ -226,6 +277,9 @@ void loop() {
         } else if (payloadLen == 0) {
           state = RxState::WAIT_CHECKSUM;
         } else {
+          if (command == CMD_FRAME || command == CMD_FRAME_V2) {
+            frameBrightness = strip.getBrightness();
+          }
           state = RxState::WAIT_PAYLOAD;
         }
         break;
@@ -233,6 +287,14 @@ void loop() {
       case RxState::WAIT_PAYLOAD:
         if (command == CMD_FRAME) {
           onFramePayloadByte(b);
+        } else if (command == CMD_FRAME_V2) {
+          if (payloadIndex == 0) {
+            frameSequence = b;
+          } else if (payloadIndex == 1) {
+            frameSequence |= static_cast<uint16_t>(b) << 8;
+          } else {
+            onFramePayloadByte(b);
+          }
         } else if (payloadIndex < sizeof(payloadSmall)) {
           payloadSmall[payloadIndex] = b;
         }
@@ -251,9 +313,12 @@ void loop() {
           if (command == CMD_BRIGHTNESS) {
             debugStats.brightnessPackets++;
             applyBrightness(payloadSmall[0]);
-          } else if (command == CMD_FRAME) {
+          } else if (command == CMD_FRAME || command == CMD_FRAME_V2) {
             debugStats.framePackets++;
             strip.show();
+            if (command == CMD_FRAME_V2) {
+              sendFrameAck(frameSequence);
+            }
           } else if (command == CMD_PING) {
             debugStats.pingPackets++;
             sendPacket(CMD_PING_ACK, payloadSmall, 4);

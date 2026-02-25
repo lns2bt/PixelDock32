@@ -105,6 +105,8 @@ class DisplayService:
         self.last_loop_sleep_ms: float | None = None
         self.last_loop_total_ms: float | None = None
         self.last_led_write_ms: float | None = None
+        self.last_led_frame_sent: bool | None = None
+        self.unchanged_frame_skips = 0
         self.last_module_query_ms: float | None = None
         self.last_module_query_cache_hit: bool | None = None
         self.frame_counter = 0
@@ -263,6 +265,8 @@ class DisplayService:
             "last_loop_sleep_ms": self.last_loop_sleep_ms,
             "last_loop_total_ms": self.last_loop_total_ms,
             "last_led_write_ms": self.last_led_write_ms,
+            "last_led_frame_sent": self.last_led_frame_sent,
+            "unchanged_frame_skips": self.unchanged_frame_skips,
             "last_module_query_ms": self.last_module_query_ms,
             "last_module_query_cache_hit": self.last_module_query_cache_hit,
             "module_rows_cache_ttl_s": self.module_rows_cache_ttl_s,
@@ -383,18 +387,26 @@ class DisplayService:
             loop_started = time.perf_counter()
             try:
                 frame, color_frame = await self._get_next_frame()
-                index_to_color: dict[int, tuple[int, int, int]] = {}
-                for y, row in enumerate(frame):
-                    for x, val in enumerate(row):
-                        if not val:
-                            continue
-                        led_index = self.mapper.xy_to_index(x, y)
-                        color = color_frame[y][x] if color_frame and color_frame[y][x] else (80, 80, 80)
-                        index_to_color[led_index] = color
+                force_frame_send = bool(getattr(self.led_driver, "should_force_frame_send", lambda: False)())
+                frame_changed = force_frame_send or frame != self.last_frame or color_frame != self.last_color_frame
+                if frame_changed:
+                    index_to_color: dict[int, tuple[int, int, int]] = {}
+                    for y, row in enumerate(frame):
+                        for x, val in enumerate(row):
+                            if not val:
+                                continue
+                            led_index = self.mapper.xy_to_index(x, y)
+                            color = color_frame[y][x] if color_frame and color_frame[y][x] else (80, 80, 80)
+                            index_to_color[led_index] = color
 
-                led_write_started = time.perf_counter()
-                self.led_driver.write_color_frame(index_to_color)
-                self.last_led_write_ms = round((time.perf_counter() - led_write_started) * 1000, 3)
+                    led_write_started = time.perf_counter()
+                    self.led_driver.write_color_frame(index_to_color)
+                    self.last_led_write_ms = round((time.perf_counter() - led_write_started) * 1000, 3)
+                    self.last_led_frame_sent = True
+                else:
+                    self.unchanged_frame_skips += 1
+                    self.last_led_write_ms = 0.0
+                    self.last_led_frame_sent = False
                 self.last_frame = [row[:] for row in frame]
                 self.last_color_frame = [row[:] for row in color_frame]
                 self.last_frame_ts = time.time()
