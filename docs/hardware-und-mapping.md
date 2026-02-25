@@ -41,6 +41,12 @@ Vorteil:
 - kaum CPU-Last auf dem Pi für LED-Timing
 - robustere Ausgabe bei parallel laufendem Webserver, Pollern und Sensorzugriff
 
+### Kommunikationsverhalten (wichtig für Debug)
+
+Der Produktiv-Sketch ist command-basiert: Der UNO sendet **nicht** fortlaufend Textzeilen wie ein Minimal-Testsketch. Daten/Antworten kommen nur auf gültige Pakete (`CMD_FRAME`, `CMD_BRIGHTNESS`, `CMD_PING`). Ein reines `readline()` ohne vorheriges Schreiben kann deshalb leer bleiben.
+
+Beim Öffnen des Serial-Ports wird der UNO R3 typischerweise per DTR zurückgesetzt. Das Backend wartet deshalb konfigurierbar kurz (`LED_SERIAL_STARTUP_DELAY`, default `2.0s`), bevor es die ersten Pakete sendet.
+
 ### Serial-Ping-Debug
 
 Zur Diagnose der USB-Verbindung gibt es einen Ping-Mechanismus (`CMD_PING`/`CMD_PING_ACK`), der in der Web-UI unter Debug verfügbar ist. So kann die Pi↔UNO R3-Verbindung unabhängig von der Bildausgabe geprüft werden (inkl. Roundtrip-Zeit und Fehlerdetails).
