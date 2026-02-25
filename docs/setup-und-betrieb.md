@@ -47,9 +47,13 @@ Dann im LAN öffnen: `http://<raspberrypi-ip>:8000`
 LED_TRANSPORT=serial
 LED_SERIAL_PORT=/dev/ttyACM0
 LED_SERIAL_BAUDRATE=1000000
+# UNO-Reset nach Port-Open abwarten (Sekunden)
+LED_SERIAL_STARTUP_DELAY=2.0
 ```
 
 Tipp: Mit `LED_TRANSPORT=auto` nutzt die App automatisch Serial, wenn `rpi_ws281x` nicht verfügbar ist.
+
+Hinweis: Beim Öffnen von `/dev/ttyACM0` setzt der UNO R3 über DTR kurz zurück. `LED_SERIAL_STARTUP_DELAY` verhindert, dass die ersten Befehle (Brightness/Ping/Frames) in die Boot-Phase fallen.
 
 Debug bei Verbindungsproblemen: In der Debug-UI stehen jetzt `LED/Serial Debug` und `Serial Ping (Pi ↔ UNO R3)` bereit. Damit siehst du Transportstatus, Frame-Zähler, letzte Fehler und Roundtrip-Zeit direkt im Webinterface.
 

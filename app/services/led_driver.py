@@ -75,6 +75,12 @@ class SerialLEDStrip:
             write_timeout=settings.led_serial_write_timeout,
         )
 
+        startup_delay = max(0.0, float(settings.led_serial_startup_delay))
+        if startup_delay > 0:
+            # Arduino UNO toggles DTR on open and resets; give firmware time to boot.
+            time.sleep(startup_delay)
+        self._serial.reset_input_buffer()
+
         self._stats = {
             "connected": True,
             "port": settings.led_serial_port,
@@ -90,6 +96,7 @@ class SerialLEDStrip:
             "last_ping_rtt_ms": None,
             "last_error": None,
             "last_error_at": None,
+            "startup_delay": startup_delay,
         }
 
     @staticmethod
@@ -166,6 +173,7 @@ class SerialLEDStrip:
         payload = struct.pack("<I", nonce)
         with self._lock:
             start = time.perf_counter()
+            self._serial.reset_input_buffer()
             self._write_packet(self.CMD_PING, payload)
             expected_len = 2 + 1 + 2 + 4 + 1
             response = self._serial.read(expected_len)
@@ -216,6 +224,7 @@ class SerialLEDStrip:
             "brightness": self._brightness,
             "timeout": self.settings.led_serial_timeout,
             "write_timeout": self.settings.led_serial_write_timeout,
+            "startup_delay": self.settings.led_serial_startup_delay,
         }
 
 

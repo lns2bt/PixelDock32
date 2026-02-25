@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     led_serial_baudrate: int = 1000000
     led_serial_timeout: float = 0.02
     led_serial_write_timeout: float = 0.1
+    led_serial_startup_delay: float = 2.0
 
     panel_rows: int = 8
     panel_columns: int = 32
