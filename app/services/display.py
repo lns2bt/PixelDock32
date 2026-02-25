@@ -101,6 +101,12 @@ class DisplayService:
         self.last_frame_ts: float | None = None
         self.last_loop_error: str | None = None
         self.last_loop_error_at: float | None = None
+        self.last_loop_work_ms: float | None = None
+        self.last_loop_sleep_ms: float | None = None
+        self.last_loop_total_ms: float | None = None
+        self.last_led_write_ms: float | None = None
+        self.last_module_query_ms: float | None = None
+        self.last_module_query_cache_hit: bool | None = None
         self.frame_counter = 0
         self.started_at = time.time()
         self.last_source = "module"
@@ -114,6 +120,9 @@ class DisplayService:
         self.clock_border_path = _clock_border_path(32, 8)
         self.last_cache_snapshot: dict = {}
         self.last_cache_snapshot_ts: float | None = None
+        self._module_rows_cache: list | None = None
+        self._module_rows_cache_perf_ts: float | None = None
+        self.module_rows_cache_ttl_s = 0.5
         self.last_render_debug: dict = {
             "module_key": None,
             "module_text": None,
@@ -171,6 +180,33 @@ class DisplayService:
             self._task.cancel()
             await asyncio.gather(self._task, return_exceptions=True)
 
+    async def _get_enabled_module_rows(self):
+        now_perf = time.perf_counter()
+        if (
+            self._module_rows_cache is not None
+            and self._module_rows_cache_perf_ts is not None
+            and (now_perf - self._module_rows_cache_perf_ts) < self.module_rows_cache_ttl_s
+        ):
+            self.last_module_query_ms = 0.0
+            self.last_module_query_cache_hit = True
+            return self._module_rows_cache
+
+        query_start = time.perf_counter()
+        async with self.session_factory() as db:
+            rows = (
+                await db.execute(
+                    ModuleConfig.__table__.select()
+                    .where(ModuleConfig.enabled.is_(True))
+                    .order_by(ModuleConfig.sort_order.asc())
+                )
+            ).mappings().all()
+
+        self._module_rows_cache = rows
+        self._module_rows_cache_perf_ts = time.perf_counter()
+        self.last_module_query_ms = round((self._module_rows_cache_perf_ts - query_start) * 1000, 3)
+        self.last_module_query_cache_hit = False
+        return rows
+
     def set_manual_text(
         self,
         text: str,
@@ -223,6 +259,13 @@ class DisplayService:
             "last_frame_ts": self.last_frame_ts,
             "last_loop_error": self.last_loop_error,
             "last_loop_error_at": self.last_loop_error_at,
+            "last_loop_work_ms": self.last_loop_work_ms,
+            "last_loop_sleep_ms": self.last_loop_sleep_ms,
+            "last_loop_total_ms": self.last_loop_total_ms,
+            "last_led_write_ms": self.last_led_write_ms,
+            "last_module_query_ms": self.last_module_query_ms,
+            "last_module_query_cache_hit": self.last_module_query_cache_hit,
+            "module_rows_cache_ttl_s": self.module_rows_cache_ttl_s,
             "last_source": self.last_source,
             "last_module": self.last_module_key,
             "debug_active": bool(self.debug_override),
@@ -337,6 +380,7 @@ class DisplayService:
 
     async def _loop(self):
         while self._running:
+            loop_started = time.perf_counter()
             try:
                 frame, color_frame = await self._get_next_frame()
                 index_to_color: dict[int, tuple[int, int, int]] = {}
@@ -348,18 +392,28 @@ class DisplayService:
                         color = color_frame[y][x] if color_frame and color_frame[y][x] else (80, 80, 80)
                         index_to_color[led_index] = color
 
+                led_write_started = time.perf_counter()
                 self.led_driver.write_color_frame(index_to_color)
+                self.last_led_write_ms = round((time.perf_counter() - led_write_started) * 1000, 3)
                 self.last_frame = [row[:] for row in frame]
                 self.last_color_frame = [row[:] for row in color_frame]
                 self.last_frame_ts = time.time()
                 self.last_loop_error = None
                 self.frame_counter += 1
-                await asyncio.sleep(self.frame_delay)
+                work_elapsed = time.perf_counter() - loop_started
+                sleep_s = max(self.frame_delay - work_elapsed, 0.0)
+                self.last_loop_work_ms = round(work_elapsed * 1000, 3)
+                self.last_loop_sleep_ms = round(sleep_s * 1000, 3)
+                self.last_loop_total_ms = round((work_elapsed + sleep_s) * 1000, 3)
+                await asyncio.sleep(sleep_s if sleep_s > 0 else 0)
             except Exception as exc:
                 # Keep the render task alive so the UI can still inspect serial/debug state.
                 self.last_loop_error = str(exc)
                 self.last_loop_error_at = time.time()
                 self._logger.exception("Display render loop iteration failed")
+                self.last_loop_work_ms = round((time.perf_counter() - loop_started) * 1000, 3)
+                self.last_loop_sleep_ms = round(max(self.frame_delay, 0.1) * 1000, 3)
+                self.last_loop_total_ms = round((self.last_loop_work_ms or 0) + (self.last_loop_sleep_ms or 0), 3)
                 await asyncio.sleep(max(self.frame_delay, 0.1))
 
     async def _get_next_frame(self) -> tuple[list[list[int]], list[list[tuple[int, int, int] | None]]]:
@@ -387,14 +441,7 @@ class DisplayService:
                 return pixels, colors
             self.manual_override = None
 
-        async with self.session_factory() as db:
-            rows = (
-                await db.execute(
-                    ModuleConfig.__table__.select()
-                    .where(ModuleConfig.enabled.is_(True))
-                    .order_by(ModuleConfig.sort_order.asc())
-                )
-            ).mappings().all()
+        rows = await self._get_enabled_module_rows()
 
         if not rows:
             self.last_source = "idle"
