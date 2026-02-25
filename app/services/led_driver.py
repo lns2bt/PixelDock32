@@ -57,6 +57,8 @@ class SerialLEDStrip:
     CMD_BRIGHTNESS = 0x02
     CMD_PING = 0x03
     CMD_PING_ACK = 0x83
+    CMD_DEBUG_SNAPSHOT = 0x04
+    CMD_DEBUG_SNAPSHOT_ACK = 0x84
 
     def __init__(self, settings: Settings, logger: logging.Logger):
         if serial is None:
@@ -97,6 +99,10 @@ class SerialLEDStrip:
             "last_error": None,
             "last_error_at": None,
             "startup_delay": startup_delay,
+            "last_debug_poll_at": None,
+            "last_debug_poll_ok": None,
+            "last_debug_poll_rtt_ms": None,
+            "arduino_debug": None,
         }
 
     @staticmethod
@@ -218,7 +224,76 @@ class SerialLEDStrip:
             "raw_response_hex": response.hex(),
         }
 
+    def _read_exact_packet(self, expected_cmd: int, expected_payload_len: int) -> tuple[bytes | None, str | None]:
+        expected_len = 2 + 1 + 2 + expected_payload_len + 1
+        response = self._serial.read(expected_len)
+        if len(response) != expected_len:
+            return None, f"timeout/incomplete response ({len(response)} bytes)"
+
+        recv_payload = response[5:-1]
+        recv_checksum = response[-1]
+        if response[0:2] != self.MAGIC:
+            return None, "invalid magic in response"
+        if response[2] != expected_cmd:
+            return None, f"unexpected cmd in response ({response[2]})"
+        if self._checksum(response[:-1]) != recv_checksum:
+            return None, "checksum mismatch in response"
+        if len(recv_payload) != expected_payload_len:
+            return None, f"invalid payload len ({len(recv_payload)})"
+        return recv_payload, None
+
+    def poll_debug_snapshot(self) -> dict:
+        payload_len = 33
+        with self._lock:
+            start = time.perf_counter()
+            self._serial.reset_input_buffer()
+            self._write_packet(self.CMD_DEBUG_SNAPSHOT)
+            payload, error = self._read_exact_packet(self.CMD_DEBUG_SNAPSHOT_ACK, payload_len)
+            rtt_ms = round((time.perf_counter() - start) * 1000, 3)
+
+        self._stats["last_debug_poll_at"] = time.time()
+        self._stats["last_debug_poll_rtt_ms"] = rtt_ms
+        self._stats["last_debug_poll_ok"] = error is None
+
+        if error:
+            self._stats["last_error"] = error
+            self._stats["last_error_at"] = time.time()
+            return {"ok": False, "error": error, "roundtrip_ms": rtt_ms}
+
+        (
+            version,
+            uptime_ms,
+            packets_ok,
+            frame_packets,
+            brightness_packets,
+            ping_packets,
+            debug_packets,
+            checksum_errors,
+            invalid_packets,
+            timeouts,
+            last_cmd,
+            current_brightness,
+        ) = struct.unpack("<BIIIIIIHHHBB", payload)
+
+        snapshot = {
+            "protocol_version": version,
+            "uptime_ms": uptime_ms,
+            "packets_ok": packets_ok,
+            "frame_packets": frame_packets,
+            "brightness_packets": brightness_packets,
+            "ping_packets": ping_packets,
+            "debug_packets": debug_packets,
+            "checksum_errors": checksum_errors,
+            "invalid_packets": invalid_packets,
+            "packet_timeouts": timeouts,
+            "last_command": last_cmd,
+            "brightness": current_brightness,
+        }
+        self._stats["arduino_debug"] = snapshot
+        return {"ok": True, "roundtrip_ms": rtt_ms, "snapshot": snapshot}
+
     def get_debug_snapshot(self) -> dict:
+        self.poll_debug_snapshot()
         return {
             **self._stats,
             "brightness": self._brightness,

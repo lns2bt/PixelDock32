@@ -1,4 +1,5 @@
 #include <Adafruit_NeoPixel.h>
+#include <string.h>
 
 // PixelDock32 serial protocol for Arduino UNO R3 (USB CDC)
 // Frame: ['P','D', CMD, LEN_LO, LEN_HI, PAYLOAD..., XOR_CHECKSUM]
@@ -15,8 +16,11 @@ constexpr uint8_t CMD_FRAME = 0x01;
 constexpr uint8_t CMD_BRIGHTNESS = 0x02;
 constexpr uint8_t CMD_PING = 0x03;
 constexpr uint8_t CMD_PING_ACK = 0x83;
+constexpr uint8_t CMD_DEBUG_SNAPSHOT = 0x04;
+constexpr uint8_t CMD_DEBUG_SNAPSHOT_ACK = 0x84;
 constexpr uint8_t MAGIC_0 = 'P';
 constexpr uint8_t MAGIC_1 = 'D';
+constexpr uint8_t DEBUG_PROTOCOL_VERSION = 1;
 
 // Prevent parser lock on partial packets.
 constexpr uint32_t RX_PACKET_TIMEOUT_MS = 25;
@@ -48,6 +52,20 @@ uint8_t rgbScratchLen = 0;
 uint16_t frameLedIndex = 0;
 
 uint32_t lastRxByteAtMs = 0;
+
+struct DebugStats {
+  uint32_t packetsOk = 0;
+  uint32_t framePackets = 0;
+  uint32_t brightnessPackets = 0;
+  uint32_t pingPackets = 0;
+  uint32_t debugPackets = 0;
+  uint16_t checksumErrors = 0;
+  uint16_t invalidPackets = 0;
+  uint16_t packetTimeouts = 0;
+  uint8_t lastCommand = 0;
+};
+
+DebugStats debugStats;
 
 uint8_t computeChecksum(const uint8_t *buf, uint16_t len) {
   uint8_t value = 0;
@@ -81,6 +99,44 @@ void resetRx() {
   frameLedIndex = 0;
 }
 
+void resetRxWithTimeout() {
+  debugStats.packetTimeouts++;
+  resetRx();
+}
+
+void sendDebugSnapshot() {
+  uint8_t payload[33] = {0};
+  uint8_t i = 0;
+
+  payload[i++] = DEBUG_PROTOCOL_VERSION;
+
+  const uint32_t uptime = millis();
+  memcpy(&payload[i], &uptime, sizeof(uptime));
+  i += sizeof(uptime);
+
+  memcpy(&payload[i], &debugStats.packetsOk, sizeof(debugStats.packetsOk));
+  i += sizeof(debugStats.packetsOk);
+  memcpy(&payload[i], &debugStats.framePackets, sizeof(debugStats.framePackets));
+  i += sizeof(debugStats.framePackets);
+  memcpy(&payload[i], &debugStats.brightnessPackets, sizeof(debugStats.brightnessPackets));
+  i += sizeof(debugStats.brightnessPackets);
+  memcpy(&payload[i], &debugStats.pingPackets, sizeof(debugStats.pingPackets));
+  i += sizeof(debugStats.pingPackets);
+  memcpy(&payload[i], &debugStats.debugPackets, sizeof(debugStats.debugPackets));
+  i += sizeof(debugStats.debugPackets);
+  memcpy(&payload[i], &debugStats.checksumErrors, sizeof(debugStats.checksumErrors));
+  i += sizeof(debugStats.checksumErrors);
+  memcpy(&payload[i], &debugStats.invalidPackets, sizeof(debugStats.invalidPackets));
+  i += sizeof(debugStats.invalidPackets);
+  memcpy(&payload[i], &debugStats.packetTimeouts, sizeof(debugStats.packetTimeouts));
+  i += sizeof(debugStats.packetTimeouts);
+
+  payload[i++] = debugStats.lastCommand;
+  payload[i++] = strip.getBrightness();
+
+  sendPacket(CMD_DEBUG_SNAPSHOT_ACK, payload, sizeof(payload));
+}
+
 bool commandAndLengthValid(uint8_t cmd, uint16_t len) {
   if (cmd == CMD_FRAME) {
     return len == FRAME_PAYLOAD;
@@ -90,6 +146,9 @@ bool commandAndLengthValid(uint8_t cmd, uint16_t len) {
   }
   if (cmd == CMD_PING) {
     return len == 4;
+  }
+  if (cmd == CMD_DEBUG_SNAPSHOT) {
+    return len == 0;
   }
   return false;
 }
@@ -120,7 +179,7 @@ void setup() {
 void loop() {
   const uint32_t now = millis();
   if (state != RxState::WAIT_MAGIC_0 && (now - lastRxByteAtMs) > RX_PACKET_TIMEOUT_MS) {
-    resetRx();
+    resetRxWithTimeout();
   }
 
   while (Serial.available() > 0) {
@@ -162,6 +221,7 @@ void loop() {
         checksum ^= b;
 
         if (!commandAndLengthValid(command, payloadLen)) {
+          debugStats.invalidPackets++;
           resetRx();
         } else if (payloadLen == 0) {
           state = RxState::WAIT_CHECKSUM;
@@ -186,13 +246,23 @@ void loop() {
 
       case RxState::WAIT_CHECKSUM:
         if (checksum == b) {
+          debugStats.packetsOk++;
+          debugStats.lastCommand = command;
           if (command == CMD_BRIGHTNESS) {
+            debugStats.brightnessPackets++;
             applyBrightness(payloadSmall[0]);
           } else if (command == CMD_FRAME) {
+            debugStats.framePackets++;
             strip.show();
           } else if (command == CMD_PING) {
+            debugStats.pingPackets++;
             sendPacket(CMD_PING_ACK, payloadSmall, 4);
+          } else if (command == CMD_DEBUG_SNAPSHOT) {
+            debugStats.debugPackets++;
+            sendDebugSnapshot();
           }
+        } else {
+          debugStats.checksumErrors++;
         }
         resetRx();
         break;

@@ -155,7 +155,8 @@ function renderSerialDebugView(result) {
   const summaryEl = document.getElementById('serialDebugSummary');
   const metricsEl = document.getElementById('serialDebugMetrics');
   const timelineEl = document.getElementById('serialDebugTimeline');
-  if (!summaryEl && !metricsEl && !timelineEl) return;
+  const arduinoEl = document.getElementById('arduinoDebugInfo');
+  if (!summaryEl && !metricsEl && !timelineEl && !arduinoEl) return;
 
   const led = result && typeof result === 'object' ? result : {};
   const serial = led.serial && typeof led.serial === 'object' ? led.serial : null;
@@ -166,8 +167,13 @@ Aktueller Transport: ${led.transport || '-'}
 Strip: ${led.strip_class || '-'}`;
     if (metricsEl) metricsEl.innerText = 'Keine Serial-Metriken verfügbar (LED Driver läuft nicht im serial-Modus).';
     if (timelineEl) timelineEl.innerText = 'Kein Verlauf, da kein serial-Modus aktiv ist.';
+    if (arduinoEl) arduinoEl.innerText = 'Arduino-Debugwerte sind nur mit led_transport=serial verfügbar.';
     return;
   }
+
+  const arduinoDebug = serial.arduino_debug && typeof serial.arduino_debug === 'object'
+    ? serial.arduino_debug
+    : null;
 
   const nowTs = Date.now() / 1000;
   pushBounded(serialStateHistory, {
@@ -198,6 +204,7 @@ Strip: ${led.strip_class || '-'}`;
       `Letzter Frame: ${formatTs(serial.last_frame_at)} (${formatAgeSeconds(serial.last_frame_at)} alt)`,
       `Letzter Write: ${formatMs(serial.last_frame_write_ms, 3)}`,
       `Ping: ${pingState} (${formatMs(serial.last_ping_rtt_ms, 3)})`,
+      `Debug Poll: ${serial.last_debug_poll_ok === true ? '✅ OK' : serial.last_debug_poll_ok === false ? '⚠️ Fehler' : '— noch nicht'} (${formatMs(serial.last_debug_poll_rtt_ms, 3)})`,
       serial.last_error ? `Letzter Fehler: ${serial.last_error}` : 'Letzter Fehler: -',
     ].join('\n');
   }
@@ -212,8 +219,35 @@ Strip: ${led.strip_class || '-'}`;
       `Brightness-Updates: ${formatNumber(serial.brightness_updates)}`,
       `Timeout read/write: ${formatDebugValue(serial.timeout)}s / ${formatDebugValue(serial.write_timeout)}s`,
       `Verbunden: ${serial.connected ? 'ja' : 'nein'}`,
+      `Arduino Snapshot: ${arduinoDebug ? 'vorhanden' : 'nicht verfügbar'}`,
       `Fehlerzeitpunkt: ${formatTs(serial.last_error_at)} (${formatAgeSeconds(serial.last_error_at)} alt)`,
     ].join('\n');
+  }
+
+  if (arduinoEl) {
+    if (!arduinoDebug) {
+      arduinoEl.innerText = [
+        'Noch keine Arduino-Debugwerte empfangen.',
+        `Letzter Poll: ${formatTs(serial.last_debug_poll_at)} (${formatAgeSeconds(serial.last_debug_poll_at)} alt)`,
+        `Poll-Status: ${serial.last_debug_poll_ok === false ? '⚠️ Fehler' : 'warte auf Daten'}`,
+        serial.last_error ? `Fehler: ${serial.last_error}` : 'Fehler: -',
+      ].join('\n');
+    } else {
+      arduinoEl.innerText = [
+        `Protokollversion: ${arduinoDebug.protocol_version ?? '-'}`,
+        `Uptime: ${arduinoDebug.uptime_ms ?? '-'} ms`,
+        `Pakete OK: ${formatNumber(arduinoDebug.packets_ok)}`,
+        `Frame-Pakete: ${formatNumber(arduinoDebug.frame_packets)}`,
+        `Brightness-Pakete: ${formatNumber(arduinoDebug.brightness_packets)}`,
+        `Ping-Pakete: ${formatNumber(arduinoDebug.ping_packets)}`,
+        `Debug-Pakete: ${formatNumber(arduinoDebug.debug_packets)}`,
+        `Checksum-Fehler: ${formatNumber(arduinoDebug.checksum_errors)}`,
+        `Ungültige Pakete: ${formatNumber(arduinoDebug.invalid_packets)}`,
+        `Timeouts: ${formatNumber(arduinoDebug.packet_timeouts)}`,
+        `Letzter Befehl: 0x${Number(arduinoDebug.last_command || 0).toString(16).padStart(2, '0')}`,
+        `Arduino Brightness: ${arduinoDebug.brightness ?? '-'} / 255`,
+      ].join('\n');
+    }
   }
 
   if (timelineEl) {

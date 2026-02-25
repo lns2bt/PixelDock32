@@ -26,7 +26,7 @@
 
   <main class="app-shell">
     <section class="card section-anchor" data-section-title="Debugging">
-      <h2>Hardware-Debug & Kalibrierung</h2>
+      <h2>LED Mapping & Kalibrierung</h2>
       <p class="subtle">Schnellkorrektur in <code>.env</code>: <code>PANEL_ORDER=0,1,2,3</code> und <code>PANEL_ROTATIONS=0,0,0,0</code>.</p>
       <div class="form-row debug-row">
         <div class="field"><label for="debugPattern">Pattern</label><select id="debugPattern"><option value="pixel_walk">Pixel Walk</option><option value="panel_walk">Panel Walk</option><option value="stripes">Stripes</option><option value="border">Border</option></select></div>
@@ -40,30 +40,41 @@
         <button class="btn btn-secondary" onclick="runPreset('pixel_walk', 60, 120)">Serpentine Check</button>
         <button class="btn btn-secondary" onclick="runPreset('stripes', 20, 300)">Noise Check</button>
       </div>
+    </section>
+
+    <section class="card section-anchor" data-section-title="Debugging">
+      <h2>DHT Debug</h2>
       <div class="preset-row" style="margin-top:12px;">
         <button class="btn btn-secondary" onclick="refreshDhtDebug()">DHT Debug aktualisieren</button>
-        <button class="btn btn-secondary" onclick="refreshLedDebug()">LED Serial Debug aktualisieren</button>
         <button class="btn" onclick="runDhtReadOnce()">DHT Read Once</button>
-        <button class="btn btn-secondary" onclick="runGpioEnvironmentCheck()">GPIO-Umgebung prüfen</button>
       </div>
       <details class="debug-panel" open><summary>DHT Read-Once Ergebnis</summary><div id="dhtReadOnceResult" class="mapping-info" style="margin-top:8px;">Noch kein DHT Einzel-Read ausgeführt.</div></details>
       <details class="debug-panel" open><summary>DHT Debug (JSON)</summary><pre id="dhtDebugInfo" class="debug-pre">-</pre></details>
+    </section>
+
+    <section class="card section-anchor" data-section-title="Debugging">
+      <h2>Arduino / Serieller Link Debug</h2>
+      <div class="preset-row" style="margin-top:12px;">
+        <button class="btn btn-secondary" onclick="refreshLedDebug()">Arduino Serial Debug aktualisieren</button>
+        <button class="btn" onclick="runLedSerialPing()">Serial Ping (Pi ↔ UNO R3)</button>
+      </div>
       <details class="debug-panel" open>
         <summary>Serieller Link (Pi ↔ Arduino) – Schnellansicht</summary>
-        <div id="serialDebugSummary" class="mapping-info">Warte auf LED/Serial-Debugdaten…</div>
+        <div id="serialDebugSummary" class="mapping-info">Warte auf Arduino-Debugdaten…</div>
       </details>
       <details class="debug-panel" open>
         <summary>Serieller Link (Pi ↔ Arduino) – Metriken</summary>
         <div id="serialDebugMetrics" class="mapping-info">-</div>
       </details>
+      <details class="debug-panel" open>
+        <summary>Arduino-Debug (Firmware-Zähler)</summary>
+        <div id="arduinoDebugInfo" class="mapping-info">Noch keine Arduino-Debugwerte empfangen.</div>
+      </details>
       <details class="debug-panel">
         <summary>Serieller Link (Pi ↔ Arduino) – Verlauf / letzte Ereignisse</summary>
         <div id="serialDebugTimeline" class="mapping-info">-</div>
       </details>
-      <details class="debug-panel" open><summary>LED/Serial Debug</summary><pre id="ledDebugInfo" class="debug-pre">-</pre></details>
-      <div class="preset-row" style="margin-top:8px;">
-        <button class="btn" onclick="runLedSerialPing()">Serial Ping (Pi ↔ UNO R3)</button>
-      </div>
+      <details class="debug-panel" open><summary>LED/Serial Debug (JSON vom Pi)</summary><pre id="ledDebugInfo" class="debug-pre">-</pre></details>
       <details class="debug-panel" open><summary>LED Serial Ping Ergebnis</summary><div id="ledPingResult" class="mapping-info">Noch kein Serial Ping ausgeführt.</div></details>
       <details class="debug-panel">
         <summary>Serial Ping Verlauf</summary>
@@ -73,6 +84,9 @@
 
     <section class="card section-anchor" data-section-title="Debugging">
       <h2>GPIO Pin Finder</h2>
+      <div class="preset-row" style="margin-top:8px;">
+        <button class="btn btn-secondary" onclick="runGpioEnvironmentCheck()">GPIO-Umgebung prüfen</button>
+      </div>
       <div class="form-row gpio-row">
         <div class="field"><label for="gpioPin">GPIO (BCM)</label><input id="gpioPin" type="number" min="2" max="27" value="18" /></div>
         <div class="field"><label for="gpioPulses">LED-Test Pulse</label><input id="gpioPulses" type="number" min="1" max="12" value="3" /></div>
