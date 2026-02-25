@@ -43,6 +43,18 @@
     </section>
 
     <section class="card section-anchor" data-section-title="Debugging">
+      <h2>Backend / Render-Loop Debug</h2>
+      <details class="debug-panel" open>
+        <summary>Render-Loop Status (Backend)</summary>
+        <div id="backendStatusSummary" class="mapping-info">Warte auf Backend-Status…</div>
+      </details>
+      <details class="debug-panel">
+        <summary>Backend Debug Status (JSON)</summary>
+        <pre id="backendStatusInfo" class="debug-pre">-</pre>
+      </details>
+    </section>
+
+    <section class="card section-anchor" data-section-title="Debugging">
       <h2>DHT Debug</h2>
       <div class="preset-row" style="margin-top:12px;">
         <button class="btn btn-secondary" onclick="refreshDhtDebug()">DHT Debug aktualisieren</button>

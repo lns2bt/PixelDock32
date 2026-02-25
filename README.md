@@ -22,6 +22,9 @@ pip install lgpio
 # Alternative ohne pip-Build (Systempaket):
 # sudo apt install -y python3-lgpio
 cp .env.example .env
+# Für Arduino-USB-Transport empfohlen:
+# LED_TRANSPORT=serial
+# LED_SERIAL_PORT=auto
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 

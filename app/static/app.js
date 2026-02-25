@@ -210,7 +210,7 @@ Strip: ${led.strip_class || '-'}`;
   if (summaryEl) {
     summaryEl.innerText = [
       `Status: ${healthState}`,
-      `Port/Baud: ${serial.port || '-'} @ ${serial.baudrate || '-'}`,
+      `Port/Baud: ${serial.port || '-'} @ ${serial.baudrate || '-'} (requested: ${serial.requested_port || '-'})`,
       `Frames gesendet: ${formatNumber(serial.frames_sent)}`,
       `Letzter Frame: ${formatTs(serial.last_frame_at)} (${formatAgeSeconds(serial.last_frame_at)} alt)`,
       `Letzter Write: ${formatMs(serial.last_frame_write_ms, 3)}`,
@@ -228,9 +228,13 @@ Strip: ${led.strip_class || '-'}`;
       `Frame-Payload: ${formatNumber(serial.frame_payload_bytes)} bytes`,
       `Gesamt gesendet: ${formatNumber(serial.bytes_sent)} bytes`,
       `Δ seit letztem Refresh: ${deltaFrames === null ? '-' : `${deltaFrames} Frames`} | ${deltaBytes === null ? '-' : `${deltaBytes} bytes`}`,
-      `Brightness-Updates: ${formatNumber(serial.brightness_updates)}`,
+      `Brightness-Updates: ${formatNumber(serial.brightness_updates)} (Resync: ${formatNumber(serial.brightness_resyncs)})`,
       `Timeout read/write: ${formatDebugValue(serial.timeout)}s / ${formatDebugValue(serial.write_timeout)}s`,
       `Verbunden: ${serial.connected ? 'ja' : 'nein'}`,
+      `Port-Kandidaten: ${(serial.port_candidates || []).join(', ') || '-'}`,
+      `Reconnects: ${formatNumber(serial.reconnect_successes)} / ${formatNumber(serial.reconnect_attempts)} (ok/versucht)`,
+      `Letzter Reconnect: ${formatTs(serial.last_reconnect_at)} (${formatAgeSeconds(serial.last_reconnect_at)} alt)`,
+      `Reconnect-Fehler: ${serial.last_reconnect_error || '-'}`,
       `Arduino Snapshot: ${arduinoDebug ? 'vorhanden' : 'nicht verfügbar'}`,
       `Ping-Fehler: ${serial.last_ping_error || '-'}`,
       `Debug-Poll-Fehler: ${serial.last_debug_poll_error || '-'}`,
@@ -297,6 +301,31 @@ function renderSerialPingHistory() {
     .slice(0, 12)
     .map((entry) => `${formatTs(entry.ts)} | ${entry.ok ? '✅' : '⚠️'} | RTT=${formatMs(entry.roundtrip, 3)} | nonce=${entry.nonce ?? '-'} | rsp=${entry.responseNonce ?? '-'}${entry.error ? ` | ${entry.error}` : ''}`)
     .join('\n');
+}
+
+function renderBackendStatusDebug(payload) {
+  const summaryEl = document.getElementById('backendStatusSummary');
+  const jsonEl = document.getElementById('backendStatusInfo');
+  if (!summaryEl && !jsonEl) return;
+
+  const root = payload && typeof payload === 'object' ? payload : {};
+  const display = root.display && typeof root.display === 'object' ? root.display : {};
+
+  if (jsonEl) {
+    jsonEl.innerText = JSON.stringify(root, null, 2);
+  }
+
+  if (!summaryEl) return;
+
+  summaryEl.innerText = [
+    `Display-Service: ${display.running ? 'aktiv' : 'inaktiv'}`,
+    `Render-Task alive: ${display.task_alive ? 'ja' : 'nein'}`,
+    `FPS (target/actual): ${display.target_fps ?? '-'} / ${display.actual_fps ?? '-'}`,
+    `Letzter Frame: ${formatTs(display.last_frame_ts)} (${formatAgeSeconds(display.last_frame_ts)} alt)`,
+    `Quelle: ${display.last_source || '-'} | Modul: ${display.last_module || '-'}`,
+    `Letzter Render-Loop-Fehler: ${display.last_loop_error || '-'}`,
+    `Fehlerzeitpunkt: ${formatTs(display.last_loop_error_at)} (${formatAgeSeconds(display.last_loop_error_at)} alt)`,
+  ].join('\n');
 }
 
 function getLiveDataWaitReason(display, sourceData, liveDataDebug) {
@@ -1171,6 +1200,8 @@ async function refreshStatus() {
     return;
   }
 
+  renderBackendStatusDebug(data);
+
   if (!hasStatusUi) {
     await refreshDhtDebug();
     await refreshLedDebug({ silent: true });
@@ -1340,6 +1371,7 @@ async function runLedSerialPing() {
 
   el.innerText = [
     `Status: ${r.ok ? '✅ OK' : '⚠️ Fehler'}`,
+    `Reconnect während Ping: ${r.reconnected ? 'ja' : 'nein'}`,
     `Roundtrip: ${r.roundtrip_ms ?? '-'} ms`,
     `Nonce: ${r.nonce ?? '-'}`,
     `Antwort-Nonce: ${r.response_nonce ?? '-'}`,

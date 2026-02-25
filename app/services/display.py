@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import time
 from collections.abc import Callable
 from datetime import datetime
@@ -84,6 +85,7 @@ class DisplayService:
         fps: int,
         bitmap_loader: BitmapLoader,
     ):
+        self._logger = logging.getLogger(__name__)
         self.session_factory = session_factory
         self.led_driver = led_driver
         self.mapper = mapper
@@ -97,6 +99,8 @@ class DisplayService:
         self.debug_override: tuple[str, float, float] | None = None
 
         self.last_frame_ts: float | None = None
+        self.last_loop_error: str | None = None
+        self.last_loop_error_at: float | None = None
         self.frame_counter = 0
         self.started_at = time.time()
         self.last_source = "module"
@@ -213,9 +217,12 @@ class DisplayService:
         uptime = max(time.time() - self.started_at, 1)
         return {
             "running": self._running,
+            "task_alive": bool(self._task and not self._task.done()),
             "target_fps": self.target_fps,
             "actual_fps": round(self.frame_counter / uptime, 2),
             "last_frame_ts": self.last_frame_ts,
+            "last_loop_error": self.last_loop_error,
+            "last_loop_error_at": self.last_loop_error_at,
             "last_source": self.last_source,
             "last_module": self.last_module_key,
             "debug_active": bool(self.debug_override),
@@ -330,22 +337,30 @@ class DisplayService:
 
     async def _loop(self):
         while self._running:
-            frame, color_frame = await self._get_next_frame()
-            index_to_color: dict[int, tuple[int, int, int]] = {}
-            for y, row in enumerate(frame):
-                for x, val in enumerate(row):
-                    if not val:
-                        continue
-                    led_index = self.mapper.xy_to_index(x, y)
-                    color = color_frame[y][x] if color_frame and color_frame[y][x] else (80, 80, 80)
-                    index_to_color[led_index] = color
+            try:
+                frame, color_frame = await self._get_next_frame()
+                index_to_color: dict[int, tuple[int, int, int]] = {}
+                for y, row in enumerate(frame):
+                    for x, val in enumerate(row):
+                        if not val:
+                            continue
+                        led_index = self.mapper.xy_to_index(x, y)
+                        color = color_frame[y][x] if color_frame and color_frame[y][x] else (80, 80, 80)
+                        index_to_color[led_index] = color
 
-            self.led_driver.write_color_frame(index_to_color)
-            self.last_frame = [row[:] for row in frame]
-            self.last_color_frame = [row[:] for row in color_frame]
-            self.last_frame_ts = time.time()
-            self.frame_counter += 1
-            await asyncio.sleep(self.frame_delay)
+                self.led_driver.write_color_frame(index_to_color)
+                self.last_frame = [row[:] for row in frame]
+                self.last_color_frame = [row[:] for row in color_frame]
+                self.last_frame_ts = time.time()
+                self.last_loop_error = None
+                self.frame_counter += 1
+                await asyncio.sleep(self.frame_delay)
+            except Exception as exc:
+                # Keep the render task alive so the UI can still inspect serial/debug state.
+                self.last_loop_error = str(exc)
+                self.last_loop_error_at = time.time()
+                self._logger.exception("Display render loop iteration failed")
+                await asyncio.sleep(max(self.frame_delay, 0.1))
 
     async def _get_next_frame(self) -> tuple[list[list[int]], list[list[tuple[int, int, int] | None]]]:
         if self.debug_override:
