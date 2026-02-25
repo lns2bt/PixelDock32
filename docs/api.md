@@ -14,4 +14,4 @@
 - `GET /api/debug/dht` → DHT-Debug live mit GPIO-Level, Rohwerten, Read-Dauer, Fehlern, Quelle/Backend-Statistiken, Verlauf der letzten Leseversuche und Diagnose-Empfehlung
 - `POST /api/debug/dht/read-once` → erzwungener Einzel-Read inkl. Backend, GPIO-Level vor/nach Read und Fehlerdetails
 - `GET /api/debug/led` → LED-Transport-Debug (aktiver Transport, Serial-Stats, letzte Fehler)
-- `POST /api/debug/led/serial-ping` → Ping Roundtrip-Test Raspberry Pi ↔ Arduino Nano über USB-Serial
+- `POST /api/debug/led/serial-ping` → Ping Roundtrip-Test Raspberry Pi ↔ Arduino UNO R3 über USB-Serial
