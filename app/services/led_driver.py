@@ -96,12 +96,14 @@ class SerialLEDStrip:
             "last_ping_at": None,
             "last_ping_ok": None,
             "last_ping_rtt_ms": None,
+            "last_ping_error": None,
             "last_error": None,
             "last_error_at": None,
             "startup_delay": startup_delay,
             "last_debug_poll_at": None,
             "last_debug_poll_ok": None,
             "last_debug_poll_rtt_ms": None,
+            "last_debug_poll_error": None,
             "arduino_debug": None,
         }
 
@@ -177,13 +179,34 @@ class SerialLEDStrip:
             nonce = int(time.time() * 1000) & 0xFFFFFFFF
 
         payload = struct.pack("<I", nonce)
-        with self._lock:
-            start = time.perf_counter()
-            self._serial.reset_input_buffer()
-            self._write_packet(self.CMD_PING, payload)
-            expected_len = 2 + 1 + 2 + 4 + 1
-            response = self._serial.read(expected_len)
+        expected_len = 2 + 1 + 2 + 4 + 1
+        response = b""
+        start = time.perf_counter()
+        try:
+            with self._lock:
+                self._serial.reset_input_buffer()
+                self._write_packet(self.CMD_PING, payload)
+                response = self._serial.read(expected_len)
+        except (SerialException, OSError) as exc:
             rtt_ms = round((time.perf_counter() - start) * 1000, 3)
+            error = f"serial ping failed: {exc}"
+            self._stats["last_ping_at"] = time.time()
+            self._stats["last_ping_ok"] = False
+            self._stats["last_ping_rtt_ms"] = rtt_ms
+            self._stats["last_ping_error"] = error
+            self._stats["last_error"] = error
+            self._stats["last_error_at"] = time.time()
+            self._logger.warning("Serial ping failed: %s", exc)
+            return {
+                "ok": False,
+                "nonce": nonce,
+                "response_nonce": None,
+                "roundtrip_ms": rtt_ms,
+                "error": error,
+                "raw_response_hex": "",
+            }
+
+        rtt_ms = round((time.perf_counter() - start) * 1000, 3)
 
         ok = False
         error = None
@@ -211,6 +234,7 @@ class SerialLEDStrip:
         self._stats["last_ping_at"] = time.time()
         self._stats["last_ping_ok"] = ok
         self._stats["last_ping_rtt_ms"] = rtt_ms
+        self._stats["last_ping_error"] = error
         if error:
             self._stats["last_error"] = error
             self._stats["last_error_at"] = time.time()
@@ -244,16 +268,30 @@ class SerialLEDStrip:
 
     def poll_debug_snapshot(self) -> dict:
         payload_len = 33
-        with self._lock:
-            start = time.perf_counter()
-            self._serial.reset_input_buffer()
-            self._write_packet(self.CMD_DEBUG_SNAPSHOT)
-            payload, error = self._read_exact_packet(self.CMD_DEBUG_SNAPSHOT_ACK, payload_len)
+        start = time.perf_counter()
+        try:
+            with self._lock:
+                self._serial.reset_input_buffer()
+                self._write_packet(self.CMD_DEBUG_SNAPSHOT)
+                payload, error = self._read_exact_packet(self.CMD_DEBUG_SNAPSHOT_ACK, payload_len)
+        except (SerialException, OSError) as exc:
             rtt_ms = round((time.perf_counter() - start) * 1000, 3)
+            error = f"serial debug poll failed: {exc}"
+            self._stats["last_debug_poll_at"] = time.time()
+            self._stats["last_debug_poll_rtt_ms"] = rtt_ms
+            self._stats["last_debug_poll_ok"] = False
+            self._stats["last_debug_poll_error"] = error
+            self._stats["last_error"] = error
+            self._stats["last_error_at"] = time.time()
+            self._logger.warning("Serial debug poll failed: %s", exc)
+            return {"ok": False, "error": error, "roundtrip_ms": rtt_ms}
+
+        rtt_ms = round((time.perf_counter() - start) * 1000, 3)
 
         self._stats["last_debug_poll_at"] = time.time()
         self._stats["last_debug_poll_rtt_ms"] = rtt_ms
         self._stats["last_debug_poll_ok"] = error is None
+        self._stats["last_debug_poll_error"] = error
 
         if error:
             self._stats["last_error"] = error
@@ -293,7 +331,15 @@ class SerialLEDStrip:
         return {"ok": True, "roundtrip_ms": rtt_ms, "snapshot": snapshot}
 
     def get_debug_snapshot(self) -> dict:
-        self.poll_debug_snapshot()
+        try:
+            self.poll_debug_snapshot()
+        except Exception as exc:  # defensive: debug endpoint must stay usable
+            self._stats["last_debug_poll_at"] = time.time()
+            self._stats["last_debug_poll_ok"] = False
+            self._stats["last_debug_poll_error"] = f"unexpected debug poll error: {exc}"
+            self._stats["last_error"] = f"unexpected debug poll error: {exc}"
+            self._stats["last_error_at"] = time.time()
+            self._logger.exception("Unexpected serial debug poll error")
         return {
             **self._stats,
             "brightness": self._brightness,

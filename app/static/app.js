@@ -5,6 +5,8 @@ let pollTimerPreview = null;
 const moduleCollapseState = {};
 const serialPingHistory = [];
 const serialStateHistory = [];
+let ledDebugRefreshInFlight = null;
+let ledDebugAutoPollTimer = null;
 
 function authHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : {};
@@ -13,12 +15,20 @@ function authHeaders() {
 function startPollingLoops() {
   if (pollTimerStatus) clearInterval(pollTimerStatus);
   if (pollTimerPreview) clearInterval(pollTimerPreview);
+  if (ledDebugAutoPollTimer) clearInterval(ledDebugAutoPollTimer);
 
   const hasStatus = !!document.getElementById('statusApi');
   const hasPreview = !!document.getElementById('previewGrid');
+  const hasLedDebugPanel = !!document.getElementById('ledDebugInfo');
 
   if (hasStatus || document.getElementById('dhtDebugInfo')) {
     pollTimerStatus = setInterval(refreshStatus, 5000);
+  }
+
+  if (hasLedDebugPanel) {
+    ledDebugAutoPollTimer = setInterval(() => {
+      refreshLedDebug({ silent: true });
+    }, 1500);
   }
 
   if (hasPreview) {
@@ -181,6 +191,7 @@ Strip: ${led.strip_class || '-'}`;
     frames: serial.frames_sent,
     bytes: serial.bytes_sent,
     pingOk: serial.last_ping_ok,
+    debugPollOk: serial.last_debug_poll_ok,
     err: serial.last_error,
   });
 
@@ -205,6 +216,7 @@ Strip: ${led.strip_class || '-'}`;
       `Letzter Write: ${formatMs(serial.last_frame_write_ms, 3)}`,
       `Ping: ${pingState} (${formatMs(serial.last_ping_rtt_ms, 3)})`,
       `Debug Poll: ${serial.last_debug_poll_ok === true ? '✅ OK' : serial.last_debug_poll_ok === false ? '⚠️ Fehler' : '— noch nicht'} (${formatMs(serial.last_debug_poll_rtt_ms, 3)})`,
+      serial.last_debug_poll_error ? `Debug Poll Fehler: ${serial.last_debug_poll_error}` : 'Debug Poll Fehler: -',
       serial.last_error ? `Letzter Fehler: ${serial.last_error}` : 'Letzter Fehler: -',
     ].join('\n');
   }
@@ -220,6 +232,8 @@ Strip: ${led.strip_class || '-'}`;
       `Timeout read/write: ${formatDebugValue(serial.timeout)}s / ${formatDebugValue(serial.write_timeout)}s`,
       `Verbunden: ${serial.connected ? 'ja' : 'nein'}`,
       `Arduino Snapshot: ${arduinoDebug ? 'vorhanden' : 'nicht verfügbar'}`,
+      `Ping-Fehler: ${serial.last_ping_error || '-'}`,
+      `Debug-Poll-Fehler: ${serial.last_debug_poll_error || '-'}`,
       `Fehlerzeitpunkt: ${formatTs(serial.last_error_at)} (${formatAgeSeconds(serial.last_error_at)} alt)`,
     ].join('\n');
   }
@@ -230,6 +244,7 @@ Strip: ${led.strip_class || '-'}`;
         'Noch keine Arduino-Debugwerte empfangen.',
         `Letzter Poll: ${formatTs(serial.last_debug_poll_at)} (${formatAgeSeconds(serial.last_debug_poll_at)} alt)`,
         `Poll-Status: ${serial.last_debug_poll_ok === false ? '⚠️ Fehler' : 'warte auf Daten'}`,
+        serial.last_debug_poll_error ? `Poll-Fehler: ${serial.last_debug_poll_error}` : 'Poll-Fehler: -',
         serial.last_error ? `Fehler: ${serial.last_error}` : 'Fehler: -',
       ].join('\n');
     } else {
@@ -255,10 +270,19 @@ Strip: ${led.strip_class || '-'}`;
       const prevItem = serialStateHistory[index + 1];
       const dFrames = prevItem ? Math.max(0, (item.frames || 0) - (prevItem.frames || 0)) : 0;
       const dBytes = prevItem ? Math.max(0, (item.bytes || 0) - (prevItem.bytes || 0)) : 0;
-      return `${formatTs(item.ts)} | +${dFrames} Frames | +${dBytes} bytes | ping=${item.pingOk === null || item.pingOk === undefined ? '-' : item.pingOk ? 'ok' : 'fail'}${item.err ? ` | err=${item.err}` : ''}`;
+      return `${formatTs(item.ts)} | +${dFrames} Frames | +${dBytes} bytes | ping=${item.pingOk === null || item.pingOk === undefined ? '-' : item.pingOk ? 'ok' : 'fail'} | poll=${item.debugPollOk === null || item.debugPollOk === undefined ? '-' : item.debugPollOk ? 'ok' : 'fail'}${item.err ? ` | err=${item.err}` : ''}`;
     });
     timelineEl.innerText = lines.length ? lines.join('\n') : '-';
   }
+}
+
+function clearSerialDebugHistory() {
+  serialPingHistory.length = 0;
+  serialStateHistory.length = 0;
+  renderSerialPingHistory();
+  const timelineEl = document.getElementById('serialDebugTimeline');
+  if (timelineEl) timelineEl.innerText = '-';
+  toast('Serial-Debugverlauf zurückgesetzt');
 }
 
 function renderSerialPingHistory() {
@@ -1149,7 +1173,7 @@ async function refreshStatus() {
 
   if (!hasStatusUi) {
     await refreshDhtDebug();
-    await refreshLedDebug();
+    await refreshLedDebug({ silent: true });
     return;
   }
 
@@ -1189,7 +1213,7 @@ async function refreshStatus() {
   renderOverviewLiveDataDebug(display, sourceData, externalData, liveDataDebug);
 
   await refreshDhtDebug();
-  await refreshLedDebug();
+  await refreshLedDebug({ silent: true });
 }
 
 async function refreshDhtDebug() {
@@ -1271,17 +1295,34 @@ async function runGpioInputProbe() {
   renderGpioResult(`Sensor-Probe auf GPIO ${gpioPin}`, data.result);
 }
 
-async function refreshLedDebug() {
-  const data = await apiRequest('/api/debug/led');
-  if (!data?.result) return;
-  const el = document.getElementById('ledDebugInfo');
-  if (!el) return;
-  el.innerText = JSON.stringify(data.result, null, 2);
-  renderSerialDebugView(data.result);
+async function refreshLedDebug(options = {}) {
+  const { silent = false } = options;
+
+  if (ledDebugRefreshInFlight) {
+    return ledDebugRefreshInFlight;
+  }
+
+  ledDebugRefreshInFlight = (async () => {
+    const data = await apiRequest('/api/debug/led', {}, silent ? '' : 'Arduino Serial Debug aktualisiert');
+    if (!data?.result) return null;
+    const el = document.getElementById('ledDebugInfo');
+    if (!el) return data.result;
+    el.innerText = JSON.stringify(data.result, null, 2);
+    renderSerialDebugView(data.result);
+    return data.result;
+  })();
+
+  try {
+    return await ledDebugRefreshInFlight;
+  } finally {
+    ledDebugRefreshInFlight = null;
+  }
 }
 
+
 async function runLedSerialPing() {
-  const data = await apiRequest('/api/debug/led/serial-ping', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) }, 'Serial Ping ausgeführt');
+  const nonce = Math.floor(Date.now()) >>> 0;
+  const data = await apiRequest('/api/debug/led/serial-ping', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nonce }) }, 'Serial Ping ausgeführt');
   if (!data?.result) return;
 
   const el = document.getElementById('ledPingResult');
@@ -1302,10 +1343,11 @@ async function runLedSerialPing() {
     `Roundtrip: ${r.roundtrip_ms ?? '-'} ms`,
     `Nonce: ${r.nonce ?? '-'}`,
     `Antwort-Nonce: ${r.response_nonce ?? '-'}`,
+    `Rohantwort (hex): ${r.raw_response_hex || '-'}`,
     `Fehler: ${r.error || '-'}`,
   ].join('\n');
 
-  await refreshLedDebug();
+  await refreshLedDebug({ silent: true });
 }
 
 function initPreviewGrid() {
@@ -1413,7 +1455,7 @@ if (ensureAuthFlow()) {
     if (page === 'tools') refreshPreview();
     if (page === 'debug') {
       refreshDhtDebug();
-      refreshLedDebug();
+      refreshLedDebug({ silent: true });
       refreshStatus();
     }
     startPollingLoops();
