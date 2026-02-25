@@ -16,12 +16,16 @@ except ImportError:  # local dev fallback
 try:
     import serial
     from serial import SerialException
+    from serial import SerialTimeoutException
     from serial.tools import list_ports
 except ImportError:  # optional dependency when serial backend is disabled
     serial = None
     list_ports = None
 
     class SerialException(Exception):
+        pass
+
+    class SerialTimeoutException(SerialException):
         pass
 
 
@@ -88,6 +92,9 @@ class SerialLEDStrip:
             "frames_sent": 0,
             "brightness_updates": 0,
             "brightness_resyncs": 0,
+            "frame_write_timeouts": 0,
+            "frame_write_timeout_retry_successes": 0,
+            "frame_resync_required": False,
             "bytes_sent": 0,
             "last_frame_at": None,
             "last_frame_write_ms": None,
@@ -233,6 +240,7 @@ class SerialLEDStrip:
             self._write_packet(self.CMD_BRIGHTNESS, brightness_payload)
             self._stats["brightness_resyncs"] += 1
             self._stats["reconnect_successes"] += 1
+            self._stats["frame_resync_required"] = True
             self._logger.warning(
                 "Serial link reconnected after %s on %s",
                 context,
@@ -324,6 +332,30 @@ class SerialLEDStrip:
         with self._lock:
             try:
                 elapsed_ms = self._write_packet(self.CMD_FRAME, self._buffer)
+            except SerialTimeoutException as exc:
+                self._stats["frame_write_timeouts"] += 1
+                message = f"serial frame write timeout: {exc}"
+                self._record_error(message)
+                self._logger.warning("Serial frame write timeout: %s", exc)
+
+                # Partial packets can desync the UNO parser briefly; wait long enough for RX timeout
+                # recovery before retrying the frame once on the same connection.
+                try:
+                    if self._serial is not None:
+                        try:
+                            self._serial.reset_output_buffer()
+                        except Exception:
+                            pass
+                    time.sleep(max(float(self.settings.led_serial_timeout), 0.05))
+                    elapsed_ms = self._write_packet(self.CMD_FRAME, self._buffer)
+                    self._stats["frame_write_timeout_retry_successes"] += 1
+                except (SerialException, OSError) as retry_exc:
+                    retry_message = f"{message}; retry failed: {retry_exc}"
+                    self._record_error(retry_message)
+                    self._logger.warning("Serial frame write retry failed after timeout: %s", retry_exc)
+                    if not self._reconnect_locked("frame write timeout"):
+                        raise
+                    elapsed_ms = self._write_packet(self.CMD_FRAME, self._buffer)
             except (SerialException, OSError) as exc:
                 message = f"serial frame write failed: {exc}"
                 self._record_error(message)
@@ -334,6 +366,7 @@ class SerialLEDStrip:
             self._stats["frames_sent"] += 1
             self._stats["last_frame_at"] = time.time()
             self._stats["last_frame_write_ms"] = elapsed_ms
+            self._stats["frame_resync_required"] = False
 
     def ping(self, nonce: int | None = None) -> dict:
         if nonce is None:
@@ -536,6 +569,9 @@ class SerialLEDStrip:
             "startup_delay": self.settings.led_serial_startup_delay,
         }
 
+    def needs_frame_resync(self) -> bool:
+        return bool(self._stats.get("frame_resync_required"))
+
 
 class LEDDriver:
     def __init__(self, settings: Settings):
@@ -613,6 +649,9 @@ class LEDDriver:
         if not isinstance(self.strip, SerialLEDStrip):
             return {"ok": False, "error": f"serial transport inactive (current={self.transport})"}
         return self.strip.ping(nonce=nonce)
+
+    def should_force_frame_send(self) -> bool:
+        return isinstance(self.strip, SerialLEDStrip) and self.strip.needs_frame_resync()
 
     def set_brightness(self, brightness: int):
         self.strip.setBrightness(brightness)

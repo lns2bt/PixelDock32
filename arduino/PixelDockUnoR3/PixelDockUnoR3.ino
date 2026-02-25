@@ -23,9 +23,10 @@ constexpr uint8_t MAGIC_1 = 'D';
 constexpr uint8_t DEBUG_PROTOCOL_VERSION = 1;
 
 // Prevent parser lock on partial packets.
-constexpr uint32_t RX_PACKET_TIMEOUT_MS = 25;
+constexpr uint32_t RX_PACKET_TIMEOUT_MS = 40;
 
 Adafruit_NeoPixel strip(LED_COUNT, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
+uint8_t *stripPixels = nullptr;
 
 enum class RxState : uint8_t {
   WAIT_MAGIC_0,
@@ -50,6 +51,7 @@ uint8_t payloadSmall[4] = {0, 0, 0, 0};
 uint8_t rgbScratch[3] = {0, 0, 0};
 uint8_t rgbScratchLen = 0;
 uint16_t frameLedIndex = 0;
+uint8_t frameBrightness = 64;
 
 uint32_t lastRxByteAtMs = 0;
 
@@ -158,13 +160,42 @@ void applyBrightness(uint8_t value) {
   strip.show();
 }
 
+uint8_t scaleChannelForBrightness(uint8_t value, uint8_t brightness) {
+  if (brightness >= 255) {
+    return value;
+  }
+  if (brightness == 0) {
+    return 0;
+  }
+  const uint16_t scale = static_cast<uint16_t>(brightness) + 1;
+  return static_cast<uint8_t>((static_cast<uint16_t>(value) * scale) >> 8);
+}
+
 void onFramePayloadByte(uint8_t value) {
   rgbScratch[rgbScratchLen++] = value;
   if (rgbScratchLen < 3) {
     return;
   }
 
-  strip.setPixelColor(frameLedIndex, strip.Color(rgbScratch[0], rgbScratch[1], rgbScratch[2]));
+  uint8_t r = rgbScratch[0];
+  uint8_t g = rgbScratch[1];
+  uint8_t b = rgbScratch[2];
+
+  if (frameBrightness != 255) {
+    r = scaleChannelForBrightness(r, frameBrightness);
+    g = scaleChannelForBrightness(g, frameBrightness);
+    b = scaleChannelForBrightness(b, frameBrightness);
+  }
+
+  if (stripPixels != nullptr) {
+    const uint16_t offset = frameLedIndex * 3;
+    // NEO_GRB buffer layout for the configured strip type.
+    stripPixels[offset + 0] = g;
+    stripPixels[offset + 1] = r;
+    stripPixels[offset + 2] = b;
+  } else {
+    strip.setPixelColor(frameLedIndex, strip.Color(r, g, b));
+  }
   frameLedIndex++;
   rgbScratchLen = 0;
 }
@@ -173,6 +204,7 @@ void setup() {
   Serial.begin(SERIAL_BAUDRATE);
   strip.begin();
   strip.setBrightness(64);
+  stripPixels = strip.getPixels();
   strip.show();
 }
 
@@ -226,6 +258,9 @@ void loop() {
         } else if (payloadLen == 0) {
           state = RxState::WAIT_CHECKSUM;
         } else {
+          if (command == CMD_FRAME) {
+            frameBrightness = strip.getBrightness();
+          }
           state = RxState::WAIT_PAYLOAD;
         }
         break;
