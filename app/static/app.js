@@ -96,6 +96,16 @@ function setTextIfExists(id, value) {
   el.innerText = value;
 }
 
+function debugPanelLoadMessage(targetId, message, details = null) {
+  const el = document.getElementById(targetId);
+  if (!el) return;
+  if (details) {
+    el.innerText = `${message}\n${details}`;
+    return;
+  }
+  el.innerText = message;
+}
+
 function parseLiveNumber(...values) {
   for (const value of values) {
     if (value === null || value === undefined) continue;
@@ -1197,6 +1207,15 @@ async function refreshStatus() {
   const data = await apiRequest('/api/debug/status');
   if (!data) {
     if (hasStatusUi) statusApiEl.innerText = token ? 'offline / auth?' : 'nicht eingeloggt';
+    debugPanelLoadMessage(
+      'backendStatusSummary',
+      'Fehler beim Laden von /api/debug/status',
+      'Pruefe Login, Backend-Logs und Browser-Konsole/Netzwerk-Tab.',
+    );
+    debugPanelLoadMessage(
+      'backendStatusInfo',
+      JSON.stringify({ ok: false, endpoint: '/api/debug/status', at: new Date().toISOString() }, null, 2),
+    );
     return;
   }
 
@@ -1249,7 +1268,13 @@ async function refreshStatus() {
 
 async function refreshDhtDebug() {
   const data = await apiRequest('/api/debug/dht');
-  if (!data) return;
+  if (!data) {
+    debugPanelLoadMessage(
+      'dhtDebugInfo',
+      JSON.stringify({ ok: false, endpoint: '/api/debug/dht', at: new Date().toISOString() }, null, 2),
+    );
+    return;
+  }
   const el = document.getElementById('dhtDebugInfo');
   if (!el) return;
   el.innerText = JSON.stringify(data, null, 2);
@@ -1335,7 +1360,19 @@ async function refreshLedDebug(options = {}) {
 
   ledDebugRefreshInFlight = (async () => {
     const data = await apiRequest('/api/debug/led', {}, silent ? '' : 'Arduino Serial Debug aktualisiert');
-    if (!data?.result) return null;
+    if (!data?.result) {
+      debugPanelLoadMessage(
+        'serialDebugSummary',
+        'Fehler beim Laden von /api/debug/led',
+        'Pruefe Login, API und ob das Backend laeuft.',
+      );
+      debugPanelLoadMessage('serialDebugMetrics', '-');
+      debugPanelLoadMessage(
+        'ledDebugInfo',
+        JSON.stringify({ ok: false, endpoint: '/api/debug/led', at: new Date().toISOString() }, null, 2),
+      );
+      return null;
+    }
     const el = document.getElementById('ledDebugInfo');
     if (!el) return data.result;
     el.innerText = JSON.stringify(data.result, null, 2);
@@ -1474,6 +1511,23 @@ async function sendGrid() {
 }
 
 initTopNavigation();
+
+if (document.body?.dataset.page === 'debug') {
+  debugPanelLoadMessage('backendStatusSummary', 'Frontend JS geladen, lade Backend-Status…');
+  debugPanelLoadMessage('serialDebugSummary', 'Frontend JS geladen, lade Arduino-Debugdaten…');
+  window.addEventListener('error', (event) => {
+    debugPanelLoadMessage(
+      'backendStatusSummary',
+      'Frontend-JS-Fehler',
+      `${event.message || 'unbekannter Fehler'} @ ${event.filename || '-'}:${event.lineno || '-'}:${event.colno || '-'}`,
+    );
+  });
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason = event?.reason;
+    const text = typeof reason === 'string' ? reason : (reason?.message || JSON.stringify(reason));
+    debugPanelLoadMessage('backendStatusSummary', 'Frontend Promise-Fehler', text || 'unbekannter Fehler');
+  });
+}
 
 if (ensureAuthFlow()) {
   const { page, requiresAuth } = pageInfo();
