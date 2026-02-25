@@ -1,6 +1,6 @@
 # PixelDock32
 
-PixelDock32 ist ein modularer 8x32-Controller für 4x WS2812B-8x8 Panels. Standardmäßig rendert der Raspberry Pi die Daten und überträgt Frames effizient per USB-Serial an einen Arduino Nano, der das WS2812B-Signal erzeugt (optional bleibt GPIO18 + `rpi_ws281x`).
+PixelDock32 ist ein modularer 8x32-Controller für 4x WS2812B-8x8 Panels. Standardmäßig rendert der Raspberry Pi die Daten und überträgt Frames effizient per USB-Serial an einen Arduino UNO R3, der das WS2812B-Signal erzeugt (optional bleibt GPIO18 + `rpi_ws281x`).
 
 Das README ist bewusst kurz gehalten. Die ausführliche, aufgeteilte Projektdokumentation liegt unter [`/docs`](docs).
 
@@ -33,7 +33,7 @@ Im LAN öffnen: `http://<raspberrypi-ip>:8000`
 - [Setup, Betrieb, .env und Troubleshooting](docs/setup-und-betrieb.md)
 - [Raspberry Pi Autostart + Recovery bei Hängern](docs/autostart-raspberry-pi.md)
 - [API-Übersicht](docs/api.md)
-- [Hardware, Mapping, Kalibrierung, Arduino Nano & DHT11](docs/hardware-und-mapping.md)
+- [Hardware, Mapping, Kalibrierung, Arduino UNO R3 & DHT11](docs/hardware-und-mapping.md)
 - [Module und Features](docs/module-und-feature-doku.md)
 - [Roadmap](docs/roadmap.md)
 

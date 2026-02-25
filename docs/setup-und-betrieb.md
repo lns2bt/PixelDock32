@@ -32,26 +32,26 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 Dann im LAN öffnen: `http://<raspberrypi-ip>:8000`
 
 
-## Arduino Nano als LED-Co-Prozessor (empfohlen)
+## Arduino UNO R3 als LED-Co-Prozessor (empfohlen)
 
-1. Arduino IDE öffnen und `arduino/PixelDockNano/PixelDockNano.ino` flashen.
+1. Arduino IDE öffnen und `arduino/PixelDockUnoR3/PixelDockUnoR3.ino` flashen.
 2. Bibliothek installieren: `Adafruit NeoPixel`.
 3. Verdrahtung:
-   - Nano `D6` -> `DIN` erstes WS2812B-Panel
-   - Nano `GND` -> Panel `GND` und Raspberry Pi `GND`
+   - UNO R3 `D6` -> `DIN` erstes WS2812B-Panel
+   - UNO R3 `GND` -> Panel `GND` und Raspberry Pi `GND`
    - Externe 5V-Versorgung für LED-Panels verwenden (nicht über USB speisen).
-4. Nano per USB an den Raspberry Pi anschließen.
+4. UNO R3 per USB an den Raspberry Pi anschließen.
 5. In `.env` setzen:
 
 ```env
 LED_TRANSPORT=serial
-LED_SERIAL_PORT=/dev/ttyUSB0
+LED_SERIAL_PORT=/dev/ttyACM0
 LED_SERIAL_BAUDRATE=1000000
 ```
 
 Tipp: Mit `LED_TRANSPORT=auto` nutzt die App automatisch Serial, wenn `rpi_ws281x` nicht verfügbar ist.
 
-Debug bei Verbindungsproblemen: In der Debug-UI stehen jetzt `LED/Serial Debug` und `Serial Ping (Pi ↔ Nano)` bereit. Damit siehst du Transportstatus, Frame-Zähler, letzte Fehler und Roundtrip-Zeit direkt im Webinterface.
+Debug bei Verbindungsproblemen: In der Debug-UI stehen jetzt `LED/Serial Debug` und `Serial Ping (Pi ↔ UNO R3)` bereit. Damit siehst du Transportstatus, Frame-Zähler, letzte Fehler und Roundtrip-Zeit direkt im Webinterface.
 
 ## systemd Autostart
 

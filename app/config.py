@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     led_invert: bool = False
     led_brightness: int = 64
     led_channel: int = 0
-    led_serial_port: str = "/dev/ttyUSB0"
+    led_serial_port: str = "/dev/ttyACM0"
     led_serial_baudrate: int = 1000000
     led_serial_timeout: float = 0.02
     led_serial_write_timeout: float = 0.1

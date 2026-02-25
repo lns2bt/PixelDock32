@@ -1,6 +1,6 @@
 #include <Adafruit_NeoPixel.h>
 
-// PixelDock32 serial protocol (USB CDC)
+// PixelDock32 serial protocol for Arduino UNO R3 (USB CDC)
 // Frame: ['P','D', CMD, LEN_LO, LEN_HI, PAYLOAD..., XOR_CHECKSUM]
 // CMD=0x01 => full RGB frame payload (3 * LED_COUNT bytes)
 // CMD=0x02 => brightness payload (1 byte 0..255)

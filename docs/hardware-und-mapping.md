@@ -11,24 +11,24 @@
   - `PANEL_ROTATIONS=0,0,0,0`
 - Logische API-Koordinaten bleiben immer **links nach rechts**.
 
-## Raspberry Pi + Arduino Nano (USB)
+## Raspberry Pi + Arduino UNO R3 (USB)
 
-Für stabile WS2812B-Signale wird die Signalerzeugung vom Raspberry Pi auf den Arduino Nano ausgelagert:
+Für stabile WS2812B-Signale wird die Signalerzeugung vom Raspberry Pi auf den Arduino UNO R3 ausgelagert:
 
 - Raspberry Pi: Rendering, Webserver, Sensoren, Internet-APIs
-- Arduino Nano: zeitkritische LED-Signalverarbeitung (`NeoPixel.show()`, PWM/Timing)
+- Arduino UNO R3: zeitkritische LED-Signalverarbeitung (`NeoPixel.show()`, PWM/Timing)
 
 ### Verkabelung
 
-- Raspberry Pi USB -> Arduino Nano USB
-- Arduino Nano `D6` -> `DIN` des ersten WS2812B-Panels
-- Arduino Nano `GND` -> LED-GND
+- Raspberry Pi USB -> Arduino UNO R3 USB
+- Arduino UNO R3 `D6` -> `DIN` des ersten WS2812B-Panels
+- Arduino UNO R3 `GND` -> LED-GND
 - Raspberry Pi `GND` -> LED-GND (gemeinsame Masse empfohlen)
 - LED-Panels über separates 5V-Netzteil versorgen
 
 ### Kommunikationsprotokoll (effizient)
 
-Das Backend sendet komplette RGB-Frames binär über USB-Serial an den Nano:
+Das Backend sendet komplette RGB-Frames binär über USB-Serial an den UNO R3:
 
 - Header: `P`, `D`, `CMD`, `LEN_LO`, `LEN_HI`
 - Payload:
@@ -43,11 +43,11 @@ Vorteil:
 
 ### Serial-Ping-Debug
 
-Zur Diagnose der USB-Verbindung gibt es einen Ping-Mechanismus (`CMD_PING`/`CMD_PING_ACK`), der in der Web-UI unter Debug verfügbar ist. So kann die Pi↔Nano-Verbindung unabhängig von der Bildausgabe geprüft werden (inkl. Roundtrip-Zeit und Fehlerdetails).
+Zur Diagnose der USB-Verbindung gibt es einen Ping-Mechanismus (`CMD_PING`/`CMD_PING_ACK`), der in der Web-UI unter Debug verfügbar ist. So kann die Pi↔UNO R3-Verbindung unabhängig von der Bildausgabe geprüft werden (inkl. Roundtrip-Zeit und Fehlerdetails).
 
 ### Firmware
 
-- Pfad: `arduino/PixelDockNano/PixelDockNano.ino`
+- Pfad: `arduino/PixelDockUnoR3/PixelDockUnoR3.ino`
 - Baudrate: `1000000`
 - Arduino-Library: `Adafruit NeoPixel`
 
