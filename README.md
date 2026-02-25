@@ -25,6 +25,8 @@ cp .env.example .env
 # Für Arduino-USB-Transport empfohlen:
 # LED_TRANSPORT=serial
 # LED_SERIAL_PORT=auto
+# LED_SERIAL_ACK_TIMEOUT=0.05
+# Nach Arduino-Sketch-Update nutzt der Pi automatisch Frame-ACK (Protokoll v2)
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 

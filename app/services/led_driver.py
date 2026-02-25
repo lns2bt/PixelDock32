@@ -36,6 +36,10 @@ class RGB:
     b: int
 
 
+class FrameAckError(SerialException):
+    pass
+
+
 class MockStrip:
     def __init__(self, count: int):
         self.count = count
@@ -65,7 +69,10 @@ class SerialLEDStrip:
     CMD_PING = 0x03
     CMD_PING_ACK = 0x83
     CMD_DEBUG_SNAPSHOT = 0x04
+    CMD_FRAME_V2 = 0x05
     CMD_DEBUG_SNAPSHOT_ACK = 0x84
+    CMD_FRAME_ACK = 0x85
+    FRAME_ACK_PROTOCOL_VERSION = 2
 
     def __init__(self, settings: Settings, logger: logging.Logger):
         if serial is None:
@@ -76,10 +83,28 @@ class SerialLEDStrip:
         self._count = settings.led_count
         self._brightness = settings.led_brightness
         self._lock = threading.Lock()
+        self._queue_lock = threading.Lock()
         self._buffer = bytearray(self._count * 3)
         self._serial = None
         self._requested_port = str(settings.led_serial_port or "").strip() or "auto"
         self._startup_delay = max(0.0, float(settings.led_serial_startup_delay))
+        self._ack_timeout = max(float(getattr(settings, "led_serial_ack_timeout", settings.led_serial_timeout)), 0.005)
+        self._debug_poll_cache_ttl_s = 0.75
+        self._frame_ack_supported = False
+        self._frame_ack_enabled = False
+        self._protocol_version = None
+        self._protocol_probe_error = None
+        self._next_frame_seq = 0
+        self._pending_frame: bytes | None = None
+        self._pending_frame_seq: int | None = None
+        self._pending_frame_queued_at: float | None = None
+        self._frame_sender_event = threading.Event()
+        self._frame_sender_stop = threading.Event()
+        self._frame_sender_thread = threading.Thread(
+            target=self._frame_sender_loop,
+            name="PixelDockSerialFrameSender",
+            daemon=True,
+        )
 
         self._stats = {
             "connected": False,
@@ -94,7 +119,21 @@ class SerialLEDStrip:
             "brightness_resyncs": 0,
             "frame_write_timeouts": 0,
             "frame_write_timeout_retry_successes": 0,
+            "frame_write_retries": 0,
             "frame_resync_required": False,
+            "frame_ack_supported": False,
+            "frame_ack_enabled": False,
+            "frame_acks_received": 0,
+            "frame_ack_timeouts": 0,
+            "frame_ack_errors": 0,
+            "frame_ack_retry_successes": 0,
+            "last_frame_ack_ms": None,
+            "last_frame_roundtrip_ms": None,
+            "last_frame_seq": None,
+            "last_frame_ack_seq": None,
+            "ack_timeout": self._ack_timeout,
+            "protocol_version": None,
+            "protocol_probe_error": None,
             "bytes_sent": 0,
             "last_frame_at": None,
             "last_frame_write_ms": None,
@@ -115,8 +154,20 @@ class SerialLEDStrip:
             "last_debug_poll_rtt_ms": None,
             "last_debug_poll_error": None,
             "arduino_debug": None,
+            "debug_poll_cache_hits": 0,
+            "frames_enqueued": 0,
+            "frames_replaced_before_send": 0,
+            "sender_busy": False,
+            "sender_waiting_for_ack": False,
+            "sender_queue_pending": False,
+            "sender_loop_errors": 0,
+            "sender_last_error": None,
+            "sender_last_error_at": None,
+            "last_frame_queue_wait_ms": None,
         }
         self._open_serial(initial_open=True)
+        self._probe_protocol_capabilities()
+        self._frame_sender_thread.start()
 
     def _is_auto_port(self) -> bool:
         return self._requested_port.strip().lower() in {"", "auto", "detect"}
@@ -231,11 +282,59 @@ class SerialLEDStrip:
         self._stats["last_error"] = message
         self._stats["last_error_at"] = time.time()
 
+    def _record_sender_error(self, message: str) -> None:
+        self._stats["sender_last_error"] = message
+        self._stats["sender_last_error_at"] = time.time()
+
+    def _probe_protocol_capabilities(self) -> None:
+        with self._lock:
+            self._probe_protocol_capabilities_locked()
+
+    def _probe_protocol_capabilities_locked(self) -> None:
+        self._frame_ack_supported = False
+        self._frame_ack_enabled = False
+        self._protocol_version = None
+        self._protocol_probe_error = None
+        self._stats["frame_ack_supported"] = False
+        self._stats["frame_ack_enabled"] = False
+        self._stats["protocol_version"] = None
+        self._stats["protocol_probe_error"] = None
+
+        if self._serial is None:
+            self._protocol_probe_error = "serial port not open"
+            self._stats["protocol_probe_error"] = self._protocol_probe_error
+            return
+
+        try:
+            try:
+                self._serial.reset_input_buffer()
+            except Exception:
+                pass
+            self._write_packet(self.CMD_DEBUG_SNAPSHOT)
+            payload, error = self._read_exact_packet(self.CMD_DEBUG_SNAPSHOT_ACK, 33)
+            if error or payload is None:
+                raise SerialException(error or "debug snapshot probe failed")
+            version = int(payload[0])
+            self._protocol_version = version
+            self._frame_ack_supported = version >= self.FRAME_ACK_PROTOCOL_VERSION
+            self._frame_ack_enabled = self._frame_ack_supported
+        except Exception as exc:
+            self._protocol_probe_error = str(exc)
+            self._frame_ack_supported = False
+            self._frame_ack_enabled = False
+            self._logger.warning("Serial protocol capability probe failed; disabling frame ACK: %s", exc)
+
+        self._stats["protocol_version"] = self._protocol_version
+        self._stats["protocol_probe_error"] = self._protocol_probe_error
+        self._stats["frame_ack_supported"] = self._frame_ack_supported
+        self._stats["frame_ack_enabled"] = self._frame_ack_enabled
+
     def _reconnect_locked(self, context: str) -> bool:
         self._stats["reconnect_attempts"] += 1
         self._close_serial_locked()
         try:
             self._open_serial(initial_open=False)
+            self._probe_protocol_capabilities_locked()
             brightness_payload = bytes([self._brightness])
             self._write_packet(self.CMD_BRIGHTNESS, brightness_payload)
             self._stats["brightness_resyncs"] += 1
@@ -328,45 +427,174 @@ class SerialLEDStrip:
             self._buffer[offset + 1] = int(rgb[1]) & 0xFF
             self._buffer[offset + 2] = int(rgb[2]) & 0xFF
 
-    def show(self):
+    def _next_frame_sequence(self) -> int:
+        sequence = self._next_frame_seq & 0xFFFF
+        self._next_frame_seq = (sequence + 1) & 0xFFFF
+        return sequence
+
+    def _enqueue_frame(self, frame_bytes: bytes, sequence: int) -> None:
+        with self._queue_lock:
+            if self._pending_frame is not None:
+                self._stats["frames_replaced_before_send"] += 1
+            self._pending_frame = frame_bytes
+            self._pending_frame_seq = sequence
+            self._pending_frame_queued_at = time.time()
+            self._stats["frames_enqueued"] += 1
+            self._stats["sender_queue_pending"] = True
+        self._frame_sender_event.set()
+
+    def _reset_serial_buffers_locked(self) -> None:
+        if self._serial is None:
+            return
+        try:
+            self._serial.reset_input_buffer()
+        except Exception:
+            pass
+        try:
+            self._serial.reset_output_buffer()
+        except Exception:
+            pass
+
+    def _write_frame_packet_locked(self, frame_bytes: bytes, sequence: int) -> tuple[float, float | None, float, int | None]:
+        if self._serial is None:
+            raise SerialException("serial port not open")
+
+        if self._frame_ack_enabled:
+            try:
+                self._serial.reset_input_buffer()
+            except Exception:
+                pass
+
+        start = time.perf_counter()
+        if self._frame_ack_enabled:
+            payload = struct.pack("<H", sequence) + frame_bytes
+            write_ms = self._write_packet(self.CMD_FRAME_V2, payload)
+        else:
+            write_ms = self._write_packet(self.CMD_FRAME, frame_bytes)
+
+        ack_ms: float | None = None
+        ack_seq: int | None = None
+        if self._frame_ack_enabled:
+            self._stats["sender_waiting_for_ack"] = True
+            ack_start = time.perf_counter()
+            try:
+                payload, error = self._read_exact_packet(
+                    self.CMD_FRAME_ACK,
+                    2,
+                    timeout=self._ack_timeout,
+                )
+            finally:
+                self._stats["sender_waiting_for_ack"] = False
+
+            if error or payload is None:
+                if error and error.startswith("timeout/incomplete"):
+                    self._stats["frame_ack_timeouts"] += 1
+                else:
+                    self._stats["frame_ack_errors"] += 1
+                raise FrameAckError(error or "frame ack read failed")
+
+            ack_seq = struct.unpack("<H", payload)[0]
+            if ack_seq != sequence:
+                self._stats["frame_ack_errors"] += 1
+                raise FrameAckError(f"frame ack sequence mismatch ({ack_seq} != {sequence})")
+
+            ack_ms = round((time.perf_counter() - ack_start) * 1000, 3)
+
+        total_ms = round((time.perf_counter() - start) * 1000, 3)
+        return write_ms, ack_ms, total_ms, ack_seq
+
+    def _send_frame_with_retries(self, frame_bytes: bytes, sequence: int, queue_wait_ms: float | None) -> None:
         with self._lock:
             try:
-                elapsed_ms = self._write_packet(self.CMD_FRAME, self._buffer)
-            except SerialTimeoutException as exc:
-                self._stats["frame_write_timeouts"] += 1
-                message = f"serial frame write timeout: {exc}"
+                write_ms, ack_ms, total_ms, ack_seq = self._write_frame_packet_locked(frame_bytes, sequence)
+            except (SerialTimeoutException, FrameAckError) as exc:
+                is_write_timeout = isinstance(exc, SerialTimeoutException)
+                if is_write_timeout:
+                    self._stats["frame_write_timeouts"] += 1
+                    message = f"serial frame write timeout: {exc}"
+                    self._logger.warning("Serial frame write timeout: %s", exc)
+                else:
+                    message = f"serial frame ack failed: {exc}"
+                    self._logger.warning("Serial frame ACK failed: %s", exc)
                 self._record_error(message)
-                self._logger.warning("Serial frame write timeout: %s", exc)
 
-                # Partial packets can desync the UNO parser briefly; wait long enough for RX timeout
-                # recovery before retrying the frame once on the same connection.
+                self._stats["frame_write_retries"] += 1
                 try:
-                    if self._serial is not None:
-                        try:
-                            self._serial.reset_output_buffer()
-                        except Exception:
-                            pass
-                    time.sleep(max(float(self.settings.led_serial_timeout), 0.05))
-                    elapsed_ms = self._write_packet(self.CMD_FRAME, self._buffer)
-                    self._stats["frame_write_timeout_retry_successes"] += 1
+                    self._reset_serial_buffers_locked()
+                    # Allow the UNO parser to recover from partial packet / delayed ACK before retry.
+                    time.sleep(max(float(self.settings.led_serial_timeout), self._ack_timeout, 0.05))
+                    write_ms, ack_ms, total_ms, ack_seq = self._write_frame_packet_locked(frame_bytes, sequence)
+                    if is_write_timeout:
+                        self._stats["frame_write_timeout_retry_successes"] += 1
+                    else:
+                        self._stats["frame_ack_retry_successes"] += 1
                 except (SerialException, OSError) as retry_exc:
                     retry_message = f"{message}; retry failed: {retry_exc}"
                     self._record_error(retry_message)
-                    self._logger.warning("Serial frame write retry failed after timeout: %s", retry_exc)
-                    if not self._reconnect_locked("frame write timeout"):
+                    self._logger.warning("Serial frame retry failed after %s: %s", "write timeout" if is_write_timeout else "ACK error", retry_exc)
+                    if not self._reconnect_locked("frame transport retry"):
                         raise
-                    elapsed_ms = self._write_packet(self.CMD_FRAME, self._buffer)
+                    write_ms, ack_ms, total_ms, ack_seq = self._write_frame_packet_locked(frame_bytes, sequence)
             except (SerialException, OSError) as exc:
                 message = f"serial frame write failed: {exc}"
                 self._record_error(message)
                 self._logger.warning("Serial frame write failed: %s", exc)
                 if not self._reconnect_locked("frame write"):
                     raise
-                elapsed_ms = self._write_packet(self.CMD_FRAME, self._buffer)
+                write_ms, ack_ms, total_ms, ack_seq = self._write_frame_packet_locked(frame_bytes, sequence)
+
             self._stats["frames_sent"] += 1
+            if ack_seq is not None:
+                self._stats["frame_acks_received"] += 1
             self._stats["last_frame_at"] = time.time()
-            self._stats["last_frame_write_ms"] = elapsed_ms
+            self._stats["last_frame_write_ms"] = write_ms
+            self._stats["last_frame_ack_ms"] = ack_ms
+            self._stats["last_frame_roundtrip_ms"] = total_ms
+            self._stats["last_frame_seq"] = sequence
+            self._stats["last_frame_ack_seq"] = ack_seq
+            self._stats["last_frame_queue_wait_ms"] = queue_wait_ms
             self._stats["frame_resync_required"] = False
+
+    def _frame_sender_loop(self) -> None:
+        while not self._frame_sender_stop.is_set():
+            self._frame_sender_event.wait(timeout=0.1)
+            if self._frame_sender_stop.is_set():
+                return
+            while not self._frame_sender_stop.is_set():
+                with self._queue_lock:
+                    if self._pending_frame is None or self._pending_frame_seq is None:
+                        self._stats["sender_queue_pending"] = False
+                        self._frame_sender_event.clear()
+                        break
+                    frame_bytes = self._pending_frame
+                    sequence = self._pending_frame_seq
+                    queued_at = self._pending_frame_queued_at
+                    self._pending_frame = None
+                    self._pending_frame_seq = None
+                    self._pending_frame_queued_at = None
+                    self._stats["sender_queue_pending"] = False
+
+                queue_wait_ms = None
+                if queued_at is not None:
+                    queue_wait_ms = round((time.time() - queued_at) * 1000, 3)
+
+                self._stats["sender_busy"] = True
+                try:
+                    self._send_frame_with_retries(frame_bytes, sequence, queue_wait_ms)
+                except Exception as exc:
+                    self._stats["sender_loop_errors"] += 1
+                    message = f"serial frame sender error: {exc}"
+                    self._record_sender_error(message)
+                    self._record_error(message)
+                    self._logger.exception("Serial frame sender iteration failed")
+                finally:
+                    self._stats["sender_busy"] = False
+                    self._stats["sender_waiting_for_ack"] = False
+
+    def show(self):
+        frame_copy = bytes(self._buffer)
+        sequence = self._next_frame_sequence()
+        self._enqueue_frame(frame_copy, sequence)
 
     def ping(self, nonce: int | None = None) -> dict:
         if nonce is None:
@@ -454,11 +682,31 @@ class SerialLEDStrip:
             "reconnected": reconnected,
         }
 
-    def _read_exact_packet(self, expected_cmd: int, expected_payload_len: int) -> tuple[bytes | None, str | None]:
+    def _read_exact_packet(
+        self,
+        expected_cmd: int,
+        expected_payload_len: int,
+        *,
+        timeout: float | None = None,
+    ) -> tuple[bytes | None, str | None]:
         if self._serial is None:
             return None, "serial port not open"
         expected_len = 2 + 1 + 2 + expected_payload_len + 1
-        response = self._serial.read(expected_len)
+        previous_timeout = None
+        if timeout is not None:
+            try:
+                previous_timeout = self._serial.timeout
+                self._serial.timeout = timeout
+            except Exception:
+                previous_timeout = None
+        try:
+            response = self._serial.read(expected_len)
+        finally:
+            if timeout is not None and previous_timeout is not None:
+                try:
+                    self._serial.timeout = previous_timeout
+                except Exception:
+                    pass
         if len(response) != expected_len:
             return None, f"timeout/incomplete response ({len(response)} bytes)"
 
@@ -550,23 +798,37 @@ class SerialLEDStrip:
             "brightness": current_brightness,
         }
         self._stats["arduino_debug"] = snapshot
+        self._protocol_version = int(version)
+        self._frame_ack_supported = self._protocol_version >= self.FRAME_ACK_PROTOCOL_VERSION
+        self._frame_ack_enabled = self._frame_ack_supported
+        self._protocol_probe_error = None
+        self._stats["protocol_version"] = self._protocol_version
+        self._stats["protocol_probe_error"] = self._protocol_probe_error
+        self._stats["frame_ack_supported"] = self._frame_ack_supported
+        self._stats["frame_ack_enabled"] = self._frame_ack_enabled
         return {"ok": True, "roundtrip_ms": rtt_ms, "snapshot": snapshot, "reconnected": reconnected}
 
     def get_debug_snapshot(self) -> dict:
-        try:
-            self.poll_debug_snapshot()
-        except Exception as exc:  # defensive: debug endpoint must stay usable
-            self._stats["last_debug_poll_at"] = time.time()
-            self._stats["last_debug_poll_ok"] = False
-            self._stats["last_debug_poll_error"] = f"unexpected debug poll error: {exc}"
-            self._record_error(f"unexpected debug poll error: {exc}")
-            self._logger.exception("Unexpected serial debug poll error")
+        last_poll = self._stats.get("last_debug_poll_at")
+        if last_poll and (time.time() - float(last_poll)) < self._debug_poll_cache_ttl_s:
+            self._stats["debug_poll_cache_hits"] += 1
+        else:
+            try:
+                self.poll_debug_snapshot()
+            except Exception as exc:  # defensive: debug endpoint must stay usable
+                self._stats["last_debug_poll_at"] = time.time()
+                self._stats["last_debug_poll_ok"] = False
+                self._stats["last_debug_poll_error"] = f"unexpected debug poll error: {exc}"
+                self._record_error(f"unexpected debug poll error: {exc}")
+                self._logger.exception("Unexpected serial debug poll error")
         return {
             **self._stats,
             "brightness": self._brightness,
             "timeout": self.settings.led_serial_timeout,
             "write_timeout": self.settings.led_serial_write_timeout,
+            "ack_timeout": self._ack_timeout,
             "startup_delay": self.settings.led_serial_startup_delay,
+            "sender_thread_alive": self._frame_sender_thread.is_alive(),
         }
 
     def needs_frame_resync(self) -> bool:
