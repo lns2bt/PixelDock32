@@ -309,6 +309,17 @@ class SerialLEDStrip:
         self._buffer[offset + 1] = g
         self._buffer[offset + 2] = b
 
+    def set_indexed_colors(self, index_to_color: dict[int, tuple[int, int, int]]):
+        # Fast path for Pi->UNO serial transport: clear once, then write only lit pixels.
+        self._buffer[:] = b"\x00" * len(self._buffer)
+        for index, rgb in index_to_color.items():
+            if not (0 <= index < self._count):
+                continue
+            offset = index * 3
+            self._buffer[offset] = int(rgb[0]) & 0xFF
+            self._buffer[offset + 1] = int(rgb[1]) & 0xFF
+            self._buffer[offset + 2] = int(rgb[2]) & 0xFF
+
     def show(self):
         with self._lock:
             try:
@@ -619,6 +630,10 @@ class LEDDriver:
         self.strip.show()
 
     def write_color_frame(self, index_to_color: dict[int, tuple[int, int, int]]):
+        if isinstance(self.strip, SerialLEDStrip):
+            self.strip.set_indexed_colors(index_to_color)
+            self.strip.show()
+            return
         for i in range(self.strip.numPixels()):
             rgb = index_to_color.get(i)
             if rgb is None:

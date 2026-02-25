@@ -6,6 +6,11 @@ class LEDMapper:
         self.settings = settings
         self.width = settings.panel_columns
         self.height = settings.panel_rows
+        # Mapping is static for the runtime config; precompute for the hot render path.
+        self._xy_index_table = [
+            [self._compute_index(x, y) for x in range(self.width)]
+            for y in range(self.height)
+        ]
 
     def _normalize_rotation(self, value: int) -> int:
         rotation = int(value) % 360
@@ -78,5 +83,10 @@ class LEDMapper:
             "index": index,
         }
 
-    def xy_to_index(self, x: int, y: int) -> int:
+    def _compute_index(self, x: int, y: int) -> int:
         return int(self.map_components(x, y)["index"])
+
+    def xy_to_index(self, x: int, y: int) -> int:
+        if x < 0 or y < 0 or x >= self.width or y >= self.height:
+            raise ValueError("coordinate out of range")
+        return self._xy_index_table[y][x]
