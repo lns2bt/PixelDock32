@@ -15,6 +15,8 @@ const mappingAssist = {
   cursor: 0,
   observations: [],
   skipped: [],
+  fixedPixels: [],
+  draftFixes: [],
 };
 
 function authHeaders() {
@@ -1452,6 +1454,7 @@ function initPreviewGrid() {
     for (let x = 0; x < 32; x += 1) {
       const px = document.createElement('div');
       px.className = 'preview-pixel';
+      if (x > 0 && x % 8 === 0) px.classList.add('panel-divider-left');
       px.id = `preview-${x}-${y}`;
       container.appendChild(px);
     }
@@ -1551,6 +1554,7 @@ function renderRuntimeMappingInfo(mapping) {
     `serpentine: ${mapping.serpentine}`,
     `panel_order: ${(mapping.panel_order || []).join(',') || '-'}`,
     `panel_rotations: ${(mapping.panel_rotations || []).join(',') || '-'}`,
+    `pixel_fixes_count: ${mapping.pixel_fixes_count ?? 0}`,
     `Panel-Layout: ${mapping.panel_count || '-'} x ${mapping.panel_width || '-'}×${mapping.panel_height || '-'} | Matrix ${mapping.panel_columns || '-'}×${mapping.panel_rows || '-'} | LED count ${mapping.led_count || '-'}`,
     'Tipp: Starte "Stripes" oder "Panel Walk" und ändere Offset/Order/Rotation live bis Preview + reale LEDs übereinstimmen.',
   ].join('\n');
@@ -1625,6 +1629,7 @@ function initMappingAssistGrid() {
       const px = document.createElement('button');
       px.type = 'button';
       px.className = 'preview-pixel';
+      if (x > 0 && x % 8 === 0) px.classList.add('panel-divider-left');
       px.id = `assist-${x}-${y}`;
       px.title = `Beobachtet: ${x},${y}`;
       px.setAttribute('aria-label', `Position ${x}, ${y}`);
@@ -1632,11 +1637,67 @@ function initMappingAssistGrid() {
       container.appendChild(px);
     }
   }
+  renderMappingAssistGridState();
 }
 
 function assistLogicalFromCursor(cursor) {
   const safeCursor = Math.max(0, Math.min(LED_MATRIX_TOTAL_PIXELS - 1, cursor));
   return { x: safeCursor % LED_MATRIX_WIDTH, y: Math.floor(safeCursor / LED_MATRIX_WIDTH) };
+}
+
+function upsertDraftFix(entry) {
+  const idx = mappingAssist.draftFixes.findIndex((item) => item.logical_x === entry.logical_x && item.logical_y === entry.logical_y);
+  if (idx >= 0) mappingAssist.draftFixes[idx] = entry;
+  else mappingAssist.draftFixes.push(entry);
+}
+
+function renderMappingAssistGridState() {
+  const current = mappingAssist.active ? assistLogicalFromCursor(mappingAssist.cursor) : null;
+  const currentFix = current
+    ? mappingAssist.draftFixes.find((item) => item.logical_x === current.x && item.logical_y === current.y)
+    : null;
+
+  for (let y = 0; y < LED_MATRIX_HEIGHT; y += 1) {
+    for (let x = 0; x < LED_MATRIX_WIDTH; x += 1) {
+      const el = document.getElementById(`assist-${x}-${y}`);
+      if (!el) continue;
+      el.classList.toggle('assist-current', !!current && current.x === x && current.y === y);
+      el.classList.toggle('assist-picked', !!currentFix && currentFix.observed_x === x && currentFix.observed_y === y);
+      const fixed = mappingAssist.draftFixes.some((item) => item.observed_x === x && item.observed_y === y);
+      el.classList.toggle('assist-fixed', fixed);
+    }
+  }
+}
+
+function renderMappingFixesInfo() {
+  const el = document.getElementById('mappingFixesInfo');
+  if (!el) return;
+  if (!mappingAssist.draftFixes.length) {
+    el.innerText = 'Noch keine Fix-Pixel.';
+    return;
+  }
+  const lines = [
+    `Fix-Pixel (Entwurf): ${mappingAssist.draftFixes.length}`,
+    `Bereits aktiv im Backend: ${mappingAssist.fixedPixels.length}`,
+    'Format: logisch -> beobachtet',
+  ];
+  mappingAssist.draftFixes
+    .slice()
+    .sort((a, b) => (a.logical_y - b.logical_y) || (a.logical_x - b.logical_x))
+    .forEach((item) => {
+      lines.push(`(${item.logical_x},${item.logical_y}) -> (${item.observed_x},${item.observed_y})`);
+    });
+  lines.push('Editieren: gehe auf die logische LED im Assistenten und klicke eine neue beobachtete Position.');
+  el.innerText = lines.join('\n');
+}
+
+async function loadMappingAssistFixes() {
+  const data = await apiRequest('/api/debug/mapping/fixes');
+  if (!data?.fixes) return;
+  mappingAssist.fixedPixels = Array.isArray(data.fixes) ? data.fixes : [];
+  mappingAssist.draftFixes = mappingAssist.fixedPixels.map((item) => ({ ...item }));
+  renderMappingFixesInfo();
+  renderMappingAssistGridState();
 }
 
 async function drawSingleLogicalPixel(x, y, seconds = 6) {
@@ -1660,10 +1721,11 @@ function renderMappingAssistState() {
   el.innerText = [
     `Schritt: ${mappingAssist.cursor + 1}/${LED_MATRIX_TOTAL_PIXELS}`,
     `Leuchte jetzt: logische LED (${x},${y})`,
-    `Erfasste Beobachtungen: ${mappingAssist.observations.length}`,
+    `Erfasste Beobachtungen: ${mappingAssist.observations.length} (Fixes Entwurf: ${mappingAssist.draftFixes.length})`,
     `Übersprungen: ${mappingAssist.skipped.length}`,
     'Klicke unten auf die LED-Position, die in echt leuchtet.',
   ].join('\n');
+  renderMappingAssistGridState();
 }
 
 async function mappingAssistShowCurrent() {
@@ -1671,6 +1733,7 @@ async function mappingAssistShowCurrent() {
   const { x, y } = assistLogicalFromCursor(mappingAssist.cursor);
   await drawSingleLogicalPixel(x, y, 6);
   renderMappingAssistState();
+  renderMappingFixesInfo();
 }
 
 function mappingAssistNext() {
@@ -1696,6 +1759,7 @@ async function startMappingAssist() {
   mappingAssist.cursor = 0;
   mappingAssist.observations = [];
   mappingAssist.skipped = [];
+  await loadMappingAssistFixes();
   renderMappingAssistResult(null);
   await mappingAssistShowCurrent();
 }
@@ -1707,6 +1771,7 @@ function mappingAssistReset() {
   mappingAssist.skipped = [];
   renderMappingAssistState();
   renderMappingAssistResult(null);
+  renderMappingAssistGridState();
 }
 
 async function mappingAssistMarkObserved(observedX, observedY) {
@@ -1716,6 +1781,9 @@ async function mappingAssistMarkObserved(observedX, observedY) {
   const entry = { logical_x: x, logical_y: y, observed_x: observedX, observed_y: observedY };
   if (existing >= 0) mappingAssist.observations[existing] = entry;
   else mappingAssist.observations.push(entry);
+  upsertDraftFix(entry);
+  renderMappingFixesInfo();
+  renderMappingAssistGridState();
 
   toast(`Beobachtung gespeichert: logisch (${x},${y}) -> real (${observedX},${observedY})`);
   if (mappingAssist.cursor < LED_MATRIX_TOTAL_PIXELS - 1) {
@@ -1776,6 +1844,34 @@ async function inferMappingFromAssist() {
       source: 'inference_candidate',
     });
   }
+}
+
+async function applyMappingAssistFixes() {
+  const payload = { fixes: mappingAssist.draftFixes };
+  const data = await apiRequest('/api/debug/mapping/fixes', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  }, 'Fix-Pixel live angewendet');
+  if (!data?.fixes) return;
+  mappingAssist.fixedPixels = Array.isArray(data.fixes) ? data.fixes : [];
+  mappingAssist.draftFixes = mappingAssist.fixedPixels.map((item) => ({ ...item }));
+  renderMappingFixesInfo();
+  renderMappingAssistGridState();
+  await refreshPreview();
+  await refreshLiveMappingState({ silent: true });
+}
+
+async function clearMappingAssistFixes() {
+  const data = await apiRequest('/api/debug/mapping/fixes', { method: 'DELETE' }, 'Fix-Pixel gelöscht');
+  if (!data?.fixes) return;
+  mappingAssist.fixedPixels = [];
+  mappingAssist.draftFixes = [];
+  mappingAssist.observations = [];
+  renderMappingFixesInfo();
+  renderMappingAssistGridState();
+  await refreshPreview();
+  await refreshLiveMappingState({ silent: true });
 }
 
 function initGrid() {
@@ -1845,9 +1941,13 @@ if (ensureAuthFlow()) {
     if (page === 'modules') loadModules();
     if (page === 'overview') refreshStatus();
     if (page === 'tools') refreshPreview();
-    if (page === 'debug') {
+    if (page === 'mapping') {
       renderMappingAssistState();
       refreshLiveMappingState({ silent: true });
+      loadMappingAssistFixes();
+      refreshPreview();
+    }
+    if (page === 'debug') {
       refreshDhtDebug();
       refreshLedDebug({ silent: true });
       refreshStatus();

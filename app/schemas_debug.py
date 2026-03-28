@@ -41,3 +41,14 @@ class MappingObservation(BaseModel):
 class MappingInferenceRequest(BaseModel):
     observations: list[MappingObservation] = Field(min_length=1, max_length=256)
     max_solutions: int = Field(default=8, ge=1, le=32)
+
+
+class MappingFixEntry(BaseModel):
+    logical_x: int = Field(ge=0, le=31)
+    logical_y: int = Field(ge=0, le=7)
+    observed_x: int = Field(ge=0, le=31)
+    observed_y: int = Field(ge=0, le=7)
+
+
+class MappingFixesRequest(BaseModel):
+    fixes: list[MappingFixEntry] = Field(default_factory=list, max_length=256)

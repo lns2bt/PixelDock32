@@ -5,6 +5,7 @@ from app.schemas_debug import (
     DebugPatternRequest,
     GpioInputProbeRequest,
     GpioOutputTestRequest,
+    MappingFixesRequest,
     LedSerialPingRequest,
     MappingInferenceRequest,
     MappingOverrideRequest,
@@ -177,6 +178,25 @@ async def infer_runtime_mapping(payload: MappingInferenceRequest, request: Reque
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return {"ok": True, "result": result}
+
+
+@router.get("/mapping/fixes")
+async def get_mapping_fixes(request: Request, _: str = Depends(get_current_user)):
+    return {"ok": True, "fixes": _mapper(request).get_pixel_fixes_snapshot()}
+
+
+@router.put("/mapping/fixes")
+async def set_mapping_fixes(payload: MappingFixesRequest, request: Request, _: str = Depends(get_current_user)):
+    try:
+        fixes = _mapper(request).replace_pixel_fixes([item.model_dump() for item in payload.fixes])
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"ok": True, "fixes": fixes}
+
+
+@router.delete("/mapping/fixes")
+async def clear_mapping_fixes(request: Request, _: str = Depends(get_current_user)):
+    return {"ok": True, "fixes": _mapper(request).clear_pixel_fixes()}
 
 
 @router.post("/pattern")
