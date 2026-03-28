@@ -1,4 +1,6 @@
 from itertools import permutations, product
+import json
+from pathlib import Path
 
 from app.config import Settings
 
@@ -9,8 +11,11 @@ class LEDMapper:
         self.width = settings.panel_columns
         self.height = settings.panel_rows
         self._runtime_overrides: dict[str, object] = {}
+        self._pixel_fixes: dict[str, dict[str, int]] = {}
+        self._state_file = Path(settings.mapping_state_file)
         # Mapping is static for the runtime config; precompute for the hot render path.
         self._rebuild_xy_index_table()
+        self._load_persisted_state()
 
     def _rebuild_xy_index_table(self) -> None:
         self._xy_index_table = [
@@ -55,11 +60,13 @@ class LEDMapper:
             "panel_rotations": normalized_rotations,
         }
         self._rebuild_xy_index_table()
+        self._persist_state()
         return self.get_runtime_mapping_snapshot()
 
     def clear_runtime_overrides(self) -> dict:
         self._runtime_overrides = {}
         self._rebuild_xy_index_table()
+        self._persist_state()
         return self.get_runtime_mapping_snapshot()
 
     def get_runtime_mapping_snapshot(self) -> dict:
@@ -87,7 +94,100 @@ class LEDMapper:
             "panel_rows": int(self._effective("panel_rows")),
             "led_count": int(self._effective("led_count")),
             "source": "runtime_override" if active else "settings",
+            "pixel_fixes_count": len(self._pixel_fixes),
         }
+
+    def _pixel_fix_key(self, logical_x: int, logical_y: int) -> str:
+        return f"{int(logical_x)},{int(logical_y)}"
+
+    def _validate_coordinate(self, *, x: int, y: int) -> None:
+        if x < 0 or y < 0 or x >= self.width or y >= self.height:
+            raise ValueError("coordinate out of range")
+
+    def _normalize_fix(self, *, logical_x: int, logical_y: int, observed_x: int, observed_y: int) -> dict[str, int]:
+        logical_x = int(logical_x)
+        logical_y = int(logical_y)
+        observed_x = int(observed_x)
+        observed_y = int(observed_y)
+        self._validate_coordinate(x=logical_x, y=logical_y)
+        self._validate_coordinate(x=observed_x, y=observed_y)
+        return {
+            "logical_x": logical_x,
+            "logical_y": logical_y,
+            "observed_x": observed_x,
+            "observed_y": observed_y,
+        }
+
+    def set_pixel_fix(self, *, logical_x: int, logical_y: int, observed_x: int, observed_y: int) -> list[dict[str, int]]:
+        fix = self._normalize_fix(
+            logical_x=logical_x,
+            logical_y=logical_y,
+            observed_x=observed_x,
+            observed_y=observed_y,
+        )
+        self._pixel_fixes[self._pixel_fix_key(fix["logical_x"], fix["logical_y"])] = fix
+        self._persist_state()
+        return self.get_pixel_fixes_snapshot()
+
+    def replace_pixel_fixes(self, fixes: list[dict]) -> list[dict[str, int]]:
+        normalized: dict[str, dict[str, int]] = {}
+        for raw in fixes:
+            fix = self._normalize_fix(
+                logical_x=int(raw["logical_x"]),
+                logical_y=int(raw["logical_y"]),
+                observed_x=int(raw["observed_x"]),
+                observed_y=int(raw["observed_y"]),
+            )
+            normalized[self._pixel_fix_key(fix["logical_x"], fix["logical_y"])] = fix
+        self._pixel_fixes = normalized
+        self._persist_state()
+        return self.get_pixel_fixes_snapshot()
+
+    def clear_pixel_fixes(self) -> list[dict[str, int]]:
+        self._pixel_fixes = {}
+        self._persist_state()
+        return self.get_pixel_fixes_snapshot()
+
+    def get_pixel_fixes_snapshot(self) -> list[dict[str, int]]:
+        values = sorted(self._pixel_fixes.values(), key=lambda item: (item["logical_y"], item["logical_x"]))
+        return [dict(item) for item in values]
+
+    def _load_persisted_state(self) -> None:
+        if not self._state_file.exists():
+            return
+        try:
+            raw = json.loads(self._state_file.read_text(encoding="utf-8"))
+        except Exception:
+            return
+
+        runtime_overrides = raw.get("runtime_overrides") if isinstance(raw, dict) else None
+        if isinstance(runtime_overrides, dict):
+            try:
+                self.apply_runtime_overrides(
+                    first_pixel_offset=int(runtime_overrides.get("first_pixel_offset", 0)),
+                    data_starts_right=bool(runtime_overrides.get("data_starts_right", True)),
+                    serpentine=bool(runtime_overrides.get("serpentine", True)),
+                    panel_order=[int(item) for item in runtime_overrides.get("panel_order", [])],
+                    panel_rotations=[int(item) for item in runtime_overrides.get("panel_rotations", [])],
+                )
+            except Exception:
+                self._runtime_overrides = {}
+                self._rebuild_xy_index_table()
+
+        fixes = raw.get("pixel_fixes") if isinstance(raw, dict) else None
+        if isinstance(fixes, list):
+            try:
+                self.replace_pixel_fixes(fixes)
+            except Exception:
+                self._pixel_fixes = {}
+
+    def _persist_state(self) -> None:
+        payload = {
+            "runtime_overrides": self._runtime_overrides,
+            "pixel_fixes": self.get_pixel_fixes_snapshot(),
+        }
+        self._state_file.parent.mkdir(parents=True, exist_ok=True)
+        self._state_file.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
     def _normalize_rotation(self, value: int) -> int:
         rotation = int(value) % 360
@@ -171,6 +271,10 @@ class LEDMapper:
     def xy_to_index(self, x: int, y: int) -> int:
         if x < 0 or y < 0 or x >= self.width or y >= self.height:
             raise ValueError("coordinate out of range")
+        override = self._pixel_fixes.get(self._pixel_fix_key(x, y))
+        if override:
+            x = int(override["observed_x"])
+            y = int(override["observed_y"])
         return self._xy_index_table[y][x]
 
     def _map_index_with_overrides(

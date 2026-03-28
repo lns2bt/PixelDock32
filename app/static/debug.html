@@ -15,6 +15,7 @@
         <a data-page-link="modules" href="/modules">Modules</a>
         <a data-page-link="debug" href="/debug">Debugging</a>
         <a data-page-link="tools" href="/tools">Preview & Tools</a>
+        <a data-page-link="mapping" href="/mapping">Mapping Assistant</a>
         <a data-page-link="login" href="/login">Login</a>
       </nav>
       <div class="top-nav-actions">
@@ -114,54 +115,10 @@
       <details class="debug-panel" open><summary>GPIO Debug-Ausgabe</summary><div id="gpioFinderResult" class="mapping-info">Noch kein GPIO-Test ausgeführt.</div></details>
     </section>
 
-    <section class="card section-anchor" data-section-title="Debugging">
-      <h2>Mapping-Wizard</h2>
-      <p class="subtle">Live-Mapping-Overrides wirken sofort (ohne Neustart) und helfen beim schnellen Angleichen zwischen Preview und echter LED-Verkabelung.</p>
-      <div class="form-row wizard-row">
-        <div class="field"><label for="mapFirstOffset">First Pixel Offset</label><input id="mapFirstOffset" type="number" min="-4096" max="4096" value="0" /></div>
-        <div class="field"><label for="mapPanelOrder">Panel Order (CSV)</label><input id="mapPanelOrder" type="text" value="0,1,2,3" /></div>
-        <div class="field"><label for="mapPanelRotations">Panel Rotations (CSV)</label><input id="mapPanelRotations" type="text" value="0,0,0,0" /></div>
-      </div>
-      <div class="form-row wizard-row">
-        <div class="field"><label><input id="mapDataStartsRight" type="checkbox" checked /> Datenleitung startet rechts</label></div>
-        <div class="field"><label><input id="mapSerpentine" type="checkbox" checked /> Serpentine aktiv</label></div>
-        <div class="field actions-end"><button class="btn" onclick="applyLiveMapping()">Live-Mapping anwenden</button></div>
-        <div class="field actions-end"><button class="btn btn-secondary" onclick="nudgeFirstOffset(-1)">Offset -1</button></div>
-        <div class="field actions-end"><button class="btn btn-secondary" onclick="nudgeFirstOffset(1)">Offset +1</button></div>
-        <div class="field actions-end"><button class="btn btn-secondary" onclick="resetLiveMapping()">Live-Mapping reset</button></div>
-      </div>
-      <div id="mappingRuntimeInfo" class="mapping-info">Lade Live-Mapping-Status…</div>
-      <div class="preset-row">
-        <button class="btn btn-secondary" onclick="runPreset('panel_walk', 20, 350)">1) Panel-Reihenfolge prüfen</button>
-        <button class="btn btn-secondary" onclick="runPreset('pixel_walk', 50, 120)">2) Serpentine prüfen</button>
-        <button class="btn btn-secondary" onclick="runPreset('border', 20, 300)">3) Rand prüfen</button>
-      </div>
-      <div class="form-row wizard-row">
-        <div class="field"><label for="mapX">Logisches X (0-31)</label><input id="mapX" type="number" min="0" max="31" value="0" /></div>
-        <div class="field"><label for="mapY">Logisches Y (0-7)</label><input id="mapY" type="number" min="0" max="7" value="0" /></div>
-        <div class="field actions-end"><button class="btn" onclick="checkMappingCoordinate()">Koordinate erklären</button></div>
-      </div>
-      <div id="mappingInfo" class="mapping-info">Noch keine Koordinate geprüft.</div>
-
-      <h3 style="margin-top:18px;">LED-Identifikations-Assistent (fool-proof)</h3>
-      <p class="subtle">Ablauf: Assistent leuchtet jeweils genau 1 logische LED. Du klickst in der Mini-Matrix auf die LED, die in echt geleuchtet hat. Danach kann das System passende Mapping-Parameter vorschlagen (im Worst Case 256 LEDs).</p>
-      <div class="preset-row">
-        <button class="btn" onclick="startMappingAssist()">Assistent starten (0,0)</button>
-        <button class="btn btn-secondary" onclick="mappingAssistPrev()">Zurück</button>
-        <button class="btn btn-secondary" onclick="mappingAssistNext()">Weiter</button>
-        <button class="btn btn-secondary" onclick="mappingAssistSkip()">Überspringen</button>
-        <button class="btn btn-secondary" onclick="mappingAssistReset()">Reset</button>
-      </div>
-      <div id="mappingAssistState" class="mapping-info">Assistent noch nicht gestartet.</div>
-      <div id="mappingAssistGrid" style="margin-top:8px;" aria-label="Beobachtete LED wählen"></div>
-      <div id="mappingAssistResult" class="mapping-info" style="margin-top:8px;">Noch keine Mapping-Auswertung.</div>
-      <div class="preset-row">
-        <button class="btn" onclick="inferMappingFromAssist()">Aus Beobachtungen Mapping berechnen</button>
-      </div>
-    </section>
+    
   </main>
 
   <div id="toast"></div>
-  <script src="/static/app.js?v=20260225-ack1"></script>
+  <script src="/static/app.js?v=20260328-map2"></script>
 </body>
 </html>

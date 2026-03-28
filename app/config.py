@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     first_pixel_offset: int = 0
     panel_order: list[int] = Field(default_factory=lambda: [0, 1, 2, 3])
     panel_rotations: list[int] = Field(default_factory=lambda: [0, 0, 0, 0])
+    mapping_state_file: str = "mapping_state.json"
 
     btc_api_url: str = "https://api.coingecko.com/api/v3/simple/price"
     btc_block_height_api_url: str = "https://blockstream.info/api/blocks/tip/height"

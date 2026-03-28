@@ -82,6 +82,11 @@ async def tools_page():
     return FileResponse(static_dir / "tools.html")
 
 
+@app.get("/mapping")
+async def mapping_page():
+    return FileResponse(static_dir / "mapping.html")
+
+
 @app.get("/login")
 async def login_page():
     return FileResponse(static_dir / "login.html")
