@@ -63,6 +63,42 @@
 
       <h3 style="margin-top:18px;">LED-Identifikations-Assistent (fool-proof)</h3>
       <p class="subtle">Ablauf: Assistent leuchtet jeweils genau 1 logische LED. Du klickst in der Mini-Matrix auf die LED, die in echt geleuchtet hat. Danach kannst du die Fixes direkt anwenden oder ein globales Mapping inferieren.</p>
+      <div class="form-row wizard-row">
+        <div class="field">
+          <label for="assistPanelCount">Aktive 8x8 Panels</label>
+          <select id="assistPanelCount">
+            <option value="1">1 Panel (8x8)</option>
+            <option value="2">2 Panels (16x8)</option>
+            <option value="3">3 Panels (24x8)</option>
+            <option value="4" selected>4 Panels (32x8)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="assistPanelScope">Debug-Bereich</label>
+          <select id="assistPanelScope">
+            <option value="all" selected>Alle aktiven Panels</option>
+            <option value="active">Nur gewähltes Panel</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="assistActivePanel">Panel für Einzel-Debug</label>
+          <select id="assistActivePanel">
+            <option value="0" selected>Panel 1</option>
+            <option value="1">Panel 2</option>
+            <option value="2">Panel 3</option>
+            <option value="3">Panel 4</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="assistScanMode">Scan-Muster (gewähltes Panel)</label>
+          <select id="assistScanMode">
+            <option value="row_ltr" selected>Zeilen: links → rechts</option>
+            <option value="row_serpentine">Zeilen: serpentine</option>
+            <option value="col_ttb">Spalten: oben → unten</option>
+            <option value="col_serpentine">Spalten: serpentine</option>
+          </select>
+        </div>
+      </div>
       <div class="preset-row">
         <button class="btn" onclick="startMappingAssist()">Assistent starten (0,0)</button>
         <button class="btn btn-secondary" onclick="mappingAssistPrev()">Zurück</button>

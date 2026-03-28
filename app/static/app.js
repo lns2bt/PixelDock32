@@ -7,9 +7,13 @@ const serialPingHistory = [];
 const serialStateHistory = [];
 let ledDebugRefreshInFlight = null;
 let ledDebugAutoPollTimer = null;
-const LED_MATRIX_WIDTH = 32;
-const LED_MATRIX_HEIGHT = 8;
+const PANEL_WIDTH = 8;
+const PANEL_HEIGHT = 8;
+const MAX_PANEL_COUNT = 4;
+const LED_MATRIX_WIDTH = PANEL_WIDTH * MAX_PANEL_COUNT;
+const LED_MATRIX_HEIGHT = PANEL_HEIGHT;
 const LED_MATRIX_TOTAL_PIXELS = LED_MATRIX_WIDTH * LED_MATRIX_HEIGHT;
+const ASSIST_SCAN_MODES = ['row_ltr', 'row_serpentine', 'col_ttb', 'col_serpentine'];
 const mappingAssist = {
   active: false,
   cursor: 0,
@@ -17,6 +21,11 @@ const mappingAssist = {
   skipped: [],
   fixedPixels: [],
   draftFixes: [],
+  panelCount: MAX_PANEL_COUNT,
+  scope: 'all',
+  activePanel: 0,
+  panelScanModes: Array.from({ length: MAX_PANEL_COUNT }, () => 'row_ltr'),
+  sequence: [],
 };
 
 function authHeaders() {
@@ -1487,10 +1496,11 @@ async function refreshPreview() {
 }
 
 async function checkMappingCoordinate() {
+  const maxX = (Math.max(1, Math.min(MAX_PANEL_COUNT, mappingAssist.panelCount || MAX_PANEL_COUNT)) * PANEL_WIDTH) - 1;
   const x = parseInt(document.getElementById('mapX').value, 10);
   const y = parseInt(document.getElementById('mapY').value, 10);
-  if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || x > 31 || y < 0 || y > 7) {
-    toast('X/Y müssen im Bereich 0..31 / 0..7 liegen', true);
+  if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || x > maxX || y < 0 || y > 7) {
+    toast(`X/Y müssen im Bereich 0..${maxX} / 0..7 liegen`, true);
     return;
   }
 
@@ -1570,6 +1580,14 @@ async function refreshLiveMappingState(options = {}) {
   }
   applyMappingToForm(mapping);
   renderRuntimeMappingInfo(mapping);
+  const panelCountFromRuntime = Number(mapping.panel_count);
+  if (Number.isInteger(panelCountFromRuntime) && panelCountFromRuntime >= 1 && panelCountFromRuntime <= MAX_PANEL_COUNT) {
+    mappingAssist.panelCount = panelCountFromRuntime;
+    const panelCountEl = document.getElementById('assistPanelCount');
+    if (panelCountEl) panelCountEl.value = `${panelCountFromRuntime}`;
+    rebuildMappingAssistSequence();
+    renderMappingAssistState();
+  }
   return mapping;
 }
 
@@ -1630,6 +1648,7 @@ function initMappingAssistGrid() {
       px.type = 'button';
       px.className = 'preview-pixel';
       if (x > 0 && x % 8 === 0) px.classList.add('panel-divider-left');
+      if (y > 0 && y % 8 === 0) px.classList.add('panel-divider-top');
       px.id = `assist-${x}-${y}`;
       px.title = `Beobachtet: ${x},${y}`;
       px.setAttribute('aria-label', `Position ${x}, ${y}`);
@@ -1637,12 +1656,136 @@ function initMappingAssistGrid() {
       container.appendChild(px);
     }
   }
+  initMappingAssistConfigControls();
+  rebuildMappingAssistSequence();
   renderMappingAssistGridState();
 }
 
+function updateMappingCoordinateRange() {
+  const maxX = (Math.max(1, Math.min(MAX_PANEL_COUNT, mappingAssist.panelCount || MAX_PANEL_COUNT)) * PANEL_WIDTH) - 1;
+  const mapX = document.getElementById('mapX');
+  const mapXLabel = document.querySelector('label[for="mapX"]');
+  if (mapX) mapX.max = `${maxX}`;
+  if (mapXLabel) mapXLabel.innerText = `Logisches X (0-${maxX})`;
+}
+
+function mappingAssistDimensions() {
+  const panelCount = Math.max(1, Math.min(MAX_PANEL_COUNT, Number(mappingAssist.panelCount) || MAX_PANEL_COUNT));
+  return { panelCount, width: panelCount * PANEL_WIDTH, height: PANEL_HEIGHT, total: panelCount * PANEL_WIDTH * PANEL_HEIGHT };
+}
+
+function mappingAssistLocalOrder(mode) {
+  const order = [];
+  if (mode === 'col_ttb' || mode === 'col_serpentine') {
+    for (let x = 0; x < PANEL_WIDTH; x += 1) {
+      const serpentineFlip = mode === 'col_serpentine' && x % 2 === 1;
+      for (let yStep = 0; yStep < PANEL_HEIGHT; yStep += 1) {
+        const y = serpentineFlip ? (PANEL_HEIGHT - 1 - yStep) : yStep;
+        order.push({ x, y });
+      }
+    }
+    return order;
+  }
+  for (let y = 0; y < PANEL_HEIGHT; y += 1) {
+    const serpentineFlip = mode === 'row_serpentine' && y % 2 === 1;
+    for (let xStep = 0; xStep < PANEL_WIDTH; xStep += 1) {
+      const x = serpentineFlip ? (PANEL_WIDTH - 1 - xStep) : xStep;
+      order.push({ x, y });
+    }
+  }
+  return order;
+}
+
+function rebuildMappingAssistSequence() {
+  const dims = mappingAssistDimensions();
+  const scope = mappingAssist.scope === 'active' ? 'active' : 'all';
+  const activePanel = Math.max(0, Math.min(dims.panelCount - 1, Number(mappingAssist.activePanel) || 0));
+  mappingAssist.activePanel = activePanel;
+  const panels = scope === 'active'
+    ? [activePanel]
+    : Array.from({ length: dims.panelCount }, (_, idx) => idx);
+  const sequence = [];
+  panels.forEach((panelIndex) => {
+    const mode = ASSIST_SCAN_MODES.includes(mappingAssist.panelScanModes[panelIndex])
+      ? mappingAssist.panelScanModes[panelIndex]
+      : 'row_ltr';
+    const localOrder = mappingAssistLocalOrder(mode);
+    localOrder.forEach((pos) => {
+      sequence.push({
+        x: panelIndex * PANEL_WIDTH + pos.x,
+        y: pos.y,
+        panelIndex,
+        localX: pos.x,
+        localY: pos.y,
+      });
+    });
+  });
+  mappingAssist.sequence = sequence;
+  mappingAssist.cursor = Math.max(0, Math.min(Math.max(sequence.length - 1, 0), mappingAssist.cursor));
+  updateMappingCoordinateRange();
+}
+
 function assistLogicalFromCursor(cursor) {
-  const safeCursor = Math.max(0, Math.min(LED_MATRIX_TOTAL_PIXELS - 1, cursor));
-  return { x: safeCursor % LED_MATRIX_WIDTH, y: Math.floor(safeCursor / LED_MATRIX_WIDTH) };
+  if (!mappingAssist.sequence.length) rebuildMappingAssistSequence();
+  if (!mappingAssist.sequence.length) return { x: 0, y: 0, panelIndex: 0, localX: 0, localY: 0 };
+  const safeCursor = Math.max(0, Math.min(mappingAssist.sequence.length - 1, cursor));
+  return mappingAssist.sequence[safeCursor];
+}
+
+function initMappingAssistConfigControls() {
+  const panelCountEl = document.getElementById('assistPanelCount');
+  const scopeEl = document.getElementById('assistPanelScope');
+  const activePanelEl = document.getElementById('assistActivePanel');
+  const scanModeEl = document.getElementById('assistScanMode');
+  if (!panelCountEl || !scopeEl || !activePanelEl || !scanModeEl) return;
+
+  panelCountEl.value = `${mappingAssist.panelCount}`;
+  scopeEl.value = mappingAssist.scope;
+  activePanelEl.value = `${mappingAssist.activePanel}`;
+  scanModeEl.value = mappingAssist.panelScanModes[mappingAssist.activePanel] || 'row_ltr';
+
+  const syncControlState = () => {
+    const activePanel = Math.max(0, Math.min(MAX_PANEL_COUNT - 1, Number(activePanelEl.value) || 0));
+    const count = Math.max(1, Math.min(MAX_PANEL_COUNT, Number(panelCountEl.value) || MAX_PANEL_COUNT));
+    activePanelEl.querySelectorAll('option').forEach((opt) => {
+      const panelIdx = Number(opt.value);
+      opt.disabled = panelIdx >= count;
+    });
+    if (activePanel >= count) {
+      activePanelEl.value = `${count - 1}`;
+    }
+    activePanelEl.disabled = scopeEl.value !== 'active';
+    scanModeEl.value = mappingAssist.panelScanModes[Number(activePanelEl.value) || 0] || 'row_ltr';
+  };
+
+  panelCountEl.onchange = () => {
+    mappingAssist.panelCount = Math.max(1, Math.min(MAX_PANEL_COUNT, Number(panelCountEl.value) || MAX_PANEL_COUNT));
+    if (mappingAssist.activePanel >= mappingAssist.panelCount) mappingAssist.activePanel = mappingAssist.panelCount - 1;
+    activePanelEl.value = `${mappingAssist.activePanel}`;
+    syncControlState();
+    rebuildMappingAssistSequence();
+    renderMappingAssistState();
+  };
+  scopeEl.onchange = () => {
+    mappingAssist.scope = scopeEl.value === 'active' ? 'active' : 'all';
+    syncControlState();
+    rebuildMappingAssistSequence();
+    renderMappingAssistState();
+  };
+  activePanelEl.onchange = () => {
+    mappingAssist.activePanel = Math.max(0, Math.min(MAX_PANEL_COUNT - 1, Number(activePanelEl.value) || 0));
+    scanModeEl.value = mappingAssist.panelScanModes[mappingAssist.activePanel] || 'row_ltr';
+    rebuildMappingAssistSequence();
+    renderMappingAssistState();
+  };
+  scanModeEl.onchange = () => {
+    const selectedMode = ASSIST_SCAN_MODES.includes(scanModeEl.value) ? scanModeEl.value : 'row_ltr';
+    mappingAssist.panelScanModes[mappingAssist.activePanel] = selectedMode;
+    rebuildMappingAssistSequence();
+    renderMappingAssistState();
+  };
+
+  syncControlState();
 }
 
 function upsertDraftFix(entry) {
@@ -1652,6 +1795,7 @@ function upsertDraftFix(entry) {
 }
 
 function renderMappingAssistGridState() {
+  const dims = mappingAssistDimensions();
   const current = mappingAssist.active ? assistLogicalFromCursor(mappingAssist.cursor) : null;
   const currentFix = current
     ? mappingAssist.draftFixes.find((item) => item.logical_x === current.x && item.logical_y === current.y)
@@ -1661,6 +1805,9 @@ function renderMappingAssistGridState() {
     for (let x = 0; x < LED_MATRIX_WIDTH; x += 1) {
       const el = document.getElementById(`assist-${x}-${y}`);
       if (!el) continue;
+      const active = x < dims.width && y < dims.height;
+      el.disabled = !active;
+      el.style.opacity = active ? '1' : '0.2';
       el.classList.toggle('assist-current', !!current && current.x === x && current.y === y);
       el.classList.toggle('assist-picked', !!currentFix && currentFix.observed_x === x && currentFix.observed_y === y);
       const fixed = mappingAssist.draftFixes.some((item) => item.observed_x === x && item.observed_y === y);
@@ -1717,12 +1864,14 @@ function renderMappingAssistState() {
     el.innerText = 'Assistent noch nicht gestartet.';
     return;
   }
-  const { x, y } = assistLogicalFromCursor(mappingAssist.cursor);
+  const { x, y, panelIndex, localX, localY } = assistLogicalFromCursor(mappingAssist.cursor);
+  const total = mappingAssist.sequence.length || 0;
   el.innerText = [
-    `Schritt: ${mappingAssist.cursor + 1}/${LED_MATRIX_TOTAL_PIXELS}`,
-    `Leuchte jetzt: logische LED (${x},${y})`,
+    `Schritt: ${mappingAssist.cursor + 1}/${total}`,
+    `Leuchte jetzt: logische LED (${x},${y}) | Panel ${panelIndex + 1}, lokal (${localX},${localY})`,
     `Erfasste Beobachtungen: ${mappingAssist.observations.length} (Fixes Entwurf: ${mappingAssist.draftFixes.length})`,
     `Übersprungen: ${mappingAssist.skipped.length}`,
+    `Panel-Setup: ${mappingAssist.panelCount}×8x8 | Bereich: ${mappingAssist.scope === 'active' ? `nur Panel ${mappingAssist.activePanel + 1}` : 'alle aktiven Panels'}`,
     'Klicke unten auf die LED-Position, die in echt leuchtet.',
   ].join('\n');
   renderMappingAssistGridState();
@@ -1731,14 +1880,15 @@ function renderMappingAssistState() {
 async function mappingAssistShowCurrent() {
   if (!mappingAssist.active) return;
   const { x, y } = assistLogicalFromCursor(mappingAssist.cursor);
-  await drawSingleLogicalPixel(x, y, 6);
+  await drawSingleLogicalPixel(x, y, 3600);
   renderMappingAssistState();
   renderMappingFixesInfo();
 }
 
 function mappingAssistNext() {
   if (!mappingAssist.active) return;
-  mappingAssist.cursor = Math.min(mappingAssist.cursor + 1, LED_MATRIX_TOTAL_PIXELS - 1);
+  const maxIndex = Math.max(0, mappingAssist.sequence.length - 1);
+  mappingAssist.cursor = Math.min(mappingAssist.cursor + 1, maxIndex);
   mappingAssistShowCurrent();
 }
 
@@ -1755,6 +1905,7 @@ function mappingAssistSkip() {
 }
 
 async function startMappingAssist() {
+  rebuildMappingAssistSequence();
   mappingAssist.active = true;
   mappingAssist.cursor = 0;
   mappingAssist.observations = [];
@@ -1776,6 +1927,8 @@ function mappingAssistReset() {
 
 async function mappingAssistMarkObserved(observedX, observedY) {
   if (!mappingAssist.active) return;
+  const dims = mappingAssistDimensions();
+  if (observedX >= dims.width || observedY >= dims.height) return;
   const { x, y } = assistLogicalFromCursor(mappingAssist.cursor);
   const existing = mappingAssist.observations.findIndex((item) => item.logical_x === x && item.logical_y === y);
   const entry = { logical_x: x, logical_y: y, observed_x: observedX, observed_y: observedY };
@@ -1786,7 +1939,7 @@ async function mappingAssistMarkObserved(observedX, observedY) {
   renderMappingAssistGridState();
 
   toast(`Beobachtung gespeichert: logisch (${x},${y}) -> real (${observedX},${observedY})`);
-  if (mappingAssist.cursor < LED_MATRIX_TOTAL_PIXELS - 1) {
+  if (mappingAssist.cursor < mappingAssist.sequence.length - 1) {
     mappingAssist.cursor += 1;
     await mappingAssistShowCurrent();
   } else {
