@@ -1611,6 +1611,14 @@ function initMappingAssistGrid() {
 
   container.style.setProperty('--matrix-width', `${LED_MATRIX_WIDTH}`);
   container.style.setProperty('--matrix-height', `${LED_MATRIX_HEIGHT}`);
+  container.style.display = 'grid';
+  container.style.gridTemplateColumns = `repeat(${LED_MATRIX_WIDTH}, var(--pixel-size, 14px))`;
+  container.style.gridTemplateRows = `repeat(${LED_MATRIX_HEIGHT}, var(--pixel-size, 14px))`;
+  container.style.gridAutoFlow = 'row';
+  container.style.gap = 'var(--pixel-gap, 2px)';
+  container.style.width = 'max-content';
+  container.style.maxWidth = '100%';
+  container.style.overflowX = 'auto';
 
   for (let y = 0; y < LED_MATRIX_HEIGHT; y += 1) {
     for (let x = 0; x < LED_MATRIX_WIDTH; x += 1) {
