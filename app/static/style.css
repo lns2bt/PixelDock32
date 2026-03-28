@@ -331,13 +331,30 @@ input:focus, select:focus, textarea:focus {
 }
 
 #mappingAssistGrid {
-  width: fit-content;
+  --matrix-width: 32;
+  --matrix-height: 8;
+  --pixel-size: 14px;
+  --pixel-gap: 2px;
+  display: grid;
+  grid-template-columns: repeat(var(--matrix-width), var(--pixel-size));
+  grid-template-rows: repeat(var(--matrix-height), var(--pixel-size));
+  grid-auto-flow: row;
+  gap: var(--pixel-gap);
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 2px;
   margin: 8px auto 0;
 }
 
 #mappingAssistGrid .preview-pixel {
   appearance: none;
   -webkit-appearance: none;
+  width: var(--pixel-size);
+  height: var(--pixel-size);
+  min-width: var(--pixel-size);
+  min-height: var(--pixel-size);
+  box-sizing: border-box;
 }
 
 
