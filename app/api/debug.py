@@ -1,7 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.api.deps import get_current_user
-from app.schemas_debug import DebugPatternRequest, GpioInputProbeRequest, GpioOutputTestRequest, LedSerialPingRequest
+from app.schemas_debug import (
+    DebugPatternRequest,
+    GpioInputProbeRequest,
+    GpioOutputTestRequest,
+    LedSerialPingRequest,
+    MappingOverrideRequest,
+)
 
 router = APIRouter(prefix="/api/debug", tags=["debug"])
 
@@ -56,6 +62,7 @@ async def status(request: Request, _: str = Depends(get_current_user)):
         "display": display_service.get_status(),
         "live_data": live_data,
         "led_transport": _led_driver(request).get_debug_snapshot(),
+        "mapping": _mapper(request).get_runtime_mapping_snapshot(),
         "live_data_debug": {
             "source": "display_cache_snapshot",
             "snapshot_ts": display_service.last_cache_snapshot_ts,
@@ -130,6 +137,32 @@ async def explain_coordinate(
         raise HTTPException(status_code=422, detail="x/y out of range")
     components = _mapper(request).map_components(x, y)
     return {"ok": True, "mapping": components}
+
+
+@router.get("/mapping/runtime")
+async def get_runtime_mapping(request: Request, _: str = Depends(get_current_user)):
+    return {"ok": True, "mapping": _mapper(request).get_runtime_mapping_snapshot()}
+
+
+@router.put("/mapping/runtime")
+async def set_runtime_mapping(payload: MappingOverrideRequest, request: Request, _: str = Depends(get_current_user)):
+    try:
+        snapshot = _mapper(request).apply_runtime_overrides(
+            first_pixel_offset=payload.first_pixel_offset,
+            data_starts_right=payload.data_starts_right,
+            serpentine=payload.serpentine,
+            panel_order=payload.panel_order,
+            panel_rotations=payload.panel_rotations,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"ok": True, "mapping": snapshot}
+
+
+@router.delete("/mapping/runtime")
+async def clear_runtime_mapping(request: Request, _: str = Depends(get_current_user)):
+    snapshot = _mapper(request).clear_runtime_overrides()
+    return {"ok": True, "mapping": snapshot}
 
 
 @router.post("/pattern")

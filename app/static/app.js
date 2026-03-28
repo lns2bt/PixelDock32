@@ -1236,6 +1236,7 @@ async function refreshStatus() {
   }
 
   renderBackendStatusDebug(data);
+  await refreshLiveMappingState({ silent: true, useStatusPayload: data.mapping || null });
 
   if (!hasStatusUi) {
     await refreshDhtDebug();
@@ -1489,6 +1490,105 @@ async function checkMappingCoordinate() {
     `x=${m.x}, y=${m.y} -> panel=${m.panel_index}, rotation=${m.panel_rotation}°, local=(${m.local_x},${m.local_y}), pixel_in_panel=${m.pixel_in_panel}, led_index=${m.index}, serpentine_flip=${m.serpentine_flipped}`;
 }
 
+function parseCsvIntList(raw) {
+  if (typeof raw !== 'string') return [];
+  return raw
+    .split(',')
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0)
+    .map((part) => Number.parseInt(part, 10))
+    .filter((value) => Number.isInteger(value));
+}
+
+function mappingFormPayload() {
+  return {
+    first_pixel_offset: parseInt(document.getElementById('mapFirstOffset').value, 10) || 0,
+    panel_order: parseCsvIntList(document.getElementById('mapPanelOrder').value),
+    panel_rotations: parseCsvIntList(document.getElementById('mapPanelRotations').value),
+    data_starts_right: !!document.getElementById('mapDataStartsRight').checked,
+    serpentine: !!document.getElementById('mapSerpentine').checked,
+  };
+}
+
+function applyMappingToForm(mapping) {
+  if (!mapping || typeof mapping !== 'object') return;
+  const offsetEl = document.getElementById('mapFirstOffset');
+  const panelOrderEl = document.getElementById('mapPanelOrder');
+  const rotationsEl = document.getElementById('mapPanelRotations');
+  const dataStartsRightEl = document.getElementById('mapDataStartsRight');
+  const serpentineEl = document.getElementById('mapSerpentine');
+  if (!offsetEl || !panelOrderEl || !rotationsEl || !dataStartsRightEl || !serpentineEl) return;
+
+  offsetEl.value = `${mapping.first_pixel_offset ?? 0}`;
+  panelOrderEl.value = Array.isArray(mapping.panel_order) ? mapping.panel_order.join(',') : '';
+  rotationsEl.value = Array.isArray(mapping.panel_rotations) ? mapping.panel_rotations.join(',') : '';
+  dataStartsRightEl.checked = !!mapping.data_starts_right;
+  serpentineEl.checked = !!mapping.serpentine;
+}
+
+function renderRuntimeMappingInfo(mapping) {
+  const el = document.getElementById('mappingRuntimeInfo');
+  if (!el) return;
+  if (!mapping) {
+    el.innerText = 'Kein Mapping-Status verfügbar.';
+    return;
+  }
+
+  el.innerText = [
+    `Live Override: ${mapping.active ? '✅ aktiv' : 'ℹ️ aus (Settings)'}`,
+    `Quelle: ${mapping.source || '-'}`,
+    `first_pixel_offset: ${mapping.first_pixel_offset}`,
+    `data_starts_right: ${mapping.data_starts_right}`,
+    `serpentine: ${mapping.serpentine}`,
+    `panel_order: ${(mapping.panel_order || []).join(',') || '-'}`,
+    `panel_rotations: ${(mapping.panel_rotations || []).join(',') || '-'}`,
+    `Panel-Layout: ${mapping.panel_count || '-'} x ${mapping.panel_width || '-'}×${mapping.panel_height || '-'} | Matrix ${mapping.panel_columns || '-'}×${mapping.panel_rows || '-'} | LED count ${mapping.led_count || '-'}`,
+    'Tipp: Starte "Stripes" oder "Panel Walk" und ändere Offset/Order/Rotation live bis Preview + reale LEDs übereinstimmen.',
+  ].join('\n');
+}
+
+async function refreshLiveMappingState(options = {}) {
+  const { silent = true, useStatusPayload = null } = options;
+  let mapping = useStatusPayload;
+  if (!mapping) {
+    const data = await apiRequest('/api/debug/mapping/runtime', {}, silent ? '' : 'Live-Mapping geladen');
+    if (!data?.mapping) return null;
+    mapping = data.mapping;
+  }
+  applyMappingToForm(mapping);
+  renderRuntimeMappingInfo(mapping);
+  return mapping;
+}
+
+async function applyLiveMapping() {
+  const payload = mappingFormPayload();
+  const data = await apiRequest('/api/debug/mapping/runtime', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  }, 'Live-Mapping angewendet');
+  if (!data?.mapping) return;
+  applyMappingToForm(data.mapping);
+  renderRuntimeMappingInfo(data.mapping);
+  await refreshPreview();
+}
+
+async function resetLiveMapping() {
+  const data = await apiRequest('/api/debug/mapping/runtime', { method: 'DELETE' }, 'Live-Mapping zurückgesetzt');
+  if (!data?.mapping) return;
+  applyMappingToForm(data.mapping);
+  renderRuntimeMappingInfo(data.mapping);
+  await refreshPreview();
+}
+
+async function nudgeFirstOffset(delta) {
+  const offsetEl = document.getElementById('mapFirstOffset');
+  if (!offsetEl) return;
+  const current = parseInt(offsetEl.value, 10) || 0;
+  offsetEl.value = `${current + delta}`;
+  await applyLiveMapping();
+}
+
 function initGrid() {
   const grid = document.getElementById('grid');
   for (let y = 0; y < 8; y += 1) {
@@ -1556,6 +1656,7 @@ if (ensureAuthFlow()) {
     if (page === 'overview') refreshStatus();
     if (page === 'tools') refreshPreview();
     if (page === 'debug') {
+      refreshLiveMappingState({ silent: true });
       refreshDhtDebug();
       refreshLedDebug({ silent: true });
       refreshStatus();
