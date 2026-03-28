@@ -7,6 +7,12 @@ const serialPingHistory = [];
 const serialStateHistory = [];
 let ledDebugRefreshInFlight = null;
 let ledDebugAutoPollTimer = null;
+const mappingAssist = {
+  active: false,
+  cursor: 0,
+  observations: [],
+  skipped: [],
+};
 
 function authHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : {};
@@ -1589,6 +1595,166 @@ async function nudgeFirstOffset(delta) {
   await applyLiveMapping();
 }
 
+function initMappingAssistGrid() {
+  const container = document.getElementById('mappingAssistGrid');
+  if (!container || container.childElementCount > 0) return;
+  for (let y = 0; y < 8; y += 1) {
+    for (let x = 0; x < 32; x += 1) {
+      const px = document.createElement('button');
+      px.type = 'button';
+      px.className = 'preview-pixel';
+      px.id = `assist-${x}-${y}`;
+      px.title = `Beobachtet: ${x},${y}`;
+      px.onclick = () => mappingAssistMarkObserved(x, y);
+      container.appendChild(px);
+    }
+  }
+}
+
+function assistLogicalFromCursor(cursor) {
+  const safeCursor = Math.max(0, Math.min(255, cursor));
+  return { x: safeCursor % 32, y: Math.floor(safeCursor / 32) };
+}
+
+async function drawSingleLogicalPixel(x, y, seconds = 6) {
+  const frame = Array.from({ length: 8 }, () => Array(32).fill(0));
+  frame[y][x] = 1;
+  return apiRequest('/api/display/draw', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pixels: frame, seconds }),
+  }, '');
+}
+
+function renderMappingAssistState() {
+  const el = document.getElementById('mappingAssistState');
+  if (!el) return;
+  if (!mappingAssist.active) {
+    el.innerText = 'Assistent noch nicht gestartet.';
+    return;
+  }
+  const { x, y } = assistLogicalFromCursor(mappingAssist.cursor);
+  el.innerText = [
+    `Schritt: ${mappingAssist.cursor + 1}/256`,
+    `Leuchte jetzt: logische LED (${x},${y})`,
+    `Erfasste Beobachtungen: ${mappingAssist.observations.length}`,
+    `Übersprungen: ${mappingAssist.skipped.length}`,
+    'Klicke unten auf die LED-Position, die in echt leuchtet.',
+  ].join('\n');
+}
+
+async function mappingAssistShowCurrent() {
+  if (!mappingAssist.active) return;
+  const { x, y } = assistLogicalFromCursor(mappingAssist.cursor);
+  await drawSingleLogicalPixel(x, y, 6);
+  renderMappingAssistState();
+}
+
+function mappingAssistNext() {
+  if (!mappingAssist.active) return;
+  mappingAssist.cursor = Math.min(mappingAssist.cursor + 1, 255);
+  mappingAssistShowCurrent();
+}
+
+function mappingAssistPrev() {
+  if (!mappingAssist.active) return;
+  mappingAssist.cursor = Math.max(mappingAssist.cursor - 1, 0);
+  mappingAssistShowCurrent();
+}
+
+function mappingAssistSkip() {
+  if (!mappingAssist.active) return;
+  mappingAssist.skipped.push(mappingAssist.cursor);
+  mappingAssistNext();
+}
+
+async function startMappingAssist() {
+  mappingAssist.active = true;
+  mappingAssist.cursor = 0;
+  mappingAssist.observations = [];
+  mappingAssist.skipped = [];
+  renderMappingAssistResult(null);
+  await mappingAssistShowCurrent();
+}
+
+function mappingAssistReset() {
+  mappingAssist.active = false;
+  mappingAssist.cursor = 0;
+  mappingAssist.observations = [];
+  mappingAssist.skipped = [];
+  renderMappingAssistState();
+  renderMappingAssistResult(null);
+}
+
+async function mappingAssistMarkObserved(observedX, observedY) {
+  if (!mappingAssist.active) return;
+  const { x, y } = assistLogicalFromCursor(mappingAssist.cursor);
+  const existing = mappingAssist.observations.findIndex((item) => item.logical_x === x && item.logical_y === y);
+  const entry = { logical_x: x, logical_y: y, observed_x: observedX, observed_y: observedY };
+  if (existing >= 0) mappingAssist.observations[existing] = entry;
+  else mappingAssist.observations.push(entry);
+
+  toast(`Beobachtung gespeichert: logisch (${x},${y}) -> real (${observedX},${observedY})`);
+  if (mappingAssist.cursor < 255) {
+    mappingAssist.cursor += 1;
+    await mappingAssistShowCurrent();
+  } else {
+    renderMappingAssistState();
+  }
+}
+
+function renderMappingAssistResult(result) {
+  const el = document.getElementById('mappingAssistResult');
+  if (!el) return;
+  if (!result) {
+    el.innerText = 'Noch keine Mapping-Auswertung.';
+    return;
+  }
+  const solutions = Array.isArray(result.solutions) ? result.solutions : [];
+  if (!solutions.length) {
+    el.innerText = [
+      'Keine Lösung gefunden.',
+      `Beobachtungen: ${result.observation_count || 0}`,
+      'Erfasse mehr LEDs (idealerweise aus verschiedenen Panels/Zeilen).',
+    ].join('\n');
+    return;
+  }
+  const first = solutions[0];
+  el.innerText = [
+    `Lösungen gefunden: ${result.solutions_found}`,
+    `Beste Lösung: offset=${first.first_pixel_offset}, data_starts_right=${first.data_starts_right}, serpentine=${first.serpentine}`,
+    `panel_order=${(first.panel_order || []).join(',')}`,
+    `panel_rotations=${(first.panel_rotations || []).join(',')}`,
+    'Klicke "Live-Mapping anwenden", um diese Werte zu übernehmen.',
+  ].join('\n');
+}
+
+async function inferMappingFromAssist() {
+  if (!mappingAssist.observations.length) {
+    toast('Keine Beobachtungen vorhanden', true);
+    return;
+  }
+  const payload = { observations: mappingAssist.observations, max_solutions: 8 };
+  const data = await apiRequest('/api/debug/mapping/infer', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  }, 'Mapping-Auswertung fertig');
+  if (!data?.result) return;
+
+  renderMappingAssistResult(data.result);
+  const best = data.result.solutions && data.result.solutions[0];
+  if (best) {
+    applyMappingToForm(best);
+    renderRuntimeMappingInfo({
+      ...(data.result.current_mapping || {}),
+      ...best,
+      active: true,
+      source: 'inference_candidate',
+    });
+  }
+}
+
 function initGrid() {
   const grid = document.getElementById('grid');
   for (let y = 0; y < 8; y += 1) {
@@ -1649,6 +1815,7 @@ if (ensureAuthFlow()) {
   const { page, requiresAuth } = pageInfo();
   if (document.getElementById('grid')) initGrid();
   if (document.getElementById('previewGrid')) initPreviewGrid();
+  if (document.getElementById('mappingAssistGrid')) initMappingAssistGrid();
   if (page === 'login') initLoginPage();
 
   if (requiresAuth && token) {
@@ -1656,6 +1823,7 @@ if (ensureAuthFlow()) {
     if (page === 'overview') refreshStatus();
     if (page === 'tools') refreshPreview();
     if (page === 'debug') {
+      renderMappingAssistState();
       refreshLiveMappingState({ silent: true });
       refreshDhtDebug();
       refreshLedDebug({ silent: true });

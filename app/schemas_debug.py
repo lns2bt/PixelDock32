@@ -29,3 +29,15 @@ class MappingOverrideRequest(BaseModel):
     serpentine: bool = Field(default=True)
     panel_order: list[int] = Field(min_length=1, max_length=16)
     panel_rotations: list[int] = Field(min_length=1, max_length=16)
+
+
+class MappingObservation(BaseModel):
+    logical_x: int = Field(ge=0, le=31)
+    logical_y: int = Field(ge=0, le=7)
+    observed_x: int = Field(ge=0, le=31)
+    observed_y: int = Field(ge=0, le=7)
+
+
+class MappingInferenceRequest(BaseModel):
+    observations: list[MappingObservation] = Field(min_length=1, max_length=256)
+    max_solutions: int = Field(default=8, ge=1, le=32)
