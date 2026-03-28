@@ -42,7 +42,7 @@ class ManualTextRequest(BaseModel):
 
 class DrawRequest(BaseModel):
     pixels: list[list[int]]
-    seconds: int = Field(default=8, ge=1, le=120)
+    seconds: int = Field(default=8, ge=1, le=7200)
 
 
 class BrightnessRequest(BaseModel):

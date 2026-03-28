@@ -14,6 +14,13 @@ const LED_MATRIX_WIDTH = PANEL_WIDTH * MAX_PANEL_COUNT;
 const LED_MATRIX_HEIGHT = PANEL_HEIGHT;
 const LED_MATRIX_TOTAL_PIXELS = LED_MATRIX_WIDTH * LED_MATRIX_HEIGHT;
 const ASSIST_SCAN_MODES = ['row_ltr', 'row_serpentine', 'col_ttb', 'col_serpentine'];
+const TOAST_DURATION_MS = {
+  success: 2400,
+  error: 7000,
+};
+
+let toastHideTimer = null;
+
 const mappingAssist = {
   active: false,
   cursor: 0,
@@ -91,10 +98,15 @@ function ensureAuthFlow() {
 
 function toast(message, isError = false) {
   const el = document.getElementById('toast');
+  if (!el) return;
   el.innerText = message;
   el.style.background = isError ? '#8b0000' : '#111827';
   el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 1800);
+  if (toastHideTimer) clearTimeout(toastHideTimer);
+  toastHideTimer = setTimeout(() => {
+    el.classList.remove('show');
+    toastHideTimer = null;
+  }, isError ? TOAST_DURATION_MS.error : TOAST_DURATION_MS.success);
 }
 
 function formatTs(ts) {
@@ -576,6 +588,16 @@ function formatApiErrorMessage(detail, status) {
     if (first && typeof first === 'object') {
       const fieldPath = Array.isArray(first.loc) ? first.loc.slice(1).join('.') : '';
       const message = first.msg || first.message || JSON.stringify(first);
+      const max = first?.ctx?.le;
+      const min = first?.ctx?.ge;
+      if (message.includes('less than or equal to') && Number.isFinite(Number(max))) {
+        const label = fieldPath || 'Wert';
+        return `${label}: Zu groß. Erlaubt sind maximal ${Number(max)} Sekunden.`;
+      }
+      if (message.includes('greater than or equal to') && Number.isFinite(Number(min))) {
+        const label = fieldPath || 'Wert';
+        return `${label}: Zu klein. Erlaubt sind mindestens ${Number(min)} Sekunden.`;
+      }
       return fieldPath ? `${fieldPath}: ${message}` : message;
     }
     return JSON.stringify(first);
