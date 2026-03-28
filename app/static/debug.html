@@ -116,6 +116,21 @@
 
     <section class="card section-anchor" data-section-title="Debugging">
       <h2>Mapping-Wizard</h2>
+      <p class="subtle">Live-Mapping-Overrides wirken sofort (ohne Neustart) und helfen beim schnellen Angleichen zwischen Preview und echter LED-Verkabelung.</p>
+      <div class="form-row wizard-row">
+        <div class="field"><label for="mapFirstOffset">First Pixel Offset</label><input id="mapFirstOffset" type="number" min="-4096" max="4096" value="0" /></div>
+        <div class="field"><label for="mapPanelOrder">Panel Order (CSV)</label><input id="mapPanelOrder" type="text" value="0,1,2,3" /></div>
+        <div class="field"><label for="mapPanelRotations">Panel Rotations (CSV)</label><input id="mapPanelRotations" type="text" value="0,0,0,0" /></div>
+      </div>
+      <div class="form-row wizard-row">
+        <div class="field"><label><input id="mapDataStartsRight" type="checkbox" checked /> Datenleitung startet rechts</label></div>
+        <div class="field"><label><input id="mapSerpentine" type="checkbox" checked /> Serpentine aktiv</label></div>
+        <div class="field actions-end"><button class="btn" onclick="applyLiveMapping()">Live-Mapping anwenden</button></div>
+        <div class="field actions-end"><button class="btn btn-secondary" onclick="nudgeFirstOffset(-1)">Offset -1</button></div>
+        <div class="field actions-end"><button class="btn btn-secondary" onclick="nudgeFirstOffset(1)">Offset +1</button></div>
+        <div class="field actions-end"><button class="btn btn-secondary" onclick="resetLiveMapping()">Live-Mapping reset</button></div>
+      </div>
+      <div id="mappingRuntimeInfo" class="mapping-info">Lade Live-Mapping-Status…</div>
       <div class="preset-row">
         <button class="btn btn-secondary" onclick="runPreset('panel_walk', 20, 350)">1) Panel-Reihenfolge prüfen</button>
         <button class="btn btn-secondary" onclick="runPreset('pixel_walk', 50, 120)">2) Serpentine prüfen</button>

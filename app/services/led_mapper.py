@@ -6,11 +6,86 @@ class LEDMapper:
         self.settings = settings
         self.width = settings.panel_columns
         self.height = settings.panel_rows
+        self._runtime_overrides: dict[str, object] = {}
         # Mapping is static for the runtime config; precompute for the hot render path.
+        self._rebuild_xy_index_table()
+
+    def _rebuild_xy_index_table(self) -> None:
         self._xy_index_table = [
             [self._compute_index(x, y) for x in range(self.width)]
             for y in range(self.height)
         ]
+
+    def _effective(self, key: str):
+        if key in self._runtime_overrides:
+            return self._runtime_overrides[key]
+        return getattr(self.settings, key)
+
+    def _effective_panel_count(self) -> int:
+        return max(int(self._effective("chain_panels")), 1)
+
+    def apply_runtime_overrides(
+        self,
+        *,
+        first_pixel_offset: int,
+        data_starts_right: bool,
+        serpentine: bool,
+        panel_order: list[int],
+        panel_rotations: list[int],
+    ) -> dict:
+        panel_count = self._effective_panel_count()
+        if len(panel_order) != panel_count:
+            raise ValueError(f"panel_order length must be exactly {panel_count}")
+        if len(set(panel_order)) != panel_count:
+            raise ValueError("panel_order entries must be unique")
+        if any(item < 0 or item >= panel_count for item in panel_order):
+            raise ValueError(f"panel_order entries must be in range 0..{panel_count - 1}")
+
+        normalized_rotations = [self._normalize_rotation(value) for value in panel_rotations]
+        if len(normalized_rotations) != panel_count:
+            raise ValueError(f"panel_rotations length must be exactly {panel_count}")
+
+        self._runtime_overrides = {
+            "first_pixel_offset": int(first_pixel_offset),
+            "data_starts_right": bool(data_starts_right),
+            "serpentine": bool(serpentine),
+            "panel_order": [int(item) for item in panel_order],
+            "panel_rotations": normalized_rotations,
+        }
+        self._rebuild_xy_index_table()
+        return self.get_runtime_mapping_snapshot()
+
+    def clear_runtime_overrides(self) -> dict:
+        self._runtime_overrides = {}
+        self._rebuild_xy_index_table()
+        return self.get_runtime_mapping_snapshot()
+
+    def get_runtime_mapping_snapshot(self) -> dict:
+        panel_count = self._effective_panel_count()
+        active = bool(self._runtime_overrides)
+        panel_order = list(self._effective("panel_order"))
+        panel_rotations = list(self._effective("panel_rotations"))
+        if len(panel_order) != panel_count:
+            panel_order = list(range(panel_count))
+        if len(panel_rotations) < panel_count:
+            panel_rotations = panel_rotations + [0] * (panel_count - len(panel_rotations))
+        elif len(panel_rotations) > panel_count:
+            panel_rotations = panel_rotations[:panel_count]
+        return {
+            "active": active,
+            "first_pixel_offset": int(self._effective("first_pixel_offset")),
+            "data_starts_right": bool(self._effective("data_starts_right")),
+            "serpentine": bool(self._effective("serpentine")),
+            "panel_order": [int(item) for item in panel_order],
+            "panel_rotations": [self._normalize_rotation(value) for value in panel_rotations],
+            "panel_count": panel_count,
+            "panel_width": int(self._effective("panel_width")),
+            "panel_height": int(self._effective("panel_height")),
+            "panel_columns": int(self._effective("panel_columns")),
+            "panel_rows": int(self._effective("panel_rows")),
+            "led_count": int(self._effective("led_count")),
+            "source": "runtime_override" if active else "settings",
+        }
 
     def _normalize_rotation(self, value: int) -> int:
         rotation = int(value) % 360
@@ -19,19 +94,19 @@ class LEDMapper:
         return rotation
 
     def _resolve_panel_config(self, panel_x: int) -> tuple[int, int]:
-        panel_count = max(self.settings.chain_panels, 1)
+        panel_count = self._effective_panel_count()
 
-        panel_order = list(self.settings.panel_order)
+        panel_order = list(self._effective("panel_order"))
         if len(panel_order) != panel_count:
             panel_order = list(range(panel_count))
 
-        panel_rotations = list(self.settings.panel_rotations)
+        panel_rotations = list(self._effective("panel_rotations"))
         if len(panel_rotations) < panel_count:
             panel_rotations = panel_rotations + [0] * (panel_count - len(panel_rotations))
         elif len(panel_rotations) > panel_count:
             panel_rotations = panel_rotations[:panel_count]
 
-        physical_index = panel_count - 1 - panel_x if self.settings.data_starts_right else panel_x
+        physical_index = panel_count - 1 - panel_x if self._effective("data_starts_right") else panel_x
         panel_index = int(panel_order[physical_index])
         if panel_index < 0 or panel_index >= panel_count:
             panel_index = physical_index
@@ -40,8 +115,8 @@ class LEDMapper:
         return panel_index, rotation
 
     def _rotate_local(self, local_x: int, local_y: int, rotation: int) -> tuple[int, int]:
-        panel_w = self.settings.panel_width
-        panel_h = self.settings.panel_height
+        panel_w = int(self._effective("panel_width"))
+        panel_h = int(self._effective("panel_height"))
         if rotation == 0:
             return local_x, local_y
         if rotation == 90:
@@ -54,20 +129,25 @@ class LEDMapper:
         if x < 0 or y < 0 or x >= self.width or y >= self.height:
             raise ValueError("coordinate out of range")
 
-        panel_x = x // self.settings.panel_width
-        local_x = x % self.settings.panel_width
-        local_y = y % self.settings.panel_height
+        panel_width = int(self._effective("panel_width"))
+        panel_height = int(self._effective("panel_height"))
+        first_pixel_offset = int(self._effective("first_pixel_offset"))
+        serpentine = bool(self._effective("serpentine"))
+
+        panel_x = x // panel_width
+        local_x = x % panel_width
+        local_y = y % panel_height
 
         panel_index, panel_rotation = self._resolve_panel_config(panel_x)
         local_x, local_y = self._rotate_local(local_x, local_y, panel_rotation)
 
-        serpentine_flipped = bool(self.settings.serpentine and (local_y % 2 == 1))
+        serpentine_flipped = bool(serpentine and (local_y % 2 == 1))
         if serpentine_flipped:
-            local_x = self.settings.panel_width - 1 - local_x
+            local_x = panel_width - 1 - local_x
 
-        pixel_in_panel = local_y * self.settings.panel_width + local_x
-        index = self.settings.first_pixel_offset + panel_index * (
-            self.settings.panel_width * self.settings.panel_height
+        pixel_in_panel = local_y * panel_width + local_x
+        index = first_pixel_offset + panel_index * (
+            panel_width * panel_height
         ) + pixel_in_panel
 
         return {

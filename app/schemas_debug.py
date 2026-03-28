@@ -21,3 +21,11 @@ class GpioInputProbeRequest(BaseModel):
 
 class LedSerialPingRequest(BaseModel):
     nonce: int | None = Field(default=None, ge=0, le=4294967295)
+
+
+class MappingOverrideRequest(BaseModel):
+    first_pixel_offset: int = Field(default=0, ge=-4096, le=4096)
+    data_starts_right: bool = Field(default=True)
+    serpentine: bool = Field(default=True)
+    panel_order: list[int] = Field(min_length=1, max_length=16)
+    panel_rotations: list[int] = Field(min_length=1, max_length=16)
