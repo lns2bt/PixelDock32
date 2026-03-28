@@ -7,6 +7,9 @@ const serialPingHistory = [];
 const serialStateHistory = [];
 let ledDebugRefreshInFlight = null;
 let ledDebugAutoPollTimer = null;
+const LED_MATRIX_WIDTH = 32;
+const LED_MATRIX_HEIGHT = 8;
+const LED_MATRIX_TOTAL_PIXELS = LED_MATRIX_WIDTH * LED_MATRIX_HEIGHT;
 const mappingAssist = {
   active: false,
   cursor: 0,
@@ -1597,14 +1600,26 @@ async function nudgeFirstOffset(delta) {
 
 function initMappingAssistGrid() {
   const container = document.getElementById('mappingAssistGrid');
-  if (!container || container.childElementCount > 0) return;
-  for (let y = 0; y < 8; y += 1) {
-    for (let x = 0; x < 32; x += 1) {
+  if (!container) return;
+
+  const expectedPixels = LED_MATRIX_TOTAL_PIXELS;
+  if (container.childElementCount !== expectedPixels) {
+    container.replaceChildren();
+  } else {
+    return;
+  }
+
+  container.style.setProperty('--matrix-width', `${LED_MATRIX_WIDTH}`);
+  container.style.setProperty('--matrix-height', `${LED_MATRIX_HEIGHT}`);
+
+  for (let y = 0; y < LED_MATRIX_HEIGHT; y += 1) {
+    for (let x = 0; x < LED_MATRIX_WIDTH; x += 1) {
       const px = document.createElement('button');
       px.type = 'button';
       px.className = 'preview-pixel';
       px.id = `assist-${x}-${y}`;
       px.title = `Beobachtet: ${x},${y}`;
+      px.setAttribute('aria-label', `Position ${x}, ${y}`);
       px.onclick = () => mappingAssistMarkObserved(x, y);
       container.appendChild(px);
     }
@@ -1612,12 +1627,12 @@ function initMappingAssistGrid() {
 }
 
 function assistLogicalFromCursor(cursor) {
-  const safeCursor = Math.max(0, Math.min(255, cursor));
-  return { x: safeCursor % 32, y: Math.floor(safeCursor / 32) };
+  const safeCursor = Math.max(0, Math.min(LED_MATRIX_TOTAL_PIXELS - 1, cursor));
+  return { x: safeCursor % LED_MATRIX_WIDTH, y: Math.floor(safeCursor / LED_MATRIX_WIDTH) };
 }
 
 async function drawSingleLogicalPixel(x, y, seconds = 6) {
-  const frame = Array.from({ length: 8 }, () => Array(32).fill(0));
+  const frame = Array.from({ length: LED_MATRIX_HEIGHT }, () => Array(LED_MATRIX_WIDTH).fill(0));
   frame[y][x] = 1;
   return apiRequest('/api/display/draw', {
     method: 'POST',
@@ -1635,7 +1650,7 @@ function renderMappingAssistState() {
   }
   const { x, y } = assistLogicalFromCursor(mappingAssist.cursor);
   el.innerText = [
-    `Schritt: ${mappingAssist.cursor + 1}/256`,
+    `Schritt: ${mappingAssist.cursor + 1}/${LED_MATRIX_TOTAL_PIXELS}`,
     `Leuchte jetzt: logische LED (${x},${y})`,
     `Erfasste Beobachtungen: ${mappingAssist.observations.length}`,
     `Übersprungen: ${mappingAssist.skipped.length}`,
@@ -1652,7 +1667,7 @@ async function mappingAssistShowCurrent() {
 
 function mappingAssistNext() {
   if (!mappingAssist.active) return;
-  mappingAssist.cursor = Math.min(mappingAssist.cursor + 1, 255);
+  mappingAssist.cursor = Math.min(mappingAssist.cursor + 1, LED_MATRIX_TOTAL_PIXELS - 1);
   mappingAssistShowCurrent();
 }
 
@@ -1695,7 +1710,7 @@ async function mappingAssistMarkObserved(observedX, observedY) {
   else mappingAssist.observations.push(entry);
 
   toast(`Beobachtung gespeichert: logisch (${x},${y}) -> real (${observedX},${observedY})`);
-  if (mappingAssist.cursor < 255) {
+  if (mappingAssist.cursor < LED_MATRIX_TOTAL_PIXELS - 1) {
     mappingAssist.cursor += 1;
     await mappingAssistShowCurrent();
   } else {
