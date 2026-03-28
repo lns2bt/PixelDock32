@@ -368,6 +368,12 @@ input:focus, select:focus, textarea:focus {
   min-height: var(--pixel-size);
   box-sizing: border-box;
 }
+#mappingAssistGrid .preview-pixel.assist-panel-even {
+  background: #dbe6f5;
+}
+#mappingAssistGrid .preview-pixel.assist-panel-odd {
+  background: #cfddf2;
+}
 #mappingAssistGrid .preview-pixel.assist-current {
   outline: 2px solid #f59e0b;
   outline-offset: 1px;
@@ -379,6 +385,18 @@ input:focus, select:focus, textarea:focus {
 }
 #mappingAssistGrid .preview-pixel.assist-fixed {
   box-shadow: inset 0 0 0 1px #f97316;
+}
+#mappingAssistGrid .preview-pixel.assist-panel-top-edge {
+  border-top-width: 2px;
+  border-top-color: #5f7cae;
+}
+#mappingAssistGrid .preview-pixel.assist-panel-bottom-edge {
+  border-bottom-width: 2px;
+  border-bottom-color: #5f7cae;
+}
+#mappingAssistGrid .preview-pixel.assist-panel-right-edge {
+  border-right-width: 2px;
+  border-right-color: #5f7cae;
 }
 
 
