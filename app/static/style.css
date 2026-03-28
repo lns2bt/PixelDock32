@@ -330,8 +330,12 @@ input:focus, select:focus, textarea:focus {
   border-color: #1d4ed8;
 }
 .preview-pixel.panel-divider-left {
-  border-left-width: 2px;
-  border-left-color: #8ea3c9;
+  border-left-width: 3px;
+  border-left-color: #5f7cae;
+}
+.preview-pixel.panel-divider-top {
+  border-top-width: 3px;
+  border-top-color: #5f7cae;
 }
 
 #mappingAssistGrid {
@@ -347,8 +351,12 @@ input:focus, select:focus, textarea:focus {
   width: max-content;
   max-width: 100%;
   overflow-x: auto;
-  padding: 2px;
+  padding: 6px;
   margin: 8px auto 0;
+  border: 1px solid #d4deed;
+  border-radius: 10px;
+  background:
+    linear-gradient(to right, rgba(95, 124, 174, 0.10) 1px, transparent 1px) 0 0 / calc((var(--pixel-size) + var(--pixel-gap)) * 8) 100%;
 }
 
 #mappingAssistGrid .preview-pixel {
@@ -363,6 +371,7 @@ input:focus, select:focus, textarea:focus {
 #mappingAssistGrid .preview-pixel.assist-current {
   outline: 2px solid #f59e0b;
   outline-offset: 1px;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.20);
 }
 #mappingAssistGrid .preview-pixel.assist-picked {
   background: #16a34a;
