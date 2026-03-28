@@ -547,7 +547,7 @@ async function apiRequest(path, options = {}, okMessage = '') {
     }
 
     if (!res.ok) {
-      const msg = data?.detail || `HTTP ${res.status}`;
+      const msg = formatApiErrorMessage(data?.detail, res.status);
       if (res.status === 401 && token) {
         token = '';
         localStorage.removeItem('token');
@@ -565,6 +565,26 @@ async function apiRequest(path, options = {}, okMessage = '') {
     toast('Netzwerkfehler', true);
     return null;
   }
+}
+
+function formatApiErrorMessage(detail, status) {
+  if (!detail) return `HTTP ${status}`;
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    const first = detail[0];
+    if (typeof first === 'string') return first;
+    if (first && typeof first === 'object') {
+      const fieldPath = Array.isArray(first.loc) ? first.loc.slice(1).join('.') : '';
+      const message = first.msg || first.message || JSON.stringify(first);
+      return fieldPath ? `${fieldPath}: ${message}` : message;
+    }
+    return JSON.stringify(first);
+  }
+  if (typeof detail === 'object') {
+    if (typeof detail.message === 'string') return detail.message;
+    return JSON.stringify(detail);
+  }
+  return String(detail);
 }
 
 function transitionControls(moduleId, settings) {
@@ -1647,8 +1667,13 @@ function initMappingAssistGrid() {
       const px = document.createElement('button');
       px.type = 'button';
       px.className = 'preview-pixel';
+      const panelIndex = Math.floor(x / PANEL_WIDTH);
+      px.classList.add(panelIndex % 2 === 0 ? 'assist-panel-even' : 'assist-panel-odd');
       if (x > 0 && x % 8 === 0) px.classList.add('panel-divider-left');
       if (y > 0 && y % 8 === 0) px.classList.add('panel-divider-top');
+      if (x % 8 === 7) px.classList.add('assist-panel-right-edge');
+      if (y === 0) px.classList.add('assist-panel-top-edge');
+      if (y === PANEL_HEIGHT - 1) px.classList.add('assist-panel-bottom-edge');
       px.id = `assist-${x}-${y}`;
       px.title = `Beobachtet: ${x},${y}`;
       px.setAttribute('aria-label', `Position ${x}, ${y}`);
