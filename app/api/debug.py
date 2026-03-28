@@ -6,6 +6,7 @@ from app.schemas_debug import (
     GpioInputProbeRequest,
     GpioOutputTestRequest,
     LedSerialPingRequest,
+    MappingInferenceRequest,
     MappingOverrideRequest,
 )
 
@@ -163,6 +164,19 @@ async def set_runtime_mapping(payload: MappingOverrideRequest, request: Request,
 async def clear_runtime_mapping(request: Request, _: str = Depends(get_current_user)):
     snapshot = _mapper(request).clear_runtime_overrides()
     return {"ok": True, "mapping": snapshot}
+
+
+@router.post("/mapping/infer")
+async def infer_runtime_mapping(payload: MappingInferenceRequest, request: Request, _: str = Depends(get_current_user)):
+    mapper = _mapper(request)
+    try:
+        result = mapper.infer_runtime_overrides(
+            observations=[item.model_dump() for item in payload.observations],
+            max_solutions=payload.max_solutions,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"ok": True, "result": result}
 
 
 @router.post("/pattern")

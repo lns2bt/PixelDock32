@@ -317,8 +317,10 @@ input:focus, select:focus, textarea:focus {
   background: #f6f9ff;
 }
 .preview-pixel {
+  display: block;
   width: 14px;
   height: 14px;
+  padding: 0;
   border-radius: 3px;
   background: #dbe6f5;
   border: 1px solid #c6d4e8;
@@ -326,6 +328,16 @@ input:focus, select:focus, textarea:focus {
 .preview-pixel.on {
   background: #2563eb;
   border-color: #1d4ed8;
+}
+
+#mappingAssistGrid {
+  width: fit-content;
+  margin: 8px auto 0;
+}
+
+#mappingAssistGrid .preview-pixel {
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 

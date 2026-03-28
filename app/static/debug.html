@@ -142,6 +142,22 @@
         <div class="field actions-end"><button class="btn" onclick="checkMappingCoordinate()">Koordinate erklären</button></div>
       </div>
       <div id="mappingInfo" class="mapping-info">Noch keine Koordinate geprüft.</div>
+
+      <h3 style="margin-top:18px;">LED-Identifikations-Assistent (fool-proof)</h3>
+      <p class="subtle">Ablauf: Assistent leuchtet jeweils genau 1 logische LED. Du klickst in der Mini-Matrix auf die LED, die in echt geleuchtet hat. Danach kann das System passende Mapping-Parameter vorschlagen (im Worst Case 256 LEDs).</p>
+      <div class="preset-row">
+        <button class="btn" onclick="startMappingAssist()">Assistent starten (0,0)</button>
+        <button class="btn btn-secondary" onclick="mappingAssistPrev()">Zurück</button>
+        <button class="btn btn-secondary" onclick="mappingAssistNext()">Weiter</button>
+        <button class="btn btn-secondary" onclick="mappingAssistSkip()">Überspringen</button>
+        <button class="btn btn-secondary" onclick="mappingAssistReset()">Reset</button>
+      </div>
+      <div id="mappingAssistState" class="mapping-info">Assistent noch nicht gestartet.</div>
+      <div id="mappingAssistGrid" class="preview-grid" aria-label="Beobachtete LED wählen"></div>
+      <div id="mappingAssistResult" class="mapping-info" style="margin-top:8px;">Noch keine Mapping-Auswertung.</div>
+      <div class="preset-row">
+        <button class="btn" onclick="inferMappingFromAssist()">Aus Beobachtungen Mapping berechnen</button>
+      </div>
     </section>
   </main>
 
