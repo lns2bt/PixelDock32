@@ -245,6 +245,9 @@ class DisplayService:
     def clear_debug_pattern(self):
         self.debug_override = None
 
+    def clear_manual_override(self):
+        self.manual_override = None
+
     def get_preview_frame(self) -> list[list[int]]:
         return [row[:] for row in self.last_frame]
 

@@ -37,12 +37,13 @@
       <p class="subtle">Live-Mapping-Overrides wirken sofort (ohne Neustart) und bleiben in <code>mapping_state.json</code> erhalten.</p>
       <div class="form-row wizard-row">
         <div class="field"><label for="mapFirstOffset">First Pixel Offset</label><input id="mapFirstOffset" type="number" min="-4096" max="4096" value="0" /></div>
-        <div class="field"><label for="mapPanelOrder">Panel Order (CSV)</label><input id="mapPanelOrder" type="text" value="0,1,2,3" /></div>
-        <div class="field"><label for="mapPanelRotations">Panel Rotations (CSV)</label><input id="mapPanelRotations" type="text" value="0,0,0,0" /></div>
-      </div>
-      <div class="form-row wizard-row">
         <div class="field"><label><input id="mapDataStartsRight" type="checkbox" checked /> Datenleitung startet rechts</label></div>
         <div class="field"><label><input id="mapSerpentine" type="checkbox" checked /> Serpentine aktiv</label></div>
+      </div>
+      <input id="mapPanelOrder" type="hidden" value="0,1,2,3" />
+      <input id="mapPanelRotations" type="hidden" value="0,0,0,0" />
+      <div id="panelConfigEditor" class="mapping-panel-editor" aria-label="Panel-Konfiguration"></div>
+      <div class="form-row wizard-row">
         <div class="field actions-end"><button class="btn" onclick="applyLiveMapping()">Live-Mapping anwenden</button></div>
         <div class="field actions-end"><button class="btn btn-secondary" onclick="nudgeFirstOffset(-1)">Offset -1</button></div>
         <div class="field actions-end"><button class="btn btn-secondary" onclick="nudgeFirstOffset(1)">Offset +1</button></div>
@@ -99,6 +100,21 @@
           </select>
         </div>
       </div>
+      <div class="form-row wizard-row">
+        <div class="field">
+          <label for="assistJumpPanel">Schnellwahl Panel</label>
+          <select id="assistJumpPanel"></select>
+        </div>
+        <div class="field">
+          <label for="assistJumpLocalX">Schnellwahl X</label>
+          <select id="assistJumpLocalX"></select>
+        </div>
+        <div class="field">
+          <label for="assistJumpLocalY">Schnellwahl Y</label>
+          <select id="assistJumpLocalY"></select>
+        </div>
+        <div class="field actions-end"><button class="btn btn-secondary" onclick="mappingAssistJumpToSelection()">Zu LED springen</button></div>
+      </div>
       <div class="preset-row">
         <button class="btn" onclick="startMappingAssist()">Assistent starten (0,0)</button>
         <button class="btn btn-secondary" onclick="mappingAssistPrev()">Zurück</button>
@@ -106,6 +122,7 @@
         <button class="btn btn-secondary" onclick="mappingAssistSkip()">Überspringen</button>
         <button class="btn btn-secondary" onclick="mappingAssistReset()">Reset</button>
       </div>
+      <div id="mappingAssistRuntimeState" class="mapping-info">Assistent-Status wird geladen…</div>
       <div id="mappingAssistState" class="mapping-info">Assistent noch nicht gestartet.</div>
       <div id="mappingAssistGrid" style="margin-top:8px;" aria-label="Beobachtete LED wählen"></div>
       <div id="mappingAssistResult" class="mapping-info" style="margin-top:8px;">Noch keine Mapping-Auswertung.</div>
@@ -113,12 +130,23 @@
         <button class="btn" onclick="inferMappingFromAssist()">Aus Beobachtungen Mapping berechnen</button>
         <button class="btn" onclick="applyMappingAssistFixes()">Fix-Pixel anwenden (live)</button>
         <button class="btn btn-secondary" onclick="clearMappingAssistFixes()">Fix-Pixel löschen</button>
+        <button class="btn" onclick="saveAndFinishMappingAssist()">Speichern & Assistent beenden</button>
+        <button class="btn btn-secondary" onclick="finishMappingAssistWithoutSave()">Ohne Speichern beenden</button>
       </div>
       <div id="mappingFixesInfo" class="mapping-info" style="margin-top:8px;">Noch keine Fix-Pixel.</div>
+
+      <h3 style="margin-top:18px;">Aktive Mappings/Bindings (JSON)</h3>
+      <p class="subtle">Hier siehst du exakt den aktiven Zustand. Du kannst ihn exportieren oder aus JSON importieren.</p>
+      <div class="preset-row">
+        <button class="btn btn-secondary" onclick="refreshMappingBundleEditor()">JSON aktualisieren</button>
+        <button class="btn btn-secondary" onclick="downloadMappingBundle()">JSON exportieren</button>
+        <button class="btn" onclick="importMappingBundle()">JSON importieren & anwenden</button>
+      </div>
+      <textarea id="mappingBundleJson" rows="12" style="width:100%;margin-top:8px;font-family:ui-monospace,monospace;" aria-label="Mapping JSON"></textarea>
     </section>
   </main>
 
   <div id="toast"></div>
-  <script src="/static/app.js?v=20260328-map2"></script>
+  <script src="/static/app.js?v=20260329-map3"></script>
 </body>
 </html>
