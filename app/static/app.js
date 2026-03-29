@@ -33,6 +33,8 @@ const mappingAssist = {
   activePanel: 0,
   panelScanModes: Array.from({ length: MAX_PANEL_COUNT }, () => 'row_ltr'),
   sequence: [],
+  runtimeManualActive: false,
+  runtimeDebugActive: false,
 };
 
 function authHeaders() {
@@ -1299,6 +1301,7 @@ async function refreshStatus() {
 
   renderBackendStatusDebug(data);
   await refreshLiveMappingState({ silent: true, useStatusPayload: data.mapping || null });
+  renderMappingAssistRuntimeState(data.display || null);
 
   if (!hasStatusUi) {
     await refreshDhtDebug();
@@ -1565,6 +1568,7 @@ function parseCsvIntList(raw) {
 }
 
 function mappingFormPayload() {
+  syncPanelConfigEditorToHiddenInputs();
   return {
     first_pixel_offset: parseInt(document.getElementById('mapFirstOffset').value, 10) || 0,
     panel_order: parseCsvIntList(document.getElementById('mapPanelOrder').value),
@@ -1588,6 +1592,78 @@ function applyMappingToForm(mapping) {
   rotationsEl.value = Array.isArray(mapping.panel_rotations) ? mapping.panel_rotations.join(',') : '';
   dataStartsRightEl.checked = !!mapping.data_starts_right;
   serpentineEl.checked = !!mapping.serpentine;
+  renderPanelConfigEditor(mapping);
+}
+
+function normalizePanelConfigFromForm() {
+  const panelCount = Math.max(1, Math.min(MAX_PANEL_COUNT, Number(mappingAssist.panelCount) || MAX_PANEL_COUNT));
+  const panelOrder = parseCsvIntList(document.getElementById('mapPanelOrder')?.value || '').slice(0, panelCount);
+  const panelRotations = parseCsvIntList(document.getElementById('mapPanelRotations')?.value || '').slice(0, panelCount);
+  while (panelOrder.length < panelCount) panelOrder.push(panelOrder.length);
+  while (panelRotations.length < panelCount) panelRotations.push(0);
+  return { panelCount, panelOrder, panelRotations };
+}
+
+function renderPanelConfigEditor(mapping = null) {
+  const container = document.getElementById('panelConfigEditor');
+  if (!container) return;
+  const fallback = normalizePanelConfigFromForm();
+  const panelCount = Math.max(1, Math.min(
+    MAX_PANEL_COUNT,
+    Number(mapping?.panel_count) || Number(mappingAssist.panelCount) || fallback.panelCount,
+  ));
+  const panelOrder = (Array.isArray(mapping?.panel_order) ? mapping.panel_order : fallback.panelOrder).slice(0, panelCount);
+  const panelRotations = (Array.isArray(mapping?.panel_rotations) ? mapping.panel_rotations : fallback.panelRotations).slice(0, panelCount);
+  container.innerHTML = '';
+  for (let panelIdx = 0; panelIdx < panelCount; panelIdx += 1) {
+    const row = document.createElement('div');
+    row.className = 'mapping-panel-row';
+    row.innerHTML = `<span class=\"mapping-panel-label\">Panel ${panelIdx + 1}</span>`;
+
+    const order = document.createElement('select');
+    order.dataset.role = 'panel-order';
+    for (let value = 0; value < panelCount; value += 1) {
+      const option = document.createElement('option');
+      option.value = `${value}`;
+      option.innerText = `Daisychain Slot ${value + 1}`;
+      order.appendChild(option);
+    }
+    order.value = `${Number.isInteger(panelOrder[panelIdx]) ? panelOrder[panelIdx] : panelIdx}`;
+    order.onchange = () => syncPanelConfigEditorToHiddenInputs();
+    row.appendChild(order);
+
+    const rotation = document.createElement('select');
+    rotation.dataset.role = 'panel-rotation';
+    [0, 90, 180, 270].forEach((deg) => {
+      const option = document.createElement('option');
+      option.value = `${deg}`;
+      option.innerText = `${deg}°`;
+      rotation.appendChild(option);
+    });
+    const rotationValue = Number(panelRotations[panelIdx]);
+    rotation.value = [0, 90, 180, 270].includes(rotationValue) ? `${rotationValue}` : '0';
+    rotation.onchange = async () => {
+      syncPanelConfigEditorToHiddenInputs();
+      await applyLiveMapping({ silentToast: true });
+    };
+    row.appendChild(rotation);
+    container.appendChild(row);
+  }
+  syncPanelConfigEditorToHiddenInputs();
+}
+
+function syncPanelConfigEditorToHiddenInputs() {
+  const panelOrderEl = document.getElementById('mapPanelOrder');
+  const rotationsEl = document.getElementById('mapPanelRotations');
+  if (!panelOrderEl || !rotationsEl) return;
+  const orderValues = Array.from(document.querySelectorAll('#panelConfigEditor [data-role=\"panel-order\"]'))
+    .map((el) => Number.parseInt(el.value, 10))
+    .filter((value) => Number.isInteger(value));
+  const rotationValues = Array.from(document.querySelectorAll('#panelConfigEditor [data-role=\"panel-rotation\"]'))
+    .map((el) => Number.parseInt(el.value, 10))
+    .filter((value) => Number.isInteger(value));
+  if (orderValues.length) panelOrderEl.value = orderValues.join(',');
+  if (rotationValues.length) rotationsEl.value = rotationValues.join(',');
 }
 
 function renderRuntimeMappingInfo(mapping) {
@@ -1633,17 +1709,19 @@ async function refreshLiveMappingState(options = {}) {
   return mapping;
 }
 
-async function applyLiveMapping() {
+async function applyLiveMapping(options = {}) {
+  const { silentToast = false } = options;
   const payload = mappingFormPayload();
   const data = await apiRequest('/api/debug/mapping/runtime', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
-  }, 'Live-Mapping angewendet');
+  }, silentToast ? '' : 'Live-Mapping angewendet');
   if (!data?.mapping) return;
   applyMappingToForm(data.mapping);
   renderRuntimeMappingInfo(data.mapping);
   await refreshPreview();
+  await refreshMappingBundleEditor();
 }
 
 async function resetLiveMapping() {
@@ -1652,6 +1730,7 @@ async function resetLiveMapping() {
   applyMappingToForm(data.mapping);
   renderRuntimeMappingInfo(data.mapping);
   await refreshPreview();
+  await refreshMappingBundleEditor();
 }
 
 async function nudgeFirstOffset(delta) {
@@ -1784,7 +1863,10 @@ function initMappingAssistConfigControls() {
   const scopeEl = document.getElementById('assistPanelScope');
   const activePanelEl = document.getElementById('assistActivePanel');
   const scanModeEl = document.getElementById('assistScanMode');
-  if (!panelCountEl || !scopeEl || !activePanelEl || !scanModeEl) return;
+  const jumpPanelEl = document.getElementById('assistJumpPanel');
+  const jumpLocalXEl = document.getElementById('assistJumpLocalX');
+  const jumpLocalYEl = document.getElementById('assistJumpLocalY');
+  if (!panelCountEl || !scopeEl || !activePanelEl || !scanModeEl || !jumpPanelEl || !jumpLocalXEl || !jumpLocalYEl) return;
 
   panelCountEl.value = `${mappingAssist.panelCount}`;
   scopeEl.value = mappingAssist.scope;
@@ -1803,7 +1885,32 @@ function initMappingAssistConfigControls() {
     }
     activePanelEl.disabled = scopeEl.value !== 'active';
     scanModeEl.value = mappingAssist.panelScanModes[Number(activePanelEl.value) || 0] || 'row_ltr';
+    jumpPanelEl.querySelectorAll('option').forEach((opt) => {
+      const panelIdx = Number(opt.value);
+      opt.disabled = panelIdx >= count;
+    });
   };
+
+  if (!jumpPanelEl.childElementCount) {
+    for (let panel = 0; panel < MAX_PANEL_COUNT; panel += 1) {
+      const opt = document.createElement('option');
+      opt.value = `${panel}`;
+      opt.innerText = `Panel ${panel + 1}`;
+      jumpPanelEl.appendChild(opt);
+    }
+    for (let x = 0; x < PANEL_WIDTH; x += 1) {
+      const opt = document.createElement('option');
+      opt.value = `${x}`;
+      opt.innerText = `X ${x}`;
+      jumpLocalXEl.appendChild(opt);
+    }
+    for (let y = 0; y < PANEL_HEIGHT; y += 1) {
+      const opt = document.createElement('option');
+      opt.value = `${y}`;
+      opt.innerText = `Y ${y}`;
+      jumpLocalYEl.appendChild(opt);
+    }
+  }
 
   panelCountEl.onchange = () => {
     mappingAssist.panelCount = Math.max(1, Math.min(MAX_PANEL_COUNT, Number(panelCountEl.value) || MAX_PANEL_COUNT));
@@ -1833,6 +1940,25 @@ function initMappingAssistConfigControls() {
   };
 
   syncControlState();
+}
+
+function mappingAssistJumpToSelection() {
+  const panelEl = document.getElementById('assistJumpPanel');
+  const localXEl = document.getElementById('assistJumpLocalX');
+  const localYEl = document.getElementById('assistJumpLocalY');
+  if (!panelEl || !localXEl || !localYEl) return;
+  const panel = Math.max(0, Math.min((mappingAssist.panelCount || 1) - 1, Number(panelEl.value) || 0));
+  const localX = Math.max(0, Math.min(PANEL_WIDTH - 1, Number(localXEl.value) || 0));
+  const localY = Math.max(0, Math.min(PANEL_HEIGHT - 1, Number(localYEl.value) || 0));
+  const targetX = panel * PANEL_WIDTH + localX;
+  const idx = mappingAssist.sequence.findIndex((item) => item.x === targetX && item.y === localY);
+  if (idx < 0) {
+    toast('LED ist im aktuellen Scope nicht enthalten', true);
+    return;
+  }
+  mappingAssist.active = true;
+  mappingAssist.cursor = idx;
+  mappingAssistShowCurrent();
 }
 
 function upsertDraftFix(entry) {
@@ -1960,9 +2086,14 @@ async function startMappingAssist() {
   await loadMappingAssistFixes();
   renderMappingAssistResult(null);
   await mappingAssistShowCurrent();
+  await refreshMappingBundleEditor();
 }
 
-function mappingAssistReset() {
+async function clearManualDisplayOverride() {
+  await apiRequest('/api/display/manual/clear', { method: 'DELETE' }, '');
+}
+
+async function mappingAssistReset() {
   mappingAssist.active = false;
   mappingAssist.cursor = 0;
   mappingAssist.observations = [];
@@ -1970,6 +2101,8 @@ function mappingAssistReset() {
   renderMappingAssistState();
   renderMappingAssistResult(null);
   renderMappingAssistGridState();
+  await clearManualDisplayOverride();
+  await refreshStatus();
 }
 
 async function mappingAssistMarkObserved(observedX, observedY) {
@@ -2060,6 +2193,7 @@ async function applyMappingAssistFixes() {
   renderMappingAssistGridState();
   await refreshPreview();
   await refreshLiveMappingState({ silent: true });
+  await refreshMappingBundleEditor();
 }
 
 async function clearMappingAssistFixes() {
@@ -2072,6 +2206,115 @@ async function clearMappingAssistFixes() {
   renderMappingAssistGridState();
   await refreshPreview();
   await refreshLiveMappingState({ silent: true });
+  await refreshMappingBundleEditor();
+}
+
+function renderMappingAssistRuntimeState(display = null) {
+  const el = document.getElementById('mappingAssistRuntimeState');
+  if (!el) return;
+  const manualActive = !!(display && display.manual_active);
+  const debugActive = !!(display && display.debug_active);
+  mappingAssist.runtimeManualActive = manualActive;
+  mappingAssist.runtimeDebugActive = debugActive;
+  const lines = [
+    `Display-Override aktiv: ${manualActive ? '⚠️ ja (Assistent/Draw blockiert Module)' : '✅ nein (Module laufen)'}`,
+    `Debug-Pattern aktiv: ${debugActive ? 'ja' : 'nein'}`,
+  ];
+  if (manualActive && !mappingAssist.active) {
+    lines.push('Hinweis: Der Assistent ist aktiv, aber die UI ist nicht im Run-Modus. Bitte sauber beenden.');
+  }
+  el.innerText = lines.join('\n');
+}
+
+async function saveAndFinishMappingAssist() {
+  await applyLiveMapping({ silentToast: true });
+  await applyMappingAssistFixes();
+  await mappingAssistReset();
+  toast('Mapping gespeichert und Assistent beendet.');
+}
+
+async function finishMappingAssistWithoutSave() {
+  await mappingAssistReset();
+  await refreshLiveMappingState({ silent: true });
+  toast('Assistent beendet. Module laufen wieder.');
+}
+
+async function refreshMappingBundleEditor() {
+  const textarea = document.getElementById('mappingBundleJson');
+  if (!textarea) return;
+  const runtime = await refreshLiveMappingState({ silent: true });
+  if (!runtime) return;
+  const fixesData = await apiRequest('/api/debug/mapping/fixes', {}, '');
+  const bundle = {
+    schema: 'pixeldock32.mapping.bundle.v1',
+    exported_at: new Date().toISOString(),
+    runtime_mapping: runtime,
+    pixel_fixes: Array.isArray(fixesData?.fixes) ? fixesData.fixes : [],
+    assistant_state: {
+      panel_count: mappingAssist.panelCount,
+      scope: mappingAssist.scope,
+      active_panel: mappingAssist.activePanel,
+      panel_scan_modes: mappingAssist.panelScanModes.slice(0, MAX_PANEL_COUNT),
+    },
+  };
+  textarea.value = JSON.stringify(bundle, null, 2);
+}
+
+function downloadMappingBundle() {
+  const textarea = document.getElementById('mappingBundleJson');
+  if (!textarea || !textarea.value) return;
+  const blob = new Blob([textarea.value], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `pixeldock32-mapping-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+async function importMappingBundle() {
+  const textarea = document.getElementById('mappingBundleJson');
+  if (!textarea) return;
+  let parsed;
+  try {
+    parsed = JSON.parse(textarea.value || '{}');
+  } catch (err) {
+    toast(`Ungültiges JSON: ${err.message || err}`, true);
+    return;
+  }
+  const runtime = parsed.runtime_mapping || {};
+  const fixes = Array.isArray(parsed.pixel_fixes) ? parsed.pixel_fixes : [];
+  applyMappingToForm(runtime);
+  await applyLiveMapping({ silentToast: true });
+  const fixesRes = await apiRequest('/api/debug/mapping/fixes', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fixes }),
+  }, '');
+  if (fixesRes?.fixes) {
+    mappingAssist.fixedPixels = fixesRes.fixes;
+    mappingAssist.draftFixes = fixesRes.fixes.map((item) => ({ ...item }));
+  }
+  const assistant = parsed.assistant_state || {};
+  if (Number.isInteger(assistant.panel_count)) {
+    mappingAssist.panelCount = Math.max(1, Math.min(MAX_PANEL_COUNT, assistant.panel_count));
+  }
+  mappingAssist.scope = assistant.scope === 'active' ? 'active' : 'all';
+  if (Number.isInteger(assistant.active_panel)) {
+    mappingAssist.activePanel = Math.max(0, Math.min(mappingAssist.panelCount - 1, assistant.active_panel));
+  }
+  if (Array.isArray(assistant.panel_scan_modes)) {
+    mappingAssist.panelScanModes = assistant.panel_scan_modes.slice(0, MAX_PANEL_COUNT).map((mode) => (
+      ASSIST_SCAN_MODES.includes(mode) ? mode : 'row_ltr'
+    ));
+  }
+  initMappingAssistConfigControls();
+  rebuildMappingAssistSequence();
+  renderMappingAssistState();
+  renderMappingFixesInfo();
+  renderMappingAssistGridState();
+  await refreshMappingBundleEditor();
+  toast('Mapping-Bundle importiert und live angewendet.');
 }
 
 function initGrid() {
@@ -2145,6 +2388,7 @@ if (ensureAuthFlow()) {
       renderMappingAssistState();
       refreshLiveMappingState({ silent: true });
       loadMappingAssistFixes();
+      refreshMappingBundleEditor();
       refreshPreview();
     }
     if (page === 'debug') {

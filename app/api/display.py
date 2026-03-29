@@ -38,3 +38,9 @@ async def draw(payload: DrawRequest, request: Request, _: str = Depends(get_curr
 async def brightness(payload: BrightnessRequest, request: Request, _: str = Depends(get_current_user)):
     _display(request).set_brightness(payload.brightness)
     return {"ok": True}
+
+
+@router.delete("/manual/clear")
+async def clear_manual_override(request: Request, _: str = Depends(get_current_user)):
+    _display(request).clear_manual_override()
+    return {"ok": True}
