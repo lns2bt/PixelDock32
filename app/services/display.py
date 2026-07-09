@@ -14,6 +14,7 @@ from app.modules.clock import ClockModule
 from app.modules.weather import WeatherModule
 from app.modules.textbox import TextBoxModule
 from app.modules.bitmap import BitmapModule
+from app.modules.animations import AnimationsModule
 from app.services.led_driver import LEDDriver
 from app.services.led_mapper import LEDMapper
 from app.services.colors import parse_hex_color
@@ -27,6 +28,7 @@ MODULE_REGISTRY = {
     "weather": WeatherModule(),
     "textbox": TextBoxModule(),
     "bitmap": BitmapModule(),
+    "animations": AnimationsModule(),
 }
 
 DEBUG_COLORS = {

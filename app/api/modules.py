@@ -60,6 +60,15 @@ MODULE_SETTING_DEFAULTS = {
         "scroll_speed": 35,
         "preset": "welcome",
     },
+    "animations": {
+        "preset": "psychedelic_plasma",
+        "speed": 1.0,
+        "palette": "neon",
+        "intensity": 0.8,
+        "mirror_mode": "none",
+        "transition_direction": "down",
+        "transition_ms": 0,
+    },
 }
 
 
@@ -67,11 +76,30 @@ ALLOWED_FONT_SIZES = {"small", "normal"}
 ALLOWED_TRANSITIONS = {"down", "up"}
 ALLOWED_TEXT_MODES = {"static", "scroll"}
 ALLOWED_TEXTBOX_PRESETS = {"welcome", "status", "alert", "ticker"}
+ALLOWED_ANIMATION_PRESETS = {
+    "psychedelic_plasma",
+    "retro_rainbow_tunnel",
+    "bit_invaders",
+    "neon_equalizer",
+    "matrix_rain",
+    "lava_lamp",
+    "pixel_snake",
+}
+ALLOWED_ANIMATION_PALETTES = {"neon", "rainbow", "fire", "ocean", "matrix"}
+ALLOWED_MIRROR_MODES = {"none", "horizontal", "vertical", "quad"}
 
 
 def _clamp_int(value: object, minimum: int, maximum: int, fallback: int) -> int:
     try:
         parsed = int(value)
+    except (TypeError, ValueError):
+        return fallback
+    return max(minimum, min(maximum, parsed))
+
+
+def _clamp_float(value: object, minimum: float, maximum: float, fallback: float) -> float:
+    try:
+        parsed = float(value)
     except (TypeError, ValueError):
         return fallback
     return max(minimum, min(maximum, parsed))
@@ -114,6 +142,12 @@ def _normalize_text_mode(value: object, fallback: str = "static") -> str:
 def _normalize_textbox_preset(value: object, fallback: str = "welcome") -> str:
     if isinstance(value, str) and value.lower() in ALLOWED_TEXTBOX_PRESETS:
         return value.lower()
+    return fallback
+
+
+def _normalize_allowed_string(value: object, allowed: set[str], fallback: str) -> str:
+    if isinstance(value, str) and value.strip().lower() in allowed:
+        return value.strip().lower()
     return fallback
 
 
@@ -177,6 +211,23 @@ def sanitize_settings(module_key: str, settings: dict) -> dict:
         merged["text_mode"] = _normalize_text_mode(merged.get("text_mode"), defaults["text_mode"])
         merged["scroll_speed"] = _clamp_int(merged.get("scroll_speed"), 5, 120, defaults["scroll_speed"])
         merged["preset"] = _normalize_textbox_preset(merged.get("preset"), defaults["preset"])
+
+    elif module_key == "animations":
+        merged["preset"] = _normalize_allowed_string(
+            merged.get("preset"), ALLOWED_ANIMATION_PRESETS, defaults["preset"]
+        )
+        merged["speed"] = _clamp_float(merged.get("speed"), 0.1, 5.0, defaults["speed"])
+        merged["palette"] = _normalize_allowed_string(
+            merged.get("palette"), ALLOWED_ANIMATION_PALETTES, defaults["palette"]
+        )
+        merged["intensity"] = _clamp_float(merged.get("intensity"), 0.1, 1.0, defaults["intensity"])
+        merged["mirror_mode"] = _normalize_allowed_string(
+            merged.get("mirror_mode"), ALLOWED_MIRROR_MODES, defaults["mirror_mode"]
+        )
+        merged["transition_direction"] = _normalize_transition_direction(
+            merged.get("transition_direction"), defaults["transition_direction"]
+        )
+        merged["transition_ms"] = _clamp_int(merged.get("transition_ms"), 0, 2000, defaults["transition_ms"])
 
     return merged
 
