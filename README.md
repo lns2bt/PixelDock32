@@ -1,8 +1,20 @@
 # PixelDock32
 
+![Version](https://img.shields.io/badge/version-0.1.0-blue)
+![Status](https://img.shields.io/badge/status-working%20snapshot-brightgreen)
+
+
 PixelDock32 ist ein modularer 8x32-Controller für 4x WS2812B-8x8 Panels. Standardmäßig rendert der Raspberry Pi die Daten und überträgt Frames effizient per USB-Serial an einen Arduino UNO R3, der das WS2812B-Signal erzeugt (optional bleibt GPIO18 + `rpi_ws281x`).
 
 Das README ist bewusst kurz gehalten. Die ausführliche, aufgeteilte Projektdokumentation liegt unter [`/docs`](docs).
+
+## Version 0.1.0 — Working Snapshot
+
+Diese Projektfassung ist als **funktionierender 0.1-Rückkehrpunkt** markiert, damit spätere Verbesserungen sicher darauf aufbauen können.
+
+- Aktuelle Version: [`0.1.0`](VERSION)
+- Release-Notizen: [`CHANGELOG.md`](CHANGELOG.md)
+- Empfohlener GitHub-Tag nach dem Merge: `v0.1.0`
 
 ## Schnellstart
 
