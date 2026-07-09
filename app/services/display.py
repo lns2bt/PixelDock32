@@ -17,6 +17,7 @@ from app.modules.bitmap import BitmapModule
 from app.services.led_driver import LEDDriver
 from app.services.led_mapper import LEDMapper
 from app.services.colors import parse_hex_color
+from app.services.animations import ANIMATION_FACTORIES
 from app.services.rendering import blank_color_frame, render_text_with_colors
 from app.services.bitmap_loader import BitmapLoader
 from app.config import get_settings
@@ -436,9 +437,13 @@ class DisplayService:
             from app.services.patterns import PATTERN_FACTORIES
 
             pattern, until, interval = self.debug_override
-            if time.time() <= until and pattern in PATTERN_FACTORIES:
+            now = time.time()
+            if now <= until and pattern in ANIMATION_FACTORIES:
                 self.last_source = "debug"
-                tick = int(time.time() / interval)
+                return ANIMATION_FACTORIES[pattern](now)
+            if now <= until and pattern in PATTERN_FACTORIES:
+                self.last_source = "debug"
+                tick = int(now / interval)
                 frame = PATTERN_FACTORIES[pattern](tick)
                 color = DEBUG_COLORS.get(pattern, (120, 120, 120))
                 color_frame = blank_color_frame(32, 8)
