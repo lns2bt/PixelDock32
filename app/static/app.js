@@ -897,6 +897,58 @@ function moduleSettingsHtml(module) {
     `;
   }
 
+  if (module.key === 'animations') {
+    return `
+      <div class="settings-grid settings-grid-color">
+        <div class="field">
+          <label>Animation</label>
+          <label class="check-label"><input type="checkbox" id="set-anim-enabled-${module.id}" ${s.enabled !== false ? 'checked' : ''}> Animations-Modul aktiv</label>
+          <small class="subtle">Schaltet die Animation innerhalb des Moduls ein oder aus.</small>
+        </div>
+        <div class="field">
+          <label for="set-anim-preset-${module.id}">Preset</label>
+          <select id="set-anim-preset-${module.id}">
+            <option value="psychedelic_plasma" ${s.preset === 'psychedelic_plasma' || !s.preset ? 'selected' : ''}>Psychedelic Plasma</option>
+            <option value="retro_rainbow_tunnel" ${s.preset === 'retro_rainbow_tunnel' ? 'selected' : ''}>Retro Rainbow Tunnel</option>
+            <option value="bit_invaders" ${s.preset === 'bit_invaders' ? 'selected' : ''}>Bit Invaders</option>
+            <option value="neon_equalizer" ${s.preset === 'neon_equalizer' ? 'selected' : ''}>Neon Equalizer</option>
+            <option value="matrix_rain" ${s.preset === 'matrix_rain' ? 'selected' : ''}>Matrix Rain</option>
+            <option value="lava_lamp" ${s.preset === 'lava_lamp' ? 'selected' : ''}>Lava Lamp</option>
+            <option value="pixel_snake" ${s.preset === 'pixel_snake' ? 'selected' : ''}>Pixel Snake</option>
+          </select>
+          <small class="subtle">Wählt den Animationsstil für das 32x8 Display.</small>
+        </div>
+        <div class="field">
+          <label for="set-anim-speed-${module.id}">Geschwindigkeit</label>
+          <input id="set-anim-speed-${module.id}" type="range" min="1" max="100" value="${s.speed ?? 50}" />
+          <small class="subtle">Niedrig = ruhig, hoch = schnell.</small>
+        </div>
+        <div class="field">
+          <label for="set-anim-intensity-${module.id}">Intensität / Helligkeit</label>
+          <input id="set-anim-intensity-${module.id}" type="range" min="1" max="100" value="${s.intensity ?? s.brightness ?? 80}" />
+          <small class="subtle">Regelt die Leuchtkraft der Animation.</small>
+        </div>
+        <div class="field">
+          <label for="set-anim-palette-${module.id}">Palette</label>
+          <select id="set-anim-palette-${module.id}">
+            <option value="rainbow" ${s.palette === 'rainbow' || !s.palette ? 'selected' : ''}>Rainbow</option>
+            <option value="cyberpunk" ${s.palette === 'cyberpunk' ? 'selected' : ''}>Cyberpunk</option>
+            <option value="fire" ${s.palette === 'fire' ? 'selected' : ''}>Fire</option>
+            <option value="ice" ${s.palette === 'ice' ? 'selected' : ''}>Ice</option>
+            <option value="bitcoin_orange" ${s.palette === 'bitcoin_orange' ? 'selected' : ''}>Bitcoin Orange</option>
+          </select>
+          <small class="subtle">Farbwelt für das ausgewählte Preset.</small>
+        </div>
+        <div class="field">
+          <label>Spiegelmodus</label>
+          <label class="check-label"><input type="checkbox" id="set-anim-mirror-${module.id}" ${s.mirror_mode === true ? 'checked' : ''}> Bild horizontal spiegeln</label>
+          <small class="subtle">Symmetrische Ausgabe für Tunnel- und Plasma-Effekte.</small>
+        </div>
+      </div>
+    `;
+  }
+
+
   if (module.key === 'bitmap') {
     return `
       <div class="settings-grid settings-grid-color">
@@ -949,6 +1001,20 @@ function collectModuleSettings({ id: moduleId, key: moduleKey }) {
       seconds_border_color: document.getElementById(`set-clock-sec-border-color-${moduleId}`).value,
     };
   }
+
+  if (moduleKey === 'animations') {
+    const speed = parseInt(document.getElementById(`set-anim-speed-${moduleId}`).value, 10);
+    const intensity = parseInt(document.getElementById(`set-anim-intensity-${moduleId}`).value, 10);
+    return {
+      enabled: document.getElementById(`set-anim-enabled-${moduleId}`).checked,
+      preset: document.getElementById(`set-anim-preset-${moduleId}`).value,
+      speed: Number.isNaN(speed) ? 50 : speed,
+      intensity: Number.isNaN(intensity) ? 80 : intensity,
+      palette: document.getElementById(`set-anim-palette-${moduleId}`).value,
+      mirror_mode: document.getElementById(`set-anim-mirror-${moduleId}`).checked,
+    };
+  }
+
 
   const commonTransition = {
     transition_direction: document.getElementById(`set-trans-dir-${moduleId}`).value,
