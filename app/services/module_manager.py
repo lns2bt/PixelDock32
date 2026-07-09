@@ -101,6 +101,21 @@ DEFAULT_MODULES = [
             "transition_ms": 250,
         },
     },
+    {
+        "key": "animations",
+        "name": "Animations",
+        "sort_order": 5,
+        "duration_seconds": 12,
+        "settings": {
+            "preset": "psychedelic_plasma",
+            "speed": 1.0,
+            "palette": "neon",
+            "intensity": 0.8,
+            "mirror_mode": "none",
+            "transition_direction": "down",
+            "transition_ms": 0,
+        },
+    },
 ]
 
 
