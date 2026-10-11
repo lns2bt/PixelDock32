@@ -53,6 +53,8 @@ Im LAN öffnen: `http://<raspberrypi-ip>:8000`
 - [Hardware, Mapping, Kalibrierung, Arduino UNO R3 & DHT11](docs/hardware-und-mapping.md)
 - [Module und Features](docs/module-und-feature-doku.md)
 - [Roadmap](docs/roadmap.md)
+- [Rework-Analyse](docs/rework-analyse.md)
+- [Lokale Tests und passive Transportmessung](docs/tests-und-messungen.md)
 
 ## Hinweise
 

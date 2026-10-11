@@ -1,0 +1,7 @@
+# Hardware-free unit tests use unittest from the Python standard library.
+pydantic-settings==2.7.0
+pyserial==3.5
+fastapi==0.115.6
+httpx==0.28.1
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4

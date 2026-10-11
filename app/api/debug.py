@@ -286,6 +286,12 @@ async def led_debug(request: Request, _: str = Depends(get_current_user)):
     return {"ok": True, "result": _led_driver(request).get_debug_snapshot()}
 
 
+@router.get("/led/metrics")
+async def led_metrics(request: Request, _: str = Depends(get_current_user)):
+    """Passive counters only: no serial commands, waits or GPIO operations."""
+    return {"ok": True, "result": _led_driver(request).get_transport_metrics()}
+
+
 @router.post("/led/serial-ping")
 async def led_serial_ping(payload: LedSerialPingRequest, request: Request, _: str = Depends(get_current_user)):
     result = _led_driver(request).serial_ping(nonce=payload.nonce)

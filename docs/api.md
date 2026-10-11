@@ -15,3 +15,9 @@
 - `POST /api/debug/dht/read-once` → erzwungener Einzel-Read inkl. Backend, GPIO-Level vor/nach Read und Fehlerdetails
 - `GET /api/debug/led` → LED-Transport-Debug (aktiver Transport, Serial-Stats, letzte Fehler)
 - `POST /api/debug/led/serial-ping` → Ping Roundtrip-Test Raspberry Pi ↔ Arduino UNO R3 über USB-Serial
+
+## Passive Transportmessung (Rework)
+
+`GET /api/debug/led/metrics` (Bearer-Authentifizierung) liefert hostseitige
+Frame-ACK-Messwerte und Transportzähler ohne serielle Geräteabfrage.
+Details und Messablauf: [Tests und Messungen](tests-und-messungen.md).

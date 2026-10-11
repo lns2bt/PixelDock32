@@ -6,6 +6,7 @@ import threading
 import time
 
 from app.config import Settings
+from app.services.frame_metrics import FrameMetrics
 
 try:
     from rpi_ws281x import Color, PixelStrip
@@ -95,6 +96,7 @@ class SerialLEDStrip:
         self._protocol_version = None
         self._protocol_probe_error = None
         self._next_frame_seq = 0
+        self._frame_metrics = FrameMetrics()
         self._pending_frame: bytes | None = None
         self._pending_frame_seq: int | None = None
         self._pending_frame_queued_at: float | None = None
@@ -546,6 +548,7 @@ class SerialLEDStrip:
             self._stats["frames_sent"] += 1
             if ack_seq is not None:
                 self._stats["frame_acks_received"] += 1
+                self._frame_metrics.record_confirmation(total_ms, queue_wait_ms)
             self._stats["last_frame_at"] = time.time()
             self._stats["last_frame_write_ms"] = write_ms
             self._stats["last_frame_ack_ms"] = ack_ms
@@ -834,6 +837,21 @@ class SerialLEDStrip:
     def needs_frame_resync(self) -> bool:
         return bool(self._stats.get("frame_resync_required"))
 
+    def get_transport_metrics(self) -> dict:
+        # Never poll the device or acquire the serial I/O lock from a web request.
+        counters = (
+            "frames_sent", "frames_enqueued", "frames_replaced_before_send",
+            "frame_ack_timeouts", "frame_ack_errors", "frame_write_timeouts",
+            "frame_write_retries", "reconnect_attempts", "reconnect_successes",
+            "sender_loop_errors",
+        )
+        return {
+            "frame_ack_enabled": self._frame_ack_enabled,
+            "sender_thread_alive": self._frame_sender_thread.is_alive(),
+            "counters": {key: self._stats[key] for key in counters},
+            "confirmations": self._frame_metrics.snapshot(),
+        }
+
 
 class LEDDriver:
     def __init__(self, settings: Settings):
@@ -911,6 +929,12 @@ class LEDDriver:
         if not isinstance(self.strip, SerialLEDStrip):
             return {"ok": False, "error": f"serial transport inactive (current={self.transport})"}
         return self.strip.ping(nonce=nonce)
+
+    def get_transport_metrics(self) -> dict:
+        result = {"transport": self.transport, "led_count": self.settings.led_count}
+        if isinstance(self.strip, SerialLEDStrip):
+            result["serial"] = self.strip.get_transport_metrics()
+        return result
 
     def should_force_frame_send(self) -> bool:
         return isinstance(self.strip, SerialLEDStrip) and self.strip.needs_frame_resync()

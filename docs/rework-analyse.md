@@ -213,6 +213,13 @@ für Jitter und Wiederverbindung erst nach Hardware-Baseline gemeinsam festlegen
 
 ## 6. Noch gemeinsam zu klären
 
+Inzwischen bestätigt: Raspberry Pi 3 mit 1 GB RAM, Raspberry Pi OS ohne Desktop,
+32×8 WS2812B-Pixel, 30 FPS als Ziel, Uno zunächst behalten. Text, Sprites/GIFs
+und prozedurale Animationen sollen unterstützt werden. SSH-Zugriff ist vorhanden.
+Phase 1 (lokale Tests und Messgrundlage) wurde freigegeben; Umsetzung und Grenzen
+stehen unter [Tests und Messungen](tests-und-messungen.md).
+Die folgende ursprüngliche Fragenliste bleibt zur Nachvollziehbarkeit erhalten.
+
 - Welches Raspberry-Pi-Modell, OS und Python-Version laufen tatsächlich?
 - Original Uno R3 oder Clone, und welche USB/UART-Brücke?
 - Bleibt die Anzeige bei vier WS2812B-8×8-Panels / 32×8 Pixeln?
