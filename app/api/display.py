@@ -1,4 +1,7 @@
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException, Request
+from app.services.led_driver import SerialException
 
 from app.api.deps import get_current_user
 from app.schemas import BrightnessRequest, DrawRequest, ManualTextRequest
@@ -36,7 +39,10 @@ async def draw(payload: DrawRequest, request: Request, _: str = Depends(get_curr
 
 @router.post("/brightness")
 async def brightness(payload: BrightnessRequest, request: Request, _: str = Depends(get_current_user)):
-    _display(request).set_brightness(payload.brightness)
+    try:
+        await asyncio.to_thread(_display(request).set_brightness, payload.brightness)
+    except (SerialException, OSError) as exc:
+        raise HTTPException(status_code=503, detail="LED device unavailable; brightness saved for reconnect") from exc
     return {"ok": True}
 
 

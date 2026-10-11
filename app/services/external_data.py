@@ -6,6 +6,7 @@ import logging
 import os
 import platform
 import time
+import threading
 from contextlib import suppress
 
 import httpx
@@ -117,6 +118,7 @@ class ExternalDataService:
             "btc_block_height_error": None,
         }
         self._running = False
+        self._dht_lock = threading.Lock()
         self._tasks: list[asyncio.Task] = []
 
     async def start(self):
@@ -335,6 +337,12 @@ class ExternalDataService:
             self._disable_backend(backend, "10 consecutive errors without a successful read")
 
     def _read_dht(self, model: str, source: str = "unknown") -> tuple[float | None, float | None, str]:
+        # Poller and manual reads both run off-loop; never access one sensor
+        # concurrently from two worker threads.
+        with self._dht_lock:
+            return self._read_dht_locked(model, source)
+
+    def _read_dht_locked(self, model: str, source: str) -> tuple[float | None, float | None, str]:
         backend_errors: list[str] = []
 
         if self._is_backend_disabled("Adafruit_DHT"):

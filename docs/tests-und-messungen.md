@@ -1,5 +1,10 @@
 # Phase 1: lokale Tests und passive Transportmessung
 
+> Dieser Text dokumentiert den ursprünglichen Phase-1-Stand. Inzwischen ist
+> [Phase 2](rework-phase2.md) umgesetzt: Standard 30 FPS, Firmware v3,
+> Produktions-Shutdown und verpflichtendes Frame-ACK. Bestehende `.env`-Werte
+> bleiben wirksam. Die unten beschriebenen Messwerkzeuge bleiben gültig.
+
 ## Vereinbartes Ziel und aktueller Umfang
 
 - Raspberry Pi 3, 1 GB RAM, Raspberry Pi OS (Debian-basiert, ohne Desktop).

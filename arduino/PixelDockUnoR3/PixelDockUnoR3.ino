@@ -1,12 +1,13 @@
 #include <Adafruit_NeoPixel.h>
 #include <string.h>
 
-// PixelDock32 serial protocol for Arduino UNO R3 (USB CDC)
+// PixelDock32 serial protocol for Arduino UNO R3 (USB-to-UART bridge)
 // Frame: ['P','D', CMD, LEN_LO, LEN_HI, PAYLOAD..., XOR_CHECKSUM]
 // CMD=0x01 => full RGB frame payload (3 * LED_COUNT bytes)
 // CMD=0x02 => brightness payload (1 byte 0..255)
 // CMD=0x03 => ping payload (4-byte nonce), reply CMD=0x83
 // CMD=0x05 => frame v2 payload [u16 seq | RGB...], reply CMD=0x85 after strip.show()
+// CMD=0x06 => brightness v3, reply CMD=0x86 [brightness] after safe output
 
 constexpr uint8_t PIN_NEOPIXEL = 6;
 constexpr uint16_t LED_COUNT = 256;
@@ -21,9 +22,11 @@ constexpr uint8_t CMD_DEBUG_SNAPSHOT = 0x04;
 constexpr uint8_t CMD_FRAME_V2 = 0x05;
 constexpr uint8_t CMD_DEBUG_SNAPSHOT_ACK = 0x84;
 constexpr uint8_t CMD_FRAME_ACK = 0x85;
+constexpr uint8_t CMD_BRIGHTNESS_V3 = 0x06;
+constexpr uint8_t CMD_BRIGHTNESS_ACK = 0x86;
 constexpr uint8_t MAGIC_0 = 'P';
 constexpr uint8_t MAGIC_1 = 'D';
-constexpr uint8_t DEBUG_PROTOCOL_VERSION = 2;
+constexpr uint8_t DEBUG_PROTOCOL_VERSION = 3;
 
 constexpr uint16_t FRAME_SEQ_BYTES = 2;
 constexpr uint16_t FRAME_V2_PAYLOAD = FRAME_PAYLOAD + FRAME_SEQ_BYTES;
@@ -59,6 +62,8 @@ uint8_t rgbScratchLen = 0;
 uint16_t frameLedIndex = 0;
 uint8_t frameBrightness = 64;
 uint16_t frameSequence = 0;
+// A partial or corrupt frame must never leak out via a brightness command.
+bool frameBufferValid = true;
 
 uint32_t lastRxByteAtMs = 0;
 
@@ -154,7 +159,7 @@ bool commandAndLengthValid(uint8_t cmd, uint16_t len) {
   if (cmd == CMD_FRAME_V2) {
     return len == FRAME_V2_PAYLOAD;
   }
-  if (cmd == CMD_BRIGHTNESS) {
+  if (cmd == CMD_BRIGHTNESS || cmd == CMD_BRIGHTNESS_V3) {
     return len == 1;
   }
   if (cmd == CMD_PING) {
@@ -176,7 +181,9 @@ void sendFrameAck(uint16_t sequence) {
 
 void applyBrightness(uint8_t value) {
   strip.setBrightness(value);
-  strip.show();
+  if (frameBufferValid) {
+    strip.show();
+  }
 }
 
 uint8_t scaleChannelForBrightness(uint8_t value, uint8_t brightness) {
@@ -278,6 +285,7 @@ void loop() {
           state = RxState::WAIT_CHECKSUM;
         } else {
           if (command == CMD_FRAME || command == CMD_FRAME_V2) {
+            frameBufferValid = false;
             frameBrightness = strip.getBrightness();
           }
           state = RxState::WAIT_PAYLOAD;
@@ -310,11 +318,16 @@ void loop() {
         if (checksum == b) {
           debugStats.packetsOk++;
           debugStats.lastCommand = command;
-          if (command == CMD_BRIGHTNESS) {
+          if (command == CMD_BRIGHTNESS || command == CMD_BRIGHTNESS_V3) {
             debugStats.brightnessPackets++;
             applyBrightness(payloadSmall[0]);
+            if (command == CMD_BRIGHTNESS_V3) {
+              const uint8_t brightness = strip.getBrightness();
+              sendPacket(CMD_BRIGHTNESS_ACK, &brightness, 1);
+            }
           } else if (command == CMD_FRAME || command == CMD_FRAME_V2) {
             debugStats.framePackets++;
+            frameBufferValid = true;
             strip.show();
             if (command == CMD_FRAME_V2) {
               sendFrameAck(frameSequence);

@@ -1,3 +1,5 @@
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.api.deps import get_current_user
@@ -63,7 +65,7 @@ async def status(request: Request, _: str = Depends(get_current_user)):
     return {
         "display": display_service.get_status(),
         "live_data": live_data,
-        "led_transport": _led_driver(request).get_debug_snapshot(),
+        "led_transport": _led_driver(request).get_debug_snapshot(poll=False),
         "mapping": _mapper(request).get_runtime_mapping_snapshot(),
         "live_data_debug": {
             "source": "display_cache_snapshot",
@@ -171,7 +173,7 @@ async def clear_runtime_mapping(request: Request, _: str = Depends(get_current_u
 async def infer_runtime_mapping(payload: MappingInferenceRequest, request: Request, _: str = Depends(get_current_user)):
     mapper = _mapper(request)
     try:
-        result = mapper.infer_runtime_overrides(
+        result = await asyncio.to_thread(mapper.infer_runtime_overrides,
             observations=[item.model_dump() for item in payload.observations],
             max_solutions=payload.max_solutions,
         )
@@ -252,18 +254,18 @@ async def dht_debug(request: Request, _: str = Depends(get_current_user)):
 @router.post("/dht/read-once")
 async def dht_read_once(request: Request, _: str = Depends(get_current_user)):
     external = _external(request)
-    result = external.read_dht_debug_snapshot()
+    result = await asyncio.to_thread(external.read_dht_debug_snapshot)
     return {"ok": True, "result": result}
 
 
 @router.get("/gpio/environment")
 async def gpio_environment(request: Request, _: str = Depends(get_current_user)):
-    result = _external(request).get_gpio_environment_report()
+    result = await asyncio.to_thread(_external(request).get_gpio_environment_report)
     return {"ok": True, "result": result}
 
 @router.post("/gpio/output-test")
 async def gpio_output_test(payload: GpioOutputTestRequest, request: Request, _: str = Depends(get_current_user)):
-    result = _external(request).run_gpio_output_test(
+    result = await asyncio.to_thread(_external(request).run_gpio_output_test,
         gpio_pin=payload.gpio_pin,
         pulses=payload.pulses,
         hold_ms=payload.hold_ms,
@@ -273,7 +275,7 @@ async def gpio_output_test(payload: GpioOutputTestRequest, request: Request, _: 
 
 @router.post("/gpio/input-probe")
 async def gpio_input_probe(payload: GpioInputProbeRequest, request: Request, _: str = Depends(get_current_user)):
-    result = _external(request).run_gpio_input_probe(
+    result = await asyncio.to_thread(_external(request).run_gpio_input_probe,
         gpio_pin=payload.gpio_pin,
         sample_ms=payload.sample_ms,
         pull_up=payload.pull_up,
@@ -283,7 +285,7 @@ async def gpio_input_probe(payload: GpioInputProbeRequest, request: Request, _: 
 
 @router.get("/led")
 async def led_debug(request: Request, _: str = Depends(get_current_user)):
-    return {"ok": True, "result": _led_driver(request).get_debug_snapshot()}
+    return {"ok": True, "result": await asyncio.to_thread(_led_driver(request).get_debug_snapshot)}
 
 
 @router.get("/led/metrics")
@@ -294,5 +296,5 @@ async def led_metrics(request: Request, _: str = Depends(get_current_user)):
 
 @router.post("/led/serial-ping")
 async def led_serial_ping(payload: LedSerialPingRequest, request: Request, _: str = Depends(get_current_user)):
-    result = _led_driver(request).serial_ping(nonce=payload.nonce)
+    result = await asyncio.to_thread(_led_driver(request).serial_ping, nonce=payload.nonce)
     return {"ok": bool(result.get("ok")), "result": result}

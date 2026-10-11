@@ -16,6 +16,7 @@ from app.modules.textbox import TextBoxModule
 from app.modules.bitmap import BitmapModule
 from app.modules.animations import AnimationsModule
 from app.services.led_driver import LEDDriver
+from app.services.frame_pacer import FramePacer
 from app.services.led_mapper import LEDMapper
 from app.services.colors import parse_hex_color
 from app.services.animations import ANIMATION_FACTORIES
@@ -98,8 +99,13 @@ class DisplayService:
         self.target_fps = fps
         self._running = False
         self._task: asyncio.Task | None = None
+        self._pacer: FramePacer | None = None
+        self._last_mapping_revision: int | None = None
+        self._first_frame = True
         self.manual_override: tuple[list[list[int]], list[list[tuple[int, int, int] | None]], float] | None = None
         self.debug_override: tuple[str, float, float] | None = None
+        self._manual_deadline = 0.0
+        self._debug_deadline = 0.0
 
         self.last_frame_ts: float | None = None
         self.last_loop_error: str | None = None
@@ -114,6 +120,7 @@ class DisplayService:
         self.last_module_query_cache_hit: bool | None = None
         self.frame_counter = 0
         self.started_at = time.time()
+        self._started_monotonic = time.monotonic()
         self.last_source = "module"
         self.last_module_key: str | None = None
         self.last_frame: list[list[int]] = [[0 for _ in range(32)] for _ in range(8)]
@@ -176,6 +183,9 @@ class DisplayService:
         }
 
     async def start(self):
+        if self._task and not self._task.done():
+            return
+        self._first_frame = True
         self._running = True
         self._task = asyncio.create_task(self._loop())
 
@@ -230,6 +240,7 @@ class DisplayService:
             y_offset=y_offset,
         )
         self.manual_override = (frame, color_frame, time.time() + seconds)
+        self._manual_deadline = time.monotonic() + seconds
 
     def set_manual_pixels(self, pixels: list[list[int]], seconds: int):
         color_frame = blank_color_frame(32, 8)
@@ -238,12 +249,14 @@ class DisplayService:
                 if pixels[y][x]:
                     color_frame[y][x] = (240, 240, 240)
         self.manual_override = (pixels, color_frame, time.time() + seconds)
+        self._manual_deadline = time.monotonic() + seconds
 
     def set_brightness(self, value: int):
         self.led_driver.set_brightness(value)
 
     def set_debug_pattern(self, pattern: str, seconds: int, interval_ms: int = 250):
         self.debug_override = (pattern, time.time() + seconds, max(interval_ms / 1000.0, 0.05))
+        self._debug_deadline = time.monotonic() + seconds
 
     def clear_debug_pattern(self):
         self.debug_override = None
@@ -258,11 +271,13 @@ class DisplayService:
         return [row[:] for row in self.last_color_frame]
 
     def get_status(self) -> dict:
-        uptime = max(time.time() - self.started_at, 1)
+        uptime = max(time.monotonic() - self._started_monotonic, 1)
         return {
             "running": self._running,
             "task_alive": bool(self._task and not self._task.done()),
             "target_fps": self.target_fps,
+            "missed_render_deadlines": self._pacer.missed_deadlines if self._pacer else 0,
+            "fps_measurement": "render_iterations_lifetime_average_not_display_fps",
             "actual_fps": round(self.frame_counter / uptime, 2),
             "last_frame_ts": self.last_frame_ts,
             "last_loop_error": self.last_loop_error,
@@ -389,12 +404,14 @@ class DisplayService:
         return frame, color_frame
 
     async def _loop(self):
+        self._pacer = FramePacer(self.target_fps, time.perf_counter())
         while self._running:
             loop_started = time.perf_counter()
             try:
                 frame, color_frame = await self._get_next_frame()
                 force_frame_send = bool(getattr(self.led_driver, "should_force_frame_send", lambda: False)())
-                frame_changed = force_frame_send or frame != self.last_frame or color_frame != self.last_color_frame
+                mapping_revision = getattr(self.mapper, "revision", 0)
+                frame_changed = self._first_frame or force_frame_send or mapping_revision != self._last_mapping_revision or frame != self.last_frame or color_frame != self.last_color_frame
                 if frame_changed:
                     index_to_color: dict[int, tuple[int, int, int]] = {}
                     for y, row in enumerate(frame):
@@ -409,6 +426,8 @@ class DisplayService:
                     self.led_driver.write_color_frame(index_to_color)
                     self.last_led_write_ms = round((time.perf_counter() - led_write_started) * 1000, 3)
                     self.last_led_frame_sent = True
+                    self._first_frame = False
+                    self._last_mapping_revision = mapping_revision
                 else:
                     self.unchanged_frame_skips += 1
                     self.last_led_write_ms = 0.0
@@ -419,7 +438,7 @@ class DisplayService:
                 self.last_loop_error = None
                 self.frame_counter += 1
                 work_elapsed = time.perf_counter() - loop_started
-                sleep_s = max(self.frame_delay - work_elapsed, 0.0)
+                sleep_s = self._pacer.next_delay(time.perf_counter())
                 self.last_loop_work_ms = round(work_elapsed * 1000, 3)
                 self.last_loop_sleep_ms = round(sleep_s * 1000, 3)
                 self.last_loop_total_ms = round((work_elapsed + sleep_s) * 1000, 3)
@@ -433,17 +452,18 @@ class DisplayService:
                 self.last_loop_sleep_ms = round(max(self.frame_delay, 0.1) * 1000, 3)
                 self.last_loop_total_ms = round((self.last_loop_work_ms or 0) + (self.last_loop_sleep_ms or 0), 3)
                 await asyncio.sleep(max(self.frame_delay, 0.1))
+                self._pacer = FramePacer(self.target_fps, time.perf_counter())
 
     async def _get_next_frame(self) -> tuple[list[list[int]], list[list[tuple[int, int, int] | None]]]:
         if self.debug_override:
             from app.services.patterns import PATTERN_FACTORIES
 
             pattern, until, interval = self.debug_override
-            now = time.time()
-            if now <= until and pattern in ANIMATION_FACTORIES:
+            now = time.monotonic()
+            if now <= self._debug_deadline and pattern in ANIMATION_FACTORIES:
                 self.last_source = "debug"
                 return ANIMATION_FACTORIES[pattern](now)
-            if now <= until and pattern in PATTERN_FACTORIES:
+            if now <= self._debug_deadline and pattern in PATTERN_FACTORIES:
                 self.last_source = "debug"
                 tick = int(now / interval)
                 frame = PATTERN_FACTORIES[pattern](tick)
@@ -458,7 +478,7 @@ class DisplayService:
 
         if self.manual_override:
             pixels, colors, until = self.manual_override
-            if time.time() <= until:
+            if time.monotonic() <= self._manual_deadline:
                 self.last_source = "manual"
                 return pixels, colors
             self.manual_override = None
@@ -471,7 +491,7 @@ class DisplayService:
 
         durations = [row["duration_seconds"] for row in rows]
         total = max(sum(durations), 1)
-        t = int(time.time()) % total
+        t = int(time.monotonic() - self._started_monotonic) % total
         idx = 0
         for duration in durations:
             if t < duration:
@@ -557,22 +577,30 @@ class DisplayService:
 
         if self.transition_state:
             state = self.transition_state
-            if state.get("to_key") == selected["key"] and state.get("to_frame") == frame:
-                elapsed = (time.time() - state["start_time"]) * 1000.0
+            if state.get("to_key") == selected["key"]:
+                elapsed = (time.monotonic() - state["start_time"]) * 1000.0
                 if elapsed < state["duration_ms"]:
+                    # Keep the transition timeline while the incoming animation
+                    # continues, instead of restarting it for every new frame.
+                    self.last_target_frame = [row[:] for row in frame]
+                    self.last_target_colors = [row[:] for row in color_frame]
                     progress = elapsed / max(state["duration_ms"], 1)
                     return self._slide_vertical(
                         state["from_frame"],
                         state["from_colors"],
-                        state["to_frame"],
-                        state["to_colors"],
+                        frame,
+                        color_frame,
                         progress,
                         state["direction"],
                     )
-                self.transition_state = None
+            self.transition_state = None
 
         transition_on_content_change = bool(settings.get("transition_on_content_change", True))
         if selected["key"] == "clock":
+            transition_on_content_change = False
+        if selected["key"] in {"animations", "bitmap"} or (
+            selected["key"] == "textbox" and settings.get("text_mode") == "scroll"
+        ):
             transition_on_content_change = False
 
         same_module = self.last_target_key == selected["key"]
@@ -589,7 +617,7 @@ class DisplayService:
                 "to_frame": [row[:] for row in frame],
                 "to_colors": [row[:] for row in color_frame],
                 "to_key": selected["key"],
-                "start_time": time.time(),
+                "start_time": time.monotonic(),
                 "duration_ms": transition_ms,
                 "direction": transition_direction,
             }

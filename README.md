@@ -8,6 +8,14 @@ PixelDock32 ist ein modularer 8x32-Controller für 4x WS2812B-8x8 Panels. Standa
 
 Das README ist bewusst kurz gehalten. Die ausführliche, aufgeteilte Projektdokumentation liegt unter [`/docs`](docs).
 
+## Rework-Zweig: noch nicht auf Hardware abgenommen
+
+Dieser Zweig enthält den überarbeiteten 30-FPS-Datenweg und Uno-Firmware v3.
+Vorhandene `.env`-Werte werden nicht überschrieben. Für vollständige
+Helligkeits-Synchronisation ist die neue Firmware vorgesehen; Details und
+Kompatibilitätsgrenzen: [Phase 2](docs/rework-phase2.md).
+Für Entwicklung ohne Hardware explizit `LED_TRANSPORT=mock` verwenden.
+
 ## Version 0.1.0 — Working Snapshot
 
 Diese Projektfassung ist als **funktionierender 0.1-Rückkehrpunkt** markiert, damit spätere Verbesserungen sicher darauf aufbauen können.
@@ -38,7 +46,7 @@ cp .env.example .env
 # LED_TRANSPORT=serial
 # LED_SERIAL_PORT=auto
 # LED_SERIAL_ACK_TIMEOUT=0.05
-# Nach Arduino-Sketch-Update nutzt der Pi automatisch Frame-ACK (Protokoll v2)
+# Firmware v3 empfohlen; v2 hat nur Frame-ACK, v1 wird nicht mehr angesteuert
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 

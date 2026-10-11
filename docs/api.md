@@ -21,3 +21,10 @@
 `GET /api/debug/led/metrics` (Bearer-Authentifizierung) liefert hostseitige
 Frame-ACK-Messwerte und Transportzähler ohne serielle Geräteabfrage.
 Details und Messablauf: [Tests und Messungen](tests-und-messungen.md).
+
+Im Rework löst `GET /api/debug/status` keine neue serielle Abfrage mehr aus.
+`GET /api/debug/led` bleibt eine aktive, in einen Workerthread ausgelagerte
+Diagnose; währenddessen kann der Serial-Sender kurz auf den gemeinsamen I/O-Lock
+warten, der asyncio-Renderloop wird aber nicht blockiert.
+Helligkeit liefert bei fehlendem Gerät HTTP 503; der gewünschte Wert bleibt
+für den nächsten Reconnect gespeichert. [Details zu Phase 2](rework-phase2.md).

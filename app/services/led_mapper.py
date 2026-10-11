@@ -11,6 +11,7 @@ class LEDMapper:
         self.width = settings.panel_columns
         self.height = settings.panel_rows
         self._runtime_overrides: dict[str, object] = {}
+        self.revision = 0
         self._pixel_fixes: dict[str, dict[str, int]] = {}
         self._state_file = Path(settings.mapping_state_file)
         # Mapping is static for the runtime config; precompute for the hot render path.
@@ -61,12 +62,14 @@ class LEDMapper:
         }
         self._rebuild_xy_index_table()
         self._persist_state()
+        self.revision += 1
         return self.get_runtime_mapping_snapshot()
 
     def clear_runtime_overrides(self) -> dict:
         self._runtime_overrides = {}
         self._rebuild_xy_index_table()
         self._persist_state()
+        self.revision += 1
         return self.get_runtime_mapping_snapshot()
 
     def get_runtime_mapping_snapshot(self) -> dict:
@@ -126,6 +129,7 @@ class LEDMapper:
             observed_y=observed_y,
         )
         self._pixel_fixes[self._pixel_fix_key(fix["logical_x"], fix["logical_y"])] = fix
+        self.revision += 1
         self._persist_state()
         return self.get_pixel_fixes_snapshot()
 
@@ -140,11 +144,13 @@ class LEDMapper:
             )
             normalized[self._pixel_fix_key(fix["logical_x"], fix["logical_y"])] = fix
         self._pixel_fixes = normalized
+        self.revision += 1
         self._persist_state()
         return self.get_pixel_fixes_snapshot()
 
     def clear_pixel_fixes(self) -> list[dict[str, int]]:
         self._pixel_fixes = {}
+        self.revision += 1
         self._persist_state()
         return self.get_pixel_fixes_snapshot()
 

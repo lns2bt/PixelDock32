@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -20,7 +20,7 @@ class Settings(BaseSettings):
 
     tz: str = "Europe/Vienna"
 
-    led_count: int = 256
+    led_count: int = Field(default=256, ge=1)
     led_transport: str = "auto"
     led_pin: int = 18
     led_freq_hz: int = 800000
@@ -30,10 +30,11 @@ class Settings(BaseSettings):
     led_channel: int = 0
     led_serial_port: str = "/dev/ttyACM0"
     led_serial_baudrate: int = 1000000
-    led_serial_timeout: float = 0.02
-    led_serial_write_timeout: float = 0.1
-    led_serial_ack_timeout: float = 0.05
-    led_serial_startup_delay: float = 2.0
+    led_serial_timeout: float = Field(default=0.02, gt=0, le=1)
+    led_serial_write_timeout: float = Field(default=0.1, gt=0, le=2)
+    led_serial_ack_timeout: float = Field(default=0.05, gt=0, le=2)
+    led_serial_startup_delay: float = Field(default=2.0, ge=0, le=10)
+    led_serial_reconnect_delay: float = Field(default=1.0, ge=0.1, le=30)
 
     panel_rows: int = 8
     panel_columns: int = 32
@@ -61,7 +62,15 @@ class Settings(BaseSettings):
 
     poll_btc_seconds: int = Field(default=60, ge=15)
     poll_weather_seconds: int = Field(default=300, ge=60)
-    render_fps: int = Field(default=20, ge=1)
+    render_fps: int = Field(default=30, ge=1, le=60)
+
+    @model_validator(mode="after")
+    def validate_uno_geometry(self):
+        if self.led_transport in {"serial", "auto"}:
+            geometry = (self.led_count, self.panel_rows, self.panel_columns, self.chain_panels, self.panel_width, self.panel_height)
+            if geometry != (256, 8, 32, 4, 8, 8):
+                raise ValueError("Uno firmware requires 256 LEDs arranged as four 8x8 panels (32x8)")
+        return self
 
 
     @field_validator("led_transport", mode="before")
@@ -70,7 +79,7 @@ class Settings(BaseSettings):
         if value is None:
             return "auto"
         normalized = str(value).strip().lower()
-        allowed = {"auto", "rpi", "serial"}
+        allowed = {"auto", "rpi", "serial", "mock"}
         if normalized not in allowed:
             raise ValueError(f"led_transport must be one of: {', '.join(sorted(allowed))}")
         return normalized

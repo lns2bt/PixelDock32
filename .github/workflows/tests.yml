@@ -23,3 +23,15 @@ jobs:
       - run: python -m pip install -r requirements-test.txt
       - run: python -m unittest discover -s tests -v
       - run: python scripts/measure-transport.py --help
+
+  uno-firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-arduino-cli@v2
+        with:
+          version: "1.2.2"
+      - run: arduino-cli core update-index
+      - run: arduino-cli core install arduino:avr@1.8.6
+      - run: arduino-cli lib install "Adafruit NeoPixel@1.12.3"
+      - run: arduino-cli compile --fqbn arduino:avr:uno arduino/PixelDockUnoR3

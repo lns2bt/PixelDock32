@@ -5,7 +5,9 @@ from unittest.mock import patch
 
 from app.config import Settings
 from app.services.led_driver import FrameAckError, SerialLEDStrip
+from app.services.led_driver import LEDDriver, SerialException, SerialTimeoutException
 from tests.fake_uno import FakeUno
+from tests.fake_uno import packet
 
 
 class SerialTransportTests(unittest.TestCase):
@@ -18,13 +20,8 @@ class SerialTransportTests(unittest.TestCase):
         self.addCleanup(self.cleanup_strip)
 
     def cleanup_strip(self):
-        # Test harness cleanup; production lifecycle fix belongs to phase 2.
-        self.strip._frame_sender_stop.set()
-        self.strip._frame_sender_event.set()
-        if self.strip._frame_sender_thread.is_alive():
-            self.strip._frame_sender_thread.join(timeout=2)
+        self.strip.close()
         self.assertFalse(self.strip._frame_sender_thread.is_alive())
-        self.strip._close_serial_locked()
 
     def test_capability_probe_enables_v2(self):
         self.assertTrue(self.strip._frame_ack_enabled)
@@ -69,10 +66,11 @@ class SerialTransportTests(unittest.TestCase):
         self.assertEqual(self.strip._stats["frame_ack_retry_successes"], 1)
         self.assertEqual(self.strip._frame_metrics.snapshot()["confirmed_frames_total"], 1)
 
-    def test_v1_send_does_not_claim_confirmation(self):
+    def test_v1_send_is_refused(self):
         self.strip._frame_ack_enabled = False
-        self.strip._send_frame_with_retries(b"\0" * 768, 5, None)
-        self.assertEqual(self.strip._stats["frames_sent"], 1)
+        with self.assertRaisesRegex(Exception, "frame ACK required"):
+            self.strip._write_frame_packet_locked(b"\0" * 768, 5)
+        self.assertEqual(self.strip._stats["frames_sent"], 0)
         self.assertEqual(self.strip._frame_metrics.snapshot()["confirmed_frames_total"], 0)
 
     def test_failed_retry_reconnects_and_resends_brightness_and_frame(self):
@@ -130,3 +128,103 @@ class SerialTransportTests(unittest.TestCase):
             self.strip.show()
             self.assertTrue(delivered.wait(timeout=2))
         self.assertEqual(self.strip._stats["frames_sent"], 1)
+
+    def test_v3_brightness_ack_and_full_frame_resync(self):
+        self.strip._protocol_version = 3
+        self.strip.setBrightness(100)
+        self.assertEqual(self.uno.writes[-1][2], 6)
+        self.assertFalse(self.uno.responses)
+        self.assertTrue(self.strip.needs_frame_resync())
+
+    def test_v2_brightness_drain_and_guard(self):
+        with patch.object(self.strip, "_pause") as pause:
+            self.strip.setBrightness(100)
+        self.assertEqual(self.uno.writes[-1][2], 2)
+        pause.assert_called_once_with(256 * 24 / 800000 + 0.02)
+
+    def test_partial_write_is_not_counted_as_sent(self):
+        with patch.object(self.uno, "write", return_value=3):
+            with self.assertRaises(SerialTimeoutException):
+                self.strip._write_packet(3, b"1234")
+
+    def test_passive_status_does_not_poll_device(self):
+        with self.strip._lock, patch.object(self.uno, "write", side_effect=AssertionError("serial I/O")):
+            self.strip.get_debug_snapshot(poll=False)
+
+    def test_shutdown_is_idempotent_and_rejects_new_frames(self):
+        self.strip._frame_sender_thread.start()
+        self.strip.close()
+        self.strip.close()
+        self.assertTrue(self.uno.closed)
+        with self.assertRaises(RuntimeError):
+            self.strip.show()
+
+    def test_idle_reset_restores_static_frame(self):
+        self.strip.show()
+        self.strip._send_frame_with_retries(self.strip._desired_frame, 1, 0)
+        self.uno.frame_count = 0
+        self.strip._last_activity_at = 0
+        with patch.object(self.strip, "_pause"):
+            self.strip._check_idle_connection()
+        self.assertTrue(self.strip.needs_frame_resync())
+        self.assertEqual(self.strip._pending_frame, self.strip._desired_frame)
+
+    def test_missing_port_retains_real_transport_and_backoff(self):
+        settings = Settings(_env_file=None, led_transport="serial", led_serial_port="missing", led_serial_startup_delay=0)
+        with patch("app.services.led_driver.serial.Serial", side_effect=SerialException("unplugged")), patch.object(threading.Thread, "start"):
+            driver = LEDDriver(settings)
+        self.addCleanup(driver.close)
+        self.assertEqual(driver.transport, "serial")
+        self.assertFalse(driver.strip._stats["connected"])
+        self.assertIsNotNone(driver.strip._pending_frame)
+        self.assertFalse(driver.strip._reconnect_locked("test"))
+
+    def test_unacknowledged_firmware_is_not_silently_enabled(self):
+        self.uno.version = 1
+        with self.assertRaises(SerialException):
+            self.strip._probe_protocol_capabilities()
+        self.assertFalse(self.strip._frame_ack_enabled)
+
+    def test_auto_selects_serial_even_when_gpio_library_is_available(self):
+        settings = Settings(_env_file=None, led_transport="auto", led_serial_port="test-uno", led_serial_startup_delay=0)
+        with patch("app.services.led_driver.serial.Serial", return_value=FakeUno()), patch("app.services.led_driver.PixelStrip", object()), patch.object(threading.Thread, "start"):
+            driver = LEDDriver(settings)
+        self.addCleanup(driver.close)
+        self.assertEqual(driver.transport, "serial")
+
+    def test_failed_static_frame_is_retried_without_another_show(self):
+        delivered = threading.Event()
+        original_send = self.strip._send_frame_with_retries
+        attempts = 0
+
+        def send(*args):
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise SerialException("temporary disconnect")
+            original_send(*args)
+            delivered.set()
+
+        self.strip.settings.led_serial_reconnect_delay = 0.1
+        with patch.object(self.strip, "_send_frame_with_retries", side_effect=send):
+            self.strip._frame_sender_thread.start()
+            self.strip.show()
+            self.assertTrue(delivered.wait(timeout=2))
+        self.assertEqual(attempts, 2)
+        self.assertEqual(self.strip._stats["frames_sent"], 1)
+
+    def test_response_header_length_is_validated_even_with_valid_checksum(self):
+        reply = bytearray(packet(0x85, b"\0\0"))
+        reply[3] = 3
+        reply[-1] = self.strip._checksum(reply[:-1])
+        self.uno.responses.extend(reply)
+        payload, error = self.strip._read_exact_packet(0x85, 2)
+        self.assertIsNone(payload)
+        self.assertIn("length", error)
+
+    def test_resync_does_not_replace_newer_pending_frame(self):
+        self.strip._enqueue_frame(b"\x11" * 768, 1)
+        self.strip._enqueue_frame(b"\x22" * 768, 2)
+        self.strip._queue_desired_frame_for_resync()
+        self.assertEqual(self.strip._pending_frame, b"\x22" * 768)
+        self.assertEqual(self.strip._pending_frame_seq, 2)

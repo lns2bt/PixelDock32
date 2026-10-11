@@ -22,7 +22,7 @@ class TextBoxModule(ModuleBase):
             lines = ["..."]
 
         line_seconds = max(1, _safe_int(settings.get("line_seconds", 2), 2))
-        idx = int(time.time() / line_seconds) % len(lines)
+        idx = int(time.monotonic() / line_seconds) % len(lines)
         text = lines[idx]
 
         font_size = settings.get("font_size", "small")
@@ -39,7 +39,7 @@ class TextBoxModule(ModuleBase):
             speed = max(1, _safe_int(settings.get("scroll_speed", 35), 35))
             text_width = measure_text_width(text, font_size=font_size, char_spacing=char_spacing)
             cycle = text_width + 32
-            offset = 32 - (int(time.time() * speed / 10) % cycle)
+            offset = 32 - (int(time.monotonic() * speed / 10) % cycle)
             x_offset = clamp(offset, -text_width, 32)
 
         return ModulePayload(

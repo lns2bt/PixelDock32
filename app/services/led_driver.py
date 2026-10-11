@@ -73,6 +73,8 @@ class SerialLEDStrip:
     CMD_FRAME_V2 = 0x05
     CMD_DEBUG_SNAPSHOT_ACK = 0x84
     CMD_FRAME_ACK = 0x85
+    CMD_BRIGHTNESS_V3 = 0x06
+    CMD_BRIGHTNESS_ACK = 0x86
     FRAME_ACK_PROTOCOL_VERSION = 2
 
     def __init__(self, settings: Settings, logger: logging.Logger):
@@ -96,7 +98,11 @@ class SerialLEDStrip:
         self._protocol_version = None
         self._protocol_probe_error = None
         self._next_frame_seq = 0
+        self._sequence_lock = threading.Lock()
         self._frame_metrics = FrameMetrics()
+        self._last_activity_at = time.monotonic()
+        self._next_reconnect_at = 0.0
+        self._desired_frame: bytes | None = None
         self._pending_frame: bytes | None = None
         self._pending_frame_seq: int | None = None
         self._pending_frame_queued_at: float | None = None
@@ -167,9 +173,32 @@ class SerialLEDStrip:
             "sender_last_error_at": None,
             "last_frame_queue_wait_ms": None,
         }
-        self._open_serial(initial_open=True)
-        self._probe_protocol_capabilities()
+        try:
+            self._open_serial(initial_open=True)
+            self._probe_protocol_capabilities()
+        except (SerialException, OSError) as exc:
+            self._record_error(f"initial serial connection failed: {exc}")
+            self._close_serial_locked()
+            self._stats["frame_resync_required"] = True
+            self._next_reconnect_at = time.monotonic() + self.settings.led_serial_reconnect_delay
+            self._logger.warning("Serial LED device unavailable; will retry latest frame: %s", exc)
         self._frame_sender_thread.start()
+
+    def close(self):
+        """Stop retries, join the sender, then release the port. Idempotent."""
+        self._frame_sender_stop.set()
+        self._frame_sender_event.set()
+        if self._frame_sender_thread.ident is not None:
+            timeout = self._startup_delay + 3 * (self._ack_timeout + self.settings.led_serial_write_timeout) + 3
+            self._frame_sender_thread.join(timeout=timeout)
+            if self._frame_sender_thread.is_alive():
+                raise RuntimeError("serial sender did not stop within shutdown deadline")
+        with self._lock:
+            self._close_serial_locked()
+
+    def _pause(self, seconds: float):
+        if self._frame_sender_stop.wait(seconds):
+            raise SerialException("serial transport is closing")
 
     def _is_auto_port(self) -> bool:
         return self._requested_port.strip().lower() in {"", "auto", "detect"}
@@ -223,7 +252,7 @@ class SerialLEDStrip:
     def _prepare_serial_port(self, ser) -> None:
         if self._startup_delay > 0:
             # Arduino UNO toggles DTR on open and resets; give firmware time to boot.
-            time.sleep(self._startup_delay)
+            self._pause(self._startup_delay)
         try:
             ser.reset_input_buffer()
         except Exception:
@@ -246,6 +275,7 @@ class SerialLEDStrip:
 
         errors: list[str] = []
         for port in candidates:
+            ser = None
             try:
                 ser = serial.Serial(
                     port,
@@ -263,6 +293,8 @@ class SerialLEDStrip:
                     self._stats["last_reconnect_at"] = time.time()
                 return
             except (SerialException, OSError) as exc:
+                if ser is not None:
+                    ser.close()
                 errors.append(f"{port}: {exc}")
 
         error_text = "; ".join(errors) if errors else "unknown open error"
@@ -324,21 +356,24 @@ class SerialLEDStrip:
             self._protocol_probe_error = str(exc)
             self._frame_ack_supported = False
             self._frame_ack_enabled = False
-            self._logger.warning("Serial protocol capability probe failed; disabling frame ACK: %s", exc)
+            self._logger.warning("Serial protocol capability probe failed; refusing unacknowledged frames: %s", exc)
 
         self._stats["protocol_version"] = self._protocol_version
         self._stats["protocol_probe_error"] = self._protocol_probe_error
         self._stats["frame_ack_supported"] = self._frame_ack_supported
         self._stats["frame_ack_enabled"] = self._frame_ack_enabled
+        if not self._frame_ack_enabled:
+            raise SerialException(self._protocol_probe_error or "firmware v2 or newer with frame ACK required")
 
     def _reconnect_locked(self, context: str) -> bool:
+        if self._frame_sender_stop.is_set() or time.monotonic() < self._next_reconnect_at:
+            return False
         self._stats["reconnect_attempts"] += 1
         self._close_serial_locked()
         try:
             self._open_serial(initial_open=False)
             self._probe_protocol_capabilities_locked()
-            brightness_payload = bytes([self._brightness])
-            self._write_packet(self.CMD_BRIGHTNESS, brightness_payload)
+            self._write_brightness_locked()
             self._stats["brightness_resyncs"] += 1
             self._stats["reconnect_successes"] += 1
             self._stats["frame_resync_required"] = True
@@ -349,6 +384,8 @@ class SerialLEDStrip:
             )
             return True
         except (SerialException, OSError) as exc:
+            self._close_serial_locked()
+            self._next_reconnect_at = time.monotonic() + self.settings.led_serial_reconnect_delay
             message = f"serial reconnect failed after {context}: {exc}"
             self._stats["last_reconnect_error"] = message
             self._record_error(message)
@@ -371,35 +408,62 @@ class SerialLEDStrip:
         return body + bytes([self._checksum(body)])
 
     def _write_packet(self, command: int, payload: bytes | bytearray = b""):
+        if self._frame_sender_stop.is_set():
+            raise SerialException("serial transport is closing")
         if self._serial is None:
             raise SerialException("serial port not open")
         packet = self._build_packet(command, payload)
         start = time.perf_counter()
-        self._serial.write(packet)
+        written = self._serial.write(packet)
+        if written != len(packet):
+            raise SerialTimeoutException(f"short serial write ({written}/{len(packet)} bytes)")
         elapsed_ms = round((time.perf_counter() - start) * 1000, 3)
         self._stats["bytes_sent"] += len(packet)
+        self._last_activity_at = time.monotonic()
         return elapsed_ms
 
     def begin(self):
-        self.setBrightness(self._brightness)
+        try:
+            self.setBrightness(self._brightness)
+        except (SerialException, OSError) as exc:
+            self._record_error(f"initial brightness deferred: {exc}")
+        self.show()
 
     def numPixels(self):
         return self._count
 
     def setBrightness(self, brightness: int):
-        self._brightness = max(0, min(255, int(brightness)))
-        payload = bytes([self._brightness])
         with self._lock:
+            self._brightness = max(0, min(255, int(brightness)))
+            self._stats["frame_resync_required"] = True
             try:
-                self._write_packet(self.CMD_BRIGHTNESS, payload)
+                self._write_brightness_locked()
             except (SerialException, OSError) as exc:
                 message = f"serial brightness write failed: {exc}"
                 self._record_error(message)
                 self._logger.warning("Serial brightness write failed: %s", exc)
                 if not self._reconnect_locked("brightness write"):
                     raise
-                self._write_packet(self.CMD_BRIGHTNESS, payload)
+                self._write_brightness_locked()
             self._stats["brightness_updates"] += 1
+
+    def _write_brightness_locked(self):
+        payload = bytes([self._brightness])
+        if self._protocol_version is not None and self._protocol_version >= 3:
+            self._write_packet(self.CMD_BRIGHTNESS_V3, payload)
+            response, error = self._read_exact_packet(self.CMD_BRIGHTNESS_ACK, 1, timeout=self._ack_timeout)
+            if error or response != payload:
+                raise SerialException(error or "brightness ACK mismatch")
+        else:
+            # Old firmware calls show() without ACK. Drain TX, then allow its
+            # interrupt-disabled LED output to finish before issuing any command.
+            self._write_packet(self.CMD_BRIGHTNESS, payload)
+            deadline = time.monotonic() + self.settings.led_serial_write_timeout
+            while self._serial.out_waiting:
+                if time.monotonic() >= deadline:
+                    raise SerialTimeoutException("brightness TX drain timeout")
+                self._pause(0.001)
+            self._pause(self._count * 24 / 800000 + 0.02)
 
     def setPixelColor(self, index: int, color):
         if not (0 <= index < self._count):
@@ -430,19 +494,33 @@ class SerialLEDStrip:
             self._buffer[offset + 2] = int(rgb[2]) & 0xFF
 
     def _next_frame_sequence(self) -> int:
-        sequence = self._next_frame_seq & 0xFFFF
-        self._next_frame_seq = (sequence + 1) & 0xFFFF
-        return sequence
+        with self._sequence_lock:
+            sequence = self._next_frame_seq & 0xFFFF
+            self._next_frame_seq = (sequence + 1) & 0xFFFF
+            return sequence
 
     def _enqueue_frame(self, frame_bytes: bytes, sequence: int) -> None:
         with self._queue_lock:
+            self._desired_frame = frame_bytes
             if self._pending_frame is not None:
                 self._stats["frames_replaced_before_send"] += 1
             self._pending_frame = frame_bytes
             self._pending_frame_seq = sequence
-            self._pending_frame_queued_at = time.time()
+            self._pending_frame_queued_at = time.monotonic()
             self._stats["frames_enqueued"] += 1
             self._stats["sender_queue_pending"] = True
+        self._frame_sender_event.set()
+
+    def _queue_desired_frame_for_resync(self):
+        sequence = self._next_frame_sequence()
+        with self._queue_lock:
+            if self._pending_frame is not None or self._desired_frame is None:
+                return
+            self._pending_frame = self._desired_frame
+            self._pending_frame_seq = sequence
+            self._pending_frame_queued_at = time.monotonic()
+            self._stats["sender_queue_pending"] = True
+            self._stats["frames_enqueued"] += 1
         self._frame_sender_event.set()
 
     def _reset_serial_buffers_locked(self) -> None:
@@ -460,6 +538,8 @@ class SerialLEDStrip:
     def _write_frame_packet_locked(self, frame_bytes: bytes, sequence: int) -> tuple[float, float | None, float, int | None]:
         if self._serial is None:
             raise SerialException("serial port not open")
+        if not self._frame_ack_enabled:
+            raise SerialException("firmware v2 or newer with frame ACK required")
 
         if self._frame_ack_enabled:
             try:
@@ -507,6 +587,8 @@ class SerialLEDStrip:
 
     def _send_frame_with_retries(self, frame_bytes: bytes, sequence: int, queue_wait_ms: float | None) -> None:
         with self._lock:
+            if self._serial is None and not self._reconnect_locked("frame send"):
+                raise SerialException("serial device unavailable; reconnect delayed")
             try:
                 write_ms, ack_ms, total_ms, ack_seq = self._write_frame_packet_locked(frame_bytes, sequence)
             except (SerialTimeoutException, FrameAckError) as exc:
@@ -524,7 +606,7 @@ class SerialLEDStrip:
                 try:
                     self._reset_serial_buffers_locked()
                     # Allow the UNO parser to recover from partial packet / delayed ACK before retry.
-                    time.sleep(max(float(self.settings.led_serial_timeout), self._ack_timeout, 0.05))
+                    self._pause(max(float(self.settings.led_serial_timeout), self._ack_timeout, 0.05))
                     write_ms, ack_ms, total_ms, ack_seq = self._write_frame_packet_locked(frame_bytes, sequence)
                     if is_write_timeout:
                         self._stats["frame_write_timeout_retry_successes"] += 1
@@ -563,6 +645,14 @@ class SerialLEDStrip:
             self._frame_sender_event.wait(timeout=0.1)
             if self._frame_sender_stop.is_set():
                 return
+            if not self._frame_sender_event.is_set():
+                try:
+                    self._check_idle_connection()
+                except (SerialException, OSError) as exc:
+                    self._record_error(f"idle recovery failed: {exc}")
+                    self._stats["frame_resync_required"] = True
+                    if self._desired_frame is not None:
+                        self._queue_desired_frame_for_resync()
             while not self._frame_sender_stop.is_set():
                 with self._queue_lock:
                     if self._pending_frame is None or self._pending_frame_seq is None:
@@ -579,25 +669,56 @@ class SerialLEDStrip:
 
                 queue_wait_ms = None
                 if queued_at is not None:
-                    queue_wait_ms = round((time.time() - queued_at) * 1000, 3)
+                    queue_wait_ms = round((time.monotonic() - queued_at) * 1000, 3)
 
                 self._stats["sender_busy"] = True
                 try:
                     self._send_frame_with_retries(frame_bytes, sequence, queue_wait_ms)
                 except Exception as exc:
+                    self._stats["frame_resync_required"] = True
+                    # Preserve the failed static image unless a newer one is
+                    # already waiting. Retry without requiring another render.
+                    with self._queue_lock:
+                        if self._pending_frame is None:
+                            self._pending_frame = frame_bytes
+                            self._pending_frame_seq = sequence
+                            self._pending_frame_queued_at = time.monotonic()
+                            self._stats["sender_queue_pending"] = True
+                    self._frame_sender_event.set()
                     self._stats["sender_loop_errors"] += 1
                     message = f"serial frame sender error: {exc}"
                     self._record_sender_error(message)
                     self._record_error(message)
-                    self._logger.exception("Serial frame sender iteration failed")
+                    self._logger.warning("Serial frame sender iteration failed: %s", exc)
+                    self._frame_sender_stop.wait(self.settings.led_serial_reconnect_delay)
                 finally:
                     self._stats["sender_busy"] = False
                     self._stats["sender_waiting_for_ack"] = False
 
     def show(self):
+        if self._frame_sender_stop.is_set():
+            raise RuntimeError("serial transport is closed")
         frame_copy = bytes(self._buffer)
         sequence = self._next_frame_sequence()
         self._enqueue_frame(frame_copy, sequence)
+
+    def _check_idle_connection(self):
+        # A static image otherwise has no traffic and would never notice USB
+        # removal or an AVR reset. Do not add heartbeats during active playback.
+        if self._desired_frame is None or time.monotonic() - self._last_activity_at < 2:
+            return
+        result = self.poll_debug_snapshot()
+        if not result["ok"]:
+            with self._lock:
+                self._close_serial_locked()
+                self._stats["frame_resync_required"] = True
+            self._queue_desired_frame_for_resync()
+        elif result["snapshot"]["frame_packets"] == 0 or result["snapshot"]["brightness"] != self._brightness:
+            # A reset can keep the USB port alive. Restore brightness and image.
+            with self._lock:
+                self._stats["frame_resync_required"] = True
+                self._write_brightness_locked()
+            self._queue_desired_frame_for_resync()
 
     def ping(self, nonce: int | None = None) -> dict:
         if nonce is None:
@@ -658,6 +779,8 @@ class SerialLEDStrip:
                 error = "invalid magic in response"
             elif response[2] != self.CMD_PING_ACK:
                 error = f"unexpected cmd in response ({response[2]})"
+            elif struct.unpack("<H", response[3:5])[0] != 4:
+                error = "invalid payload length in response header"
             elif self._checksum(response[:-1]) != recv_checksum:
                 error = "checksum mismatch in response"
             elif len(recv_payload) != 4:
@@ -719,6 +842,8 @@ class SerialLEDStrip:
             return None, "invalid magic in response"
         if response[2] != expected_cmd:
             return None, f"unexpected cmd in response ({response[2]})"
+        if struct.unpack("<H", response[3:5])[0] != expected_payload_len:
+            return None, "invalid payload length in response header"
         if self._checksum(response[:-1]) != recv_checksum:
             return None, "checksum mismatch in response"
         if len(recv_payload) != expected_payload_len:
@@ -801,21 +926,13 @@ class SerialLEDStrip:
             "brightness": current_brightness,
         }
         self._stats["arduino_debug"] = snapshot
-        self._protocol_version = int(version)
-        self._frame_ack_supported = self._protocol_version >= self.FRAME_ACK_PROTOCOL_VERSION
-        self._frame_ack_enabled = self._frame_ack_supported
-        self._protocol_probe_error = None
-        self._stats["protocol_version"] = self._protocol_version
-        self._stats["protocol_probe_error"] = self._protocol_probe_error
-        self._stats["frame_ack_supported"] = self._frame_ack_supported
-        self._stats["frame_ack_enabled"] = self._frame_ack_enabled
         return {"ok": True, "roundtrip_ms": rtt_ms, "snapshot": snapshot, "reconnected": reconnected}
 
-    def get_debug_snapshot(self) -> dict:
+    def get_debug_snapshot(self, *, poll: bool = True) -> dict:
         last_poll = self._stats.get("last_debug_poll_at")
         if last_poll and (time.time() - float(last_poll)) < self._debug_poll_cache_ttl_s:
             self._stats["debug_poll_cache_hits"] += 1
-        else:
+        elif poll:
             try:
                 self.poll_debug_snapshot()
             except Exception as exc:  # defensive: debug endpoint must stay usable
@@ -846,6 +963,9 @@ class SerialLEDStrip:
             "sender_loop_errors",
         )
         return {
+            "connected": self._stats["connected"],
+            "protocol_version": self._protocol_version,
+            "brightness_sync": "ack" if (self._protocol_version or 0) >= 3 else "legacy_guard",
             "frame_ack_enabled": self._frame_ack_enabled,
             "sender_thread_alive": self._frame_sender_thread.is_alive(),
             "counters": {key: self._stats[key] for key in counters},
@@ -863,23 +983,17 @@ class LEDDriver:
 
         transport = settings.led_transport
         if transport == "auto":
-            transport = "rpi" if PixelStrip is not None else "serial"
+            transport = "serial"
 
         self.transport = transport
 
         if transport == "serial":
-            try:
-                self.strip = SerialLEDStrip(settings, self._logger)
-                self.strip.begin()
-            except (SerialException, RuntimeError, OSError) as exc:
-                self._logger.warning("Serial LED init failed (%s). Falling back to mock strip.", exc)
-                self._activate_mock_strip("Serial LED initialization failed")
-            else:
-                self._logger.info(
-                    "Using serial LED transport on %s @ %s baud",
-                    settings.led_serial_port,
-                    settings.led_serial_baudrate,
-                )
+            self.strip = SerialLEDStrip(settings, self._logger)
+            self.strip.begin()
+            self._logger.info("Using serial LED transport on %s @ %s baud", settings.led_serial_port, settings.led_serial_baudrate)
+
+        elif transport == "mock":
+            self._activate_mock_strip("Explicit development transport")
 
         elif transport == "rpi":
             if PixelStrip is None:
@@ -914,15 +1028,15 @@ class LEDDriver:
         self._color = lambda r, g, b: (r, g, b)
         self.strip.begin()
 
-    def get_debug_snapshot(self) -> dict:
+    def get_debug_snapshot(self, *, poll: bool = True) -> dict:
         base = {
             "transport": self.transport,
             "led_count": self.settings.led_count,
-            "brightness": getattr(self.strip, "brightness", self.settings.led_brightness),
+            "brightness": getattr(self.strip, "_brightness", getattr(self.strip, "brightness", self.settings.led_brightness)),
             "strip_class": self.strip.__class__.__name__,
         }
         if isinstance(self.strip, SerialLEDStrip):
-            base["serial"] = self.strip.get_debug_snapshot()
+            base["serial"] = self.strip.get_debug_snapshot(poll=poll)
         return base
 
     def serial_ping(self, nonce: int | None = None) -> dict:
@@ -943,6 +1057,10 @@ class LEDDriver:
         self.strip.setBrightness(brightness)
         if not isinstance(self.strip, SerialLEDStrip):
             self.strip.show()
+
+    def close(self):
+        if isinstance(self.strip, SerialLEDStrip):
+            self.strip.close()
 
     def write_frame(self, indices_to_on: list[int], color: RGB | None = None):
         color = color or RGB(80, 80, 80)

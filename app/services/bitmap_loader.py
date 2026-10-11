@@ -57,7 +57,7 @@ class BitmapLoader:
         if height > 8:
             max_start = height - 8
             speed = max(scroll_speed, 0.25)
-            tick = int((now or time.time()) * speed)
+            tick = int((time.monotonic() if now is None else now) * speed)
             cycle = max_start + 1
             if scroll_direction == "bottom_to_top":
                 window_start = max_start - (tick % cycle)

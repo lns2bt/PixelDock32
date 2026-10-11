@@ -21,6 +21,9 @@ class FakeUno:
         self.ack_mode = "ok"
         self.version = 2
         self.brightness = 64
+        self.flush_count = 0
+        self.out_waiting = 0
+        self.frame_count = 0
 
     def write(self, data):
         self.writes.append(bytes(data))
@@ -29,12 +32,15 @@ class FakeUno:
         if packet(command, payload) != data:
             raise AssertionError("invalid host packet")
         if command == 4:
-            self.responses.extend(packet(0x84, struct.pack("<BIIIIIIHHHBB", self.version, *([0] * 9), 0, self.brightness)))
-        elif command == 2:
+            self.responses.extend(packet(0x84, struct.pack("<BIIIIIIHHHBB", self.version, 0, 0, self.frame_count, *([0] * 6), 0, self.brightness)))
+        elif command in (2, 6):
             self.brightness = payload[0]
+            if command == 6:
+                self.responses.extend(packet(0x86, payload))
         elif command == 3:
             self.responses.extend(packet(0x83, payload))
         elif command in (1, 5):
+            self.frame_count += 1
             self.frame = bytes(payload[2:] if command == 5 else payload)
             if command == 5 and self.ack_mode != "missing":
                 sequence = struct.unpack("<H", payload[:2])[0]
@@ -56,6 +62,9 @@ class FakeUno:
 
     def reset_output_buffer(self):
         pass
+
+    def flush(self):
+        self.flush_count += 1
 
     def close(self):
         self.closed = True

@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -20,36 +21,47 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    led_driver = None
+    ext_service = None
+    display_service = None
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        async with SessionLocal() as db:
+            await ensure_default_modules(db)
 
-    async with SessionLocal() as db:
-        await ensure_default_modules(db)
-
-    ext_service = ExternalDataService(settings)
-    led_driver = LEDDriver(settings)
-    mapper = LEDMapper(settings)
-    bitmap_dir = Path(__file__).parent / "bitmaps"
-    bitmap_dir.mkdir(parents=True, exist_ok=True)
-    display_service = DisplayService(
-        session_factory=SessionLocal,
-        led_driver=led_driver,
-        mapper=mapper,
-        cache_provider=lambda: ext_service.cache,
-        fps=settings.render_fps,
-        bitmap_loader=BitmapLoader(bitmap_dir),
-    )
-
-    app.state.external_data_service = ext_service
-    app.state.display_service = display_service
-
-    await ext_service.start()
-    await display_service.start()
-
-    yield
-
-    await display_service.stop()
-    await ext_service.stop()
+        ext_service = ExternalDataService(settings)
+        led_driver = await asyncio.to_thread(LEDDriver, settings)
+        mapper = LEDMapper(settings)
+        bitmap_dir = Path(__file__).parent / "bitmaps"
+        bitmap_dir.mkdir(parents=True, exist_ok=True)
+        display_service = DisplayService(
+            session_factory=SessionLocal,
+            led_driver=led_driver,
+            mapper=mapper,
+            cache_provider=lambda: ext_service.cache,
+            fps=settings.render_fps,
+            bitmap_loader=BitmapLoader(bitmap_dir),
+        )
+        app.state.external_data_service = ext_service
+        app.state.display_service = display_service
+        await ext_service.start()
+        await display_service.start()
+        yield
+    finally:
+        try:
+            if display_service is not None:
+                await display_service.stop()
+        finally:
+            try:
+                if ext_service is not None:
+                    await ext_service.stop()
+            finally:
+                try:
+                    if led_driver is not None:
+                        await asyncio.to_thread(led_driver.close)
+                finally:
+                    await engine.dispose()
 
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
