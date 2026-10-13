@@ -48,7 +48,7 @@ class BTCModule(ModuleBase):
 
         if price is None:
             if settings.get("visual_style", "retro") != "legacy":
-                return icon_value("coin", "...k", fallback_color, settings.get("_elapsed", 0))
+                return icon_value("bitcoin", "...", fallback_color, settings.get("_elapsed", 0), base_b_color)
             return ModulePayload(
                 text="B...k",
                 font_size=font_size,
@@ -70,7 +70,13 @@ class BTCModule(ModuleBase):
             price_color = flat_color
 
         if settings.get("visual_style", "retro") != "legacy":
-            return icon_value("coin", text[1:], price_color, settings.get("_elapsed", 0))
+            compact = f"{float(price) / 1_000_000:.1f}M" if float(price) >= 1_000_000 else text[1:]
+            payload = icon_value("bitcoin", compact, price_color, settings.get("_elapsed", 0), base_b_color)
+            if trend in {"up", "down"}:
+                arrow = ["010", "111"] if trend == "up" else ["111", "010"]
+                from app.services.module_visuals import paint
+                paint(payload.frame, payload.color_frame, arrow, 28, 6, price_color)
+            return payload
 
         return ModulePayload(
             text=text,

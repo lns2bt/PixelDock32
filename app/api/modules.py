@@ -11,6 +11,7 @@ from app.database import get_db
 from app.models import ModuleConfig
 from app.schemas import ModuleConfigResponse, ModuleConfigUpdate, ModuleCreate, ModuleOrder
 from app.services.module_manager import list_modules
+from app.services.module_visuals import CLOCK_VARIANTS, DEFAULT_CLOCK_VARIANTS
 
 router = APIRouter(prefix="/api/modules", tags=["modules"])
 
@@ -247,12 +248,12 @@ def sanitize_settings(module_key: str, settings: dict) -> dict:
     merged["priority_every"] = _clamp_int(merged.get("priority_every", 45 if module_key == "clock" else 0), 0, 3600, 0)
     merged["speed"] = _clamp_float(merged.get("speed", 1), 0.1, 4, 1)
     if module_key == "clock":
-        variants = merged.get("variants", ["classic", "arcade", "progress"])
-        allowed = {"classic", "arcade", "progress", "binary"}
+        variants = merged.get("variants", DEFAULT_CLOCK_VARIANTS)
+        allowed = CLOCK_VARIANTS
         merged["variants"] = list(dict.fromkeys(v for v in variants if isinstance(v, str) and v in allowed)) if isinstance(variants, list) else []
         if not merged["variants"]:
             merged["variants"] = ["classic"]
-        merged["variant_seconds"] = _clamp_int(merged.get("variant_seconds", 4), 2, 30, 4)
+        merged.pop("variant_seconds", None)
     if module_key == "weather":
         for key in ("show_outdoor", "show_indoor", "show_humidity"):
             merged[key] = bool(merged.get(key, True))

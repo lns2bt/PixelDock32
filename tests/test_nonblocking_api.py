@@ -2,7 +2,7 @@ import asyncio
 import threading
 from types import SimpleNamespace
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, AsyncMock
 
 from fastapi import FastAPI
 import httpx
@@ -10,6 +10,7 @@ import httpx
 from app.api.debug import router as debug_router
 from app.api.display import router as display_router
 from app.api.deps import get_current_user
+from app.database import get_db
 
 
 class NonblockingApiTests(unittest.IsolatedAsyncioTestCase):
@@ -31,6 +32,9 @@ class NonblockingApiTests(unittest.IsolatedAsyncioTestCase):
                 app.dependency_overrides[get_current_user] = lambda: "test-user"
                 driver, display, external = Mock(), Mock(), Mock()
                 display.led_driver = driver
+                display.brightness_lock = asyncio.Lock()
+                db = Mock(get=AsyncMock(return_value=None), commit=AsyncMock())
+                app.dependency_overrides[get_db] = lambda: db
                 driver.get_transport_metrics.return_value = {"transport": "serial"}
                 app.state.display_service = display
                 app.state.external_data_service = external

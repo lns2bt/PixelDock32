@@ -1,4 +1,4 @@
-/* Shared UI shell: passive preview only. Never opens or polls the serial port. */
+/* Shared shell: passive preview. Brightness writes occur only on user action. */
 (() => {
   'use strict';
   const token = localStorage.getItem('token');
@@ -33,6 +33,7 @@
   const header = document.createElement('header'); header.className = 'live-header';
   header.innerHTML = `<div class="live-header-inner"><div class="live-top"><a class="pixel-brand" href="/">PIXEL<span>DOCK</span><small> /32</small></a><span class="live-label"><i class="live-dot" aria-hidden="true"></i><span id="previewConnection">VERBINDE …</span></span></div><div class="live-matrix"><canvas id="headerMatrix" width="512" height="128" aria-label="Live-Vorschau der gerenderten LED-Anzeige"></canvas><div class="live-caption">GERENDERTES BILD<strong id="onAir">—</strong>32 × 8 · 256 Pixel</div></div><nav class="retro-nav" aria-label="Hauptnavigation"><a href="/">Dashboard</a><a href="/modules">Playlist</a><a href="/studio">Pixel-Studio</a><a href="/advanced">Erweitert</a><button id="shellLogout" type="button">Abmelden</button></nav></div>`;
   document.body.prepend(header);
+  window.PixelDockBrightness?.mount({api,toast,header});
   document.querySelectorAll('.retro-nav a').forEach(link => {
     const active = link.getAttribute('href') === location.pathname || (link.getAttribute('href') === '/advanced' && ['/debug','/mapping','/tools'].includes(location.pathname));
     link.classList.toggle('active', active); if (active) link.setAttribute('aria-current', 'page');

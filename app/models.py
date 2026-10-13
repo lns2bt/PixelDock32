@@ -14,3 +14,10 @@ class ModuleConfig(Base):
     duration_seconds: Mapped[int] = mapped_column(Integer, default=10)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     settings: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class DisplayPreference(Base):
+    __tablename__ = "display_preferences"
+
+    key: Mapped[str] = mapped_column(String(50), primary_key=True)
+    value: Mapped[int] = mapped_column(Integer)

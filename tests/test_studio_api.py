@@ -1,4 +1,5 @@
 from pathlib import Path
+import asyncio
 import tempfile
 import unittest
 from unittest.mock import Mock
@@ -7,7 +8,7 @@ from fastapi import FastAPI
 import httpx
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.api import assets, modules
+from app.api import assets, modules, display
 from app.api.deps import get_current_user
 from app.database import Base, get_db
 from app.services.assets import AssetStore
@@ -27,8 +28,11 @@ class StudioApiTests(unittest.IsolatedAsyncioTestCase):
         self.app = FastAPI()
         self.app.state.asset_store = AssetStore(directory.name)
         self.app.state.display_service = Mock()
+        self.app.state.display_service.brightness_lock = asyncio.Lock()
+        self.app.state.display_service.led_driver.get_debug_snapshot.return_value = {'brightness':12}
         self.app.include_router(assets.router)
         self.app.include_router(modules.router)
+        self.app.include_router(display.router)
         async def database():
             async with self.sessions() as db:
                 yield db
@@ -88,3 +92,23 @@ class StudioApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(settings['speed'], 1)
         self.assertEqual(settings['priority_every'], 3600)
         self.assertEqual(response.json()['name'], 'Arcade Clock')
+
+    async def test_brightness_zero_persists_and_read_is_passive(self):
+        self.assertEqual((await self.client.get('/api/display/brightness')).json()['brightness'],12)
+        self.assertEqual((await self.client.post('/api/display/brightness',json={'brightness':0})).status_code,200)
+        response = (await self.client.get('/api/display/brightness')).json()
+        self.assertEqual(response['brightness'],0)
+        self.assertTrue(response['persisted'])
+        self.app.state.display_service.set_brightness.assert_called_once_with(0)
+        self.app.state.display_service.led_driver.get_debug_snapshot.assert_called_with(poll=False)
+
+    async def test_offline_brightness_is_saved_and_invalid_values_rejected(self):
+        from app.services.led_driver import SerialException
+        self.app.state.display_service.set_brightness.side_effect = SerialException('offline')
+        self.app.state.display_service.led_driver.get_debug_snapshot.return_value = {'brightness':3,'serial':{'connected':False}}
+        self.assertEqual((await self.client.post('/api/display/brightness',json={'brightness':3})).status_code,503)
+        self.assertEqual((await self.client.get('/api/display/brightness')).json()['brightness'],3)
+        self.assertFalse((await self.client.get('/api/display/brightness')).json()['connected'])
+        for value in (-1,256):
+            self.assertEqual((await self.client.post('/api/display/brightness',json={'brightness':value})).status_code,422)
+        self.assertEqual((await self.client.get('/api/display/brightness')).json()['brightness'],3)

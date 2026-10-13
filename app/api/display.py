@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from app.services.led_driver import SerialException
 
 from app.api.deps import get_current_user
+from app.database import get_db
+from app.models import DisplayPreference
 from app.schemas import BrightnessRequest, DrawRequest, ManualTextRequest
 
 router = APIRouter(prefix="/api/display", tags=["display"])
@@ -38,12 +40,29 @@ async def draw(payload: DrawRequest, request: Request, _: str = Depends(get_curr
 
 
 @router.post("/brightness")
-async def brightness(payload: BrightnessRequest, request: Request, _: str = Depends(get_current_user)):
-    try:
-        await asyncio.to_thread(_display(request).set_brightness, payload.brightness)
-    except (SerialException, OSError) as exc:
-        raise HTTPException(status_code=503, detail="LED device unavailable; brightness saved for reconnect") from exc
+async def brightness(payload: BrightnessRequest, request: Request, _: str = Depends(get_current_user), db=Depends(get_db)):
+    service = _display(request)
+    async with service.brightness_lock:
+        preference = await db.get(DisplayPreference, "brightness")
+        if preference is None:
+            db.add(DisplayPreference(key="brightness", value=payload.brightness))
+        else:
+            preference.value = payload.brightness
+        await db.commit()
+        try:
+            await asyncio.to_thread(service.set_brightness, payload.brightness)
+        except (SerialException, OSError) as exc:
+            raise HTTPException(status_code=503, detail="Helligkeit gespeichert; Uno derzeit nicht erreichbar. Wird bei Wiederverbindung angewendet.") from exc
     return {"ok": True}
+
+
+@router.get("/brightness")
+async def get_brightness(request: Request, _: str = Depends(get_current_user), db=Depends(get_db)):
+    preference = await db.get(DisplayPreference, "brightness")
+    snapshot = _display(request).led_driver.get_debug_snapshot(poll=False)
+    return {"brightness": preference.value if preference is not None else snapshot["brightness"],
+            "persisted": preference is not None,
+            "connected": snapshot.get("serial", {}).get("connected", True)}
 
 
 @router.delete("/manual/clear")

@@ -2,9 +2,11 @@
 
 ## Stand und Umfang
 
-Lokale Implementierung auf `rework/smooth-led-pipeline`, aufbauend auf dem
-30-FPS-Transport. Kein Langzeit-Hardwaretest und **noch keine Installation dieses
-UI-/Asset-Reworks auf dem Pi**. Firmware v3 bleibt unverändert.
+Implementierung auf `rework/smooth-led-pipeline`, aufbauend auf dem 30-FPS-Transport.
+Der Stand `d51d02a` ist inzwischen in `/home/david/PixelDock32-studio-d51d02a`
+separat auf dem Pi installiert. Die zusätzliche Bedienungsrunde (Helligkeit,
+Login-Kontrast, Uhr und Bitcoin) ist zunächst nur lokal umgesetzt.
+Kein Langzeit-Hardwaretest; Firmware v3 bleibt unverändert.
 
 Neue Hauptseiten:
 
@@ -78,9 +80,11 @@ Keine Migration oder automatische Umschreibung vorhandener Nutzerkonfigurationen
   Übergänge werden nur bei Modul-/Ansichtswechseln ausgelöst, niemals pro
   Animationsframe neu gestartet. API/UI erlauben 0–2000 ms.
 
-Uhransichten: klassische Ziffern, Arcade-Figur mit Sekunden-Coin, Sekundenbalken und
-Binärakzente mit weiterhin lesbarer HH:MM-Zeit. Aktivierbare Ansichten rotieren während
-und zwischen Einblendungen; Standardwechsel alle vier Sekunden. Wetter/Raumklima
+Uhransichten: klassische Ziffern, Arcade-Figur mit Sekunden-Coin, Sekundenbalken,
+Binärakzente, Neon-Orbit, Neon-Ziffern/Sternenflug und Pixel-Flip. **Genau eine Ansicht
+pro Uhr-Auftritt**; die aktivierten Ansichten rotieren erst beim nächsten Auftritt
+(regulär, priorisiert oder „Jetzt“). Das frühere `variant_seconds` wird nicht mehr
+verwendet. Die Animation innerhalb der ausgewählten Ansicht läuft weiter. Wetter/Raumklima
 haben Sonne, Haus und Tropfen als temperatur-/feuchtigkeitsbezogene Symbole – die Sonne
 ist **keine Wetterzustandsprognose**. Bitcoin hat ein pulsierendes Coin-Symbol und
 Trendfarben. `visual_style=legacy` erhält bei Bedarf die früheren Textdarstellungen.
@@ -101,7 +105,25 @@ und 390-Pixel-Mobilansicht: sticky Vorschau, Formulare, Reihenfolge, Zeichnen,
 Frame-Duplizieren, Bibliothek und einmalige Wiedergabe. Keine echte Hardware bei
 diesen Tests angesprochen.
 
-Aktueller lokaler Stand: **88 Tests erfolgreich**, Browser-Smoke ebenfalls erfolgreich.
+Aktueller lokaler Stand: **95 Tests erfolgreich**, Browser-Smoke ebenfalls erfolgreich.
+
+## Helligkeit und Kontrast
+
+- Sonnensymbol im Header aller angemeldeten Seiten, ohne Suche in Diagnosewerkzeugen.
+- Exponentielle Reglerkennlinie `round(exp(log(256) * position / 1000) - 1)`.
+  Die niedrigen Werte 0–10 belegen rund 43 % des Wegs; Ganzzahl, ±1-Tasten und
+  Schnellwerte 0/1/3/6/12 ermöglichen exaktes Einstellen. Draggen verändert zunächst
+  den UI-Wert; angewendet wird beim Loslassen. Zahl und Tasten wirken sofort.
+- Helligkeit wird in der zusätzlichen Tabelle `display_preferences` gespeichert;
+  vorhandene Tabellen/Module werden nicht umgeschrieben. Fehlt ein gespeicherter Wert,
+  gilt weiterhin `LED_BRIGHTNESS` aus `.env`. Auch **0** wird korrekt wiederhergestellt.
+- Hardwarezugriffe bleiben off-thread und serialisiert. Bei nicht erreichbarem Uno
+  bleibt der Zielwert gespeichert und wird bei Wiederverbindung angewendet.
+- Der Login hat jetzt explizit dunkle Hintergründe, helle Beschriftungen/Platzhalter
+  und sichtbare Fokusrahmen. Browser-Smoke prüft mindestens **4,5:1** Textkontrast.
+- Bitcoin: besser erkennbares ₿ mit B-Schleifen und Doppelstrichen, eigener pulsierender
+  Symbolfarbe, getrennten Trendfarben und Richtungspfeil. Preise ab einer Million Euro
+  verwenden `M` statt einer abgeschnittenen Darstellung mit `k`.
 
 Reproduzierbarer Browser-Smoke-Test (lokal, niemals gegen den laufenden Pi):
 

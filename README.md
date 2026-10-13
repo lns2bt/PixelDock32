@@ -21,9 +21,10 @@ Playlist mit Prioritäts-/Shuffle-Slots sowie GIF-/PNG-Import und einen Sprite-E
 mit Animationsframes. Uhransichten, Modulsymbole und Übergänge wurden überarbeitet;
 Diagnosewerkzeuge sind unter „Erweitert“ gebündelt.
 
-Der Datenweg mit Firmware v3 wurde erstmals am Pi/Uno getestet. Das neue UI-/Asset-Rework
-ist lokal getestet, aber noch nicht auf dem Pi installiert oder optisch auf den LEDs
-geprüft. Umfang, Grenzen und Testanleitung: [Pixel-Studio-Rework](docs/pixel-studio-rework.md).
+Der Datenweg mit Firmware v3 und der erste Studio-Stand `d51d02a` sind auf dem Pi
+installiert. Die zusätzlichen Verbesserungen an Helligkeit, Login-Kontrast, Uhr und
+Bitcoin sind zunächst lokal getestet. Umfang, Grenzen und Testanleitung:
+[Pixel-Studio-Rework](docs/pixel-studio-rework.md).
 
 ## Version 0.1.0 — Working Snapshot
 

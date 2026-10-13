@@ -1024,6 +1024,7 @@ class LEDDriver:
     def _activate_mock_strip(self, reason: str):
         self._logger.warning("Using mock LED strip: %s", reason)
         self.strip = MockStrip(self.settings.led_count)
+        self.strip.setBrightness(self.settings.led_brightness)
         self.transport = "mock"
         self._color = lambda r, g, b: (r, g, b)
         self.strip.begin()

@@ -101,6 +101,7 @@ class DisplayService:
         self.frame_delay = 1 / fps
         self.bitmap_loader = bitmap_loader
         self.asset_store = asset_store
+        self.brightness_lock = asyncio.Lock()
         self.playlist = Playlist()
         self._play_once = None
         self._asset_data = None
@@ -203,6 +204,9 @@ class DisplayService:
         now = time.monotonic()
         row = {"id": module.id, "key": module.key, "settings": dict(module.settings or {}), "duration_seconds": module.duration_seconds}
         self._play_once = {"row": row, "start": now, "end": now + module.duration_seconds}
+        identity = self.playlist.identity(row)
+        self.playlist.visits[identity] = self.playlist.visits.get(identity, 0) + 1
+        self.playlist.last_priority[identity] = now
         self._asset_identity = None
 
     @staticmethod

@@ -17,6 +17,7 @@ from app.services.module_manager import ensure_default_modules
 from app.services.bitmap_loader import BitmapLoader
 from app.services.assets import AssetStore
 from app.services.retro_scenes import seed_retro_assets
+from app.models import DisplayPreference
 
 settings = get_settings()
 
@@ -31,9 +32,13 @@ async def lifespan(app: FastAPI):
             await conn.run_sync(Base.metadata.create_all)
         async with SessionLocal() as db:
             await ensure_default_modules(db)
+            brightness = await db.get(DisplayPreference, "brightness")
+            runtime_settings = settings
+            if brightness is not None and 0 <= brightness.value <= 255:
+                runtime_settings = settings.model_copy(update={"led_brightness": brightness.value})
 
         ext_service = ExternalDataService(settings)
-        led_driver = await asyncio.to_thread(LEDDriver, settings)
+        led_driver = await asyncio.to_thread(LEDDriver, runtime_settings)
         mapper = LEDMapper(settings)
         asset_store = await asyncio.to_thread(AssetStore, settings.asset_directory)
         await asyncio.to_thread(seed_retro_assets, asset_store)

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from app.api.deps import get_current_user
 from app.config import Settings
 import app.main as main
+from app.models import DisplayPreference
 
 
 class AppLifecycleTests(unittest.IsolatedAsyncioTestCase):
@@ -51,3 +52,14 @@ class AppLifecycleTests(unittest.IsolatedAsyncioTestCase):
                     pass
         driver.close.assert_called_once()
         self.external.stop.assert_awaited_once()
+
+    async def test_saved_zero_brightness_is_loaded_before_driver_initialization(self):
+        self.settings.led_brightness = 12
+        async with self.engine.begin() as connection:
+            await connection.run_sync(main.Base.metadata.create_all)
+        async with self.sessions() as db:
+            db.add(DisplayPreference(key='brightness',value=0))
+            await db.commit()
+        async with main.lifespan(main.app):
+            driver = main.app.state.display_service.led_driver
+            self.assertEqual(driver.get_debug_snapshot(poll=False)['brightness'],0)

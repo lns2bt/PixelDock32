@@ -9,7 +9,7 @@ from app.modules.textbox import TextBoxModule
 class VisualTests(unittest.TestCase):
     def test_clock_variants_have_distinct_bounded_rgb_frames(self):
         outputs = []
-        for variant in ('classic', 'arcade', 'progress', 'binary'):
+        for variant in ('classic', 'arcade', 'progress', 'binary', 'orbit', 'neon', 'flip'):
             result = clock_visual(datetime(2026, 10, 13, 23, 59, 42), {'variants':[variant]})
             self.assertEqual(len(result.frame), 8)
             self.assertTrue(all(len(row) == 32 for row in result.frame))
@@ -18,6 +18,21 @@ class VisualTests(unittest.TestCase):
         for i in range(len(outputs)):
             for j in range(i):
                 self.assertNotEqual(outputs[i], outputs[j])
+
+    def test_clock_keeps_one_variant_for_entire_visit(self):
+        now = datetime(2026,10,13,12,34,56)
+        for visit, variant in enumerate(('classic','orbit','neon')):
+            for elapsed in (0,4,8,45,120):
+                result = clock_visual(now, {'variants':['classic','orbit','neon'], '_visit':visit, '_elapsed':elapsed})
+                self.assertEqual(result.scene_key,variant)
+
+    def test_new_clock_animations_move_without_switching_views(self):
+        now = datetime(2026,10,13,12,34,56)
+        for variant in ('orbit','neon','flip'):
+            a = clock_visual(now,{'variants':[variant], '_elapsed':0})
+            b = clock_visual(now,{'variants':[variant], '_elapsed':1.2})
+            self.assertEqual(a.scene_key,b.scene_key)
+            self.assertNotEqual(a.color_frame,b.color_frame)
 
     def test_symbol_value_fits_panel(self):
         result = icon_value('drop', '100%', (80, 220, 255))

@@ -47,11 +47,10 @@
       + checkbox('Zufälliger Einwurf statt festem Slot', 'shuffle', s.shuffle);
     if (kind === 'clock') {
       html += input('Zeitzone', 'timezone', s.timezone || 'Europe/Vienna')
-        + input('Darstellung wechseln alle … Sekunden', 'variant_seconds', s.variant_seconds || 4, 'number', 'min="2" max="30"')
         + input('Ziffernfarbe', 'color', s.color || '#6ee1ff', 'color')
         + checkbox('Sekunden bei klassischer Uhr', 'show_seconds', s.show_seconds ?? true);
-      const variants = s.variants || ['classic','arcade','progress'];
-      html += `<div class="wide"><p class="muted">Aktive Uhransichten rotieren während und zwischen den Einblendungen:</p><div class="editor-toolbar">${[['classic','Klassische Ziffern'],['arcade','Arcade / Coin Runner'],['progress','Sekunden-Fortschritt'],['binary','Binär-Akzente']].map(([key,title]) => checkbox(title, 'variant_' + key, variants.includes(key))).join('')}</div></div>`;
+      const variants = s.variants || ['classic','arcade','progress','orbit','neon','flip'];
+      html += `<div class="wide"><p class="muted">Genau eine Ansicht pro Einblendung. Erst beim nächsten Uhr-Auftritt folgt die nächste aktivierte Ansicht:</p><div class="editor-toolbar">${[['classic','Klassische Ziffern'],['arcade','Arcade / Coin Runner'],['progress','Sekunden-Fortschritt'],['binary','Binär-Akzente'],['orbit','Neon-Orbit'],['neon','Neon-Ziffern & Sternenflug'],['flip','Pixel-Flip / Clockwork']].map(([key,title]) => checkbox(title, 'variant_' + key, variants.includes(key))).join('')}</div></div>`;
     } else if (kind === 'textbox') {
       html += `<label class="wide">Text / Zeilen<textarea name="lines" rows="3" maxlength="2000">${escape(s.lines || 'HELLO PIXELDOCK')}</textarea></label>`
         + select('Darstellung', 'text_mode', s.text_mode || 'scroll', [['scroll','Laufschrift'],['static','Zeilen wechseln']])
@@ -74,7 +73,12 @@
         + '<p class="wide muted">Alle Wettermodule nutzen denselben konfigurierten Standort. Standortwechsel erfolgt über WEATHER_LAT / WEATHER_LON in der Systemkonfiguration.</p>';
     } else if (kind === 'btc') {
       html += checkbox('Zusätzlich Blockhöhe anzeigen', 'show_block_height', s.show_block_height)
-        + input('Werte wechseln alle … Sekunden', 'screen_seconds', s.screen_seconds || 4, 'number', 'min="1" max="60"');
+        + input('Werte wechseln alle … Sekunden', 'screen_seconds', s.screen_seconds || 4, 'number', 'min="1" max="60"')
+        + input('Bitcoin-Symbol', 'color_b', s.color_b || '#ff8c00', 'color')
+        + input('Preis bei steigendem Trend', 'color_up', s.color_up || '#00c850', 'color')
+        + input('Preis bei fallendem Trend', 'color_down', s.color_down || '#e63c3c', 'color')
+        + input('Preis bei neutralem Trend', 'color_flat', s.color_flat || '#dcdc50', 'color')
+        + '<p class="wide muted">Das ₿-Symbol pulsiert unabhängig von der Preisfarbe. k = tausend Euro, M = Millionen Euro; Trendfarbe und Pfeil zeigen die Richtung.</p>';
     } else if (kind === 'bitmap') {
       html += input('Datei im Bitmap-Verzeichnis', 'file', s.file || 'sample_gradient.ppm')
         + select('Scrollrichtung', 'scroll_direction', s.scroll_direction || 'top_to_bottom', [['top_to_bottom','Von oben nach unten'],['bottom_to_top','Von unten nach oben']])
