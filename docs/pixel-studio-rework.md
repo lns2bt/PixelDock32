@@ -2,11 +2,18 @@
 
 ## Stand und Umfang
 
-Implementierung auf `rework/smooth-led-pipeline`, aufbauend auf dem 30-FPS-Transport.
-Der Stand `d51d02a` ist inzwischen in `/home/david/PixelDock32-studio-d51d02a`
-separat auf dem Pi installiert. Die zusätzliche Bedienungsrunde (Helligkeit,
-Login-Kontrast, Uhr und Bitcoin) ist zunächst nur lokal umgesetzt.
-Kein Langzeit-Hardwaretest; Firmware v3 bleibt unverändert.
+Der geprüfte Stand wurde von `rework/smooth-led-pipeline` nach `main` übernommen.
+Der Softwarestand `1227bfa` läuft auf dem Pi in
+`/home/david/PixelDock32-controls-1227bfa`, einschließlich Helligkeit, verbessertem
+Login-Kontrast und neuen Uhr-/Bitcoin-Darstellungen. Firmware v3 bleibt unverändert.
+Frühere Projektverzeichnisse und Sicherungen bleiben erhalten. Kein Langzeit-Hardwaretest.
+
+`pixeldock32.service` und `pixeldock32-healthcheck.timer` sind für den Systemstart
+aktiviert. Der dauerhafte Drop-in
+`/etc/systemd/system/pixeldock32.service.d/90-rework-test.conf` zeigt auf das aktuelle
+Projekt und dessen eigene venv/`.env`. Trotz des historischen Dateinamens ist dies
+eine persistente Konfiguration, keine temporäre Test-Unit. Kein Neustart des Pi war
+für diese Bestätigung nötig; ein erneuter Boot-Test wurde nicht durchgeführt.
 
 Neue Hauptseiten:
 
