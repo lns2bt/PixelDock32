@@ -74,6 +74,9 @@ body[data-page=login] .top-nav { background:#0c101d; border-color:var(--border);
 body[data-page=login] .auth-card .primary { background:var(--mint); color:#09261f; border-color:var(--mint); }
 body[data-page=login] input:focus-visible { outline:3px solid var(--gold); outline-offset:3px; }
 .live-top { gap:.5rem; }
+#shellSleep { min-width:40px; flex-shrink:0; }
+#shellSleep[aria-pressed=true] { color:var(--gold); border-color:var(--gold); }
+@media(max-width:440px) { .live-top .live-label { font-size:.55rem; } .live-top .pixel-brand { font-size:.95rem; } }
 @media(min-width:900px) { #spriteCanvas { width:100%; height:auto; } }
 @media(max-width:650px) { .metric-row { grid-template-columns:repeat(3,minmax(0,1fr)); gap:.5rem; } .metric-row .panel { padding:.8rem; } .metric-row strong { font-size:1.1rem; } .metric-row small { font-size:.65rem; } .asset-grid { grid-template-columns:1fr; } .field-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .retro-main { padding:1.2rem .75rem 3rem; } .panel { padding:1rem; } .live-caption { display:none; } .live-matrix canvas { width:280px; max-width:100%; } .live-header-inner { padding:.4rem .75rem; } .live-label { font-size:.65rem; } .module-head { gap:.5rem; } .form-actions button { flex:1; } }
 @media(prefers-reduced-motion:reduce) { * { scroll-behavior:auto !important; } }

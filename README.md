@@ -10,6 +10,10 @@ Das README ist bewusst kurz gehalten. Die ausführliche, aufgeteilte Projektdoku
 
 ## Aktueller Standard: Datenweg, Dashboard und Pixel-Studio
 
+In Entwicklung: **Time-Stage**, 20 Uhransichten, 10 magische Ereignisanimationen,
+eigenständige Uhr-Regie, Schlafmodus und lokale Sonnen-/Mondzeremonien. Details:
+[Time-Stage](docs/time-stage.md). Noch kein GitHub-Push dieses Entwicklungsstands.
+
 Dieser Zweig enthält den überarbeiteten 30-FPS-Datenweg und Uno-Firmware v3.
 Vorhandene `.env`-Werte werden nicht überschrieben. Für vollständige
 Helligkeits-Synchronisation ist die neue Firmware vorgesehen; Details und

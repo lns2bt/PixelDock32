@@ -2,6 +2,7 @@ import asyncio
 import logging
 import math
 import time
+import threading
 from collections.abc import Callable
 from datetime import datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -102,6 +103,22 @@ class DisplayService:
         self.bitmap_loader = bitmap_loader
         self.asset_store = asset_store
         self.brightness_lock = asyncio.Lock()
+        self.time_stage = None
+        self.time_stage_config = None
+        self.astronomy_data = {}
+        self.astronomy_error = None
+        self._astronomy_task = None
+        self._astronomy_changed = asyncio.Event()
+        self._stage_preview = None
+        self._stage_counted_generation = -1
+        self._was_sleeping = False
+        self._effective_brightness = None
+        snapshot = led_driver.get_debug_snapshot(poll=False)
+        initial = snapshot.get("brightness") if isinstance(snapshot, dict) else None
+        self._day_brightness = initial if type(initial) is int else get_settings().led_brightness
+        self._stage_render_error = None
+        self._preview_sky_cache = {}
+        self._preview_sky_lock = threading.Lock()
         self.playlist = Playlist()
         self._play_once = None
         self._asset_data = None
@@ -198,7 +215,164 @@ class DisplayService:
             return
         self._first_frame = True
         self._running = True
+        if self.time_stage and (not self._astronomy_task or self._astronomy_task.done()):
+            self._astronomy_task = asyncio.create_task(self._astronomy_loop())
         self._task = asyncio.create_task(self._loop())
+
+    def _stage_now(self):
+        return datetime.now(ZoneInfo(self.time_stage_config["timezone"]))
+
+    def configure_time_stage(self, config):
+        from app.services.time_stage.engine import TimeStageEngine
+        changed_location = not self.time_stage_config or any(self.time_stage_config.get(k) != config.get(k) for k in ("location", "timezone"))
+        self.time_stage_config = config
+        if self.time_stage is None:
+            self.time_stage = TimeStageEngine(config)
+        else:
+            self.time_stage.set_config(config)
+        if changed_location:
+            self.astronomy_data = {}
+        self._astronomy_changed.set()
+
+    def time_stage_location(self):
+        location = self.time_stage_config["location"]
+        system = get_settings()
+        return {"latitude": location["latitude"] if location["source"] == "custom" else system.weather_lat,
+                "longitude": location["longitude"] if location["source"] == "custom" else system.weather_lon,
+                "source": location["source"]}
+
+    async def _astronomy_loop(self):
+        from app.services.time_stage.astronomy import calculate
+        while self._running:
+            try:
+                self._astronomy_changed.clear()
+                config = self.time_stage_config
+                location = self.time_stage_location()
+                result = await asyncio.to_thread(calculate, self._stage_now(), location["latitude"], location["longitude"])
+                # A slow calculation must not publish data for a superseded location.
+                if config is self.time_stage_config:
+                    self.astronomy_data = result
+                    self.astronomy_error = None
+            except Exception as exc:
+                self.astronomy_error = str(exc)
+                self._logger.exception("Time-Stage astronomy calculation failed")
+            try:
+                await asyncio.wait_for(self._astronomy_changed.wait(), timeout=60)
+            except asyncio.TimeoutError:
+                pass
+
+    def time_stage_status(self):
+        if not self.time_stage:
+            return {"enabled": False}
+        status = self.time_stage.status(self._stage_now(), time.monotonic())
+        status.update(day_brightness=self._day_brightness, effective_brightness=self._effective_brightness,
+                      astronomy_error=self.astronomy_error, render_error=self._stage_render_error,
+                      physical_preview=bool(self._stage_preview))
+        return status
+
+    def preview_for_browser(self, key, now, elapsed=0):
+        from app.services.time_stage.celestial import KEYS
+        info = None
+        if key in KEYS:
+            from app.services.time_stage.astronomy import calculate
+            location = self.time_stage_location()
+            stamp = now.replace(second=0, microsecond=0).isoformat()
+            identity = (stamp, location["latitude"], location["longitude"])
+            with self._preview_sky_lock:
+                if identity not in self._preview_sky_cache:
+                    self._preview_sky_cache[identity] = calculate(now, location["latitude"], location["longitude"])
+                    if len(self._preview_sky_cache) > 8:
+                        self._preview_sky_cache.pop(next(iter(self._preview_sky_cache)))
+                info = self._preview_sky_cache[identity]
+        return self.render_time_stage_preview(key, now, elapsed, info=info)
+
+    def render_time_stage_preview(self, key, now, elapsed=0, info=None):
+        from app.services.time_stage import SCENES, render_scene
+        from app.services.time_stage.celestial import KEYS, render_celestial
+        from app.services.time_stage.core import Canvas, shade
+        config = self.time_stage_config
+        if key not in SCENES and key not in KEYS:
+            raise ValueError("Unbekannte Time-Stage-Szene")
+        elapsed = float(elapsed)
+        if not math.isfinite(elapsed):
+            raise ValueError("Ungültige Animationszeit")
+        elapsed = max(0, elapsed)
+        try:
+            if key in KEYS:
+                event = config["events"][key]
+                payload = render_celestial(key, now, elapsed, event["duration_seconds"], self.astronomy_data if info is None else info, event["panels"])
+            else:
+                scene = SCENES[key]
+                speed = {"calm": .45, "normal": 1.0, "lively": 1.3}[config["intensity"]]
+                payload = render_scene(key, now, elapsed if scene.events else elapsed * speed)
+                if not scene.events and config["minute_transition"] and now.second == 0 and now.microsecond < 700_000:
+                    # Scatter the old arrangement and settle into the actual new time.
+                    phase = now.microsecond / 700_000
+                    transformed = Canvas()
+                    for y, row in enumerate(payload.color_frame):
+                        for x, color in enumerate(row):
+                            if color is not None:
+                                offset = int((1 - phase) * ((x * 7 + y * 13) % 9 - 4))
+                                transformed.pixel(x, y + offset, shade(color, .5 + phase * .5))
+                    payload = transformed.payload(now, key)
+            if config["color"] and key in SCENES and not SCENES[key].events:
+                tone = parse_hex_color(config["color"], (110, 225, 255))
+                payload.color_frame = [[tuple(round(c * max(rgb) / 255) for c in tone) if rgb else None for rgb in row] for row in payload.color_frame]
+            self._stage_render_error = None
+            return payload
+        except Exception as exc:
+            if self._stage_render_error != str(exc):
+                self._logger.exception("Time-Stage scene failed; using plain clock")
+            self._stage_render_error = str(exc)
+            fallback = Canvas()
+            fallback.clock(now)
+            return fallback.payload(now, "fallback")
+
+    def preview_time_stage(self, key, confirm_wake=False):
+        from app.services.time_stage import SCENES
+        from app.services.time_stage.celestial import KEYS
+        if not self.time_stage or key not in SCENES and key not in KEYS:
+            raise ValueError("Unbekannte Time-Stage-Szene")
+        if self.time_stage.sleep_state(self._stage_now())["active"] and not confirm_wake:
+            raise ValueError("Schlafmodus aktiv. LED-Vorschau erfordert eine ausdrückliche Bestätigung.")
+        duration = self.time_stage_config["events"][key]["duration_seconds"] if key in KEYS else SCENES[key].duration if SCENES[key].events else self.time_stage_config["duration_seconds"]
+        now = time.monotonic()
+        if self._stage_preview:
+            self._finish_stage_preview(now)
+        self._stage_preview = {"key": key, "start": now, "end": now + duration, "confirm_wake": bool(confirm_wake)}
+        self.transition_state = None
+
+    def _finish_stage_preview(self, now):
+        delta = now - self._stage_preview["start"]
+        if self.playlist.current is not None:
+            self.playlist.started += delta
+            self.playlist.deadline += delta
+        if self._play_once:
+            self._play_once["start"] += delta
+            self._play_once["end"] += delta
+        self._stage_preview = None
+
+    def _stage_target(self, payload, source="time-stage"):
+        self.last_source = source
+        self.last_module_key = "time-stage:" + str(payload.scene_key)
+        self.last_target_key = self.last_module_key
+        self.last_target_frame = [row[:] for row in payload.frame]
+        self.last_target_colors = [row[:] for row in payload.color_frame]
+        self.transition_state = None
+        self._update_live_debug(self.last_module_key, {}, {}, payload)
+        return payload.frame, payload.color_frame
+
+    async def _apply_stage_brightness(self):
+        async with self.brightness_lock:
+            asleep = self.time_stage.sleep_state(self._stage_now())["active"]
+            bypass = self._stage_preview and self._stage_preview["confirm_wake"]
+            wanted = self.time_stage_config["sleep"]["brightness"] if asleep and not bypass else self._day_brightness
+            if wanted != self._effective_brightness:
+                try:
+                    await asyncio.to_thread(self.led_driver.set_brightness, wanted)
+                except OSError as exc:
+                    self._logger.warning("Time-Stage brightness deferred: %s", exc)
+                self._effective_brightness = wanted
 
     def play_once(self, module):
         now = time.monotonic()
@@ -235,6 +409,9 @@ class DisplayService:
         if self._task:
             self._task.cancel()
             await asyncio.gather(self._task, return_exceptions=True)
+        if self._astronomy_task:
+            self._astronomy_task.cancel()
+            await asyncio.gather(self._astronomy_task, return_exceptions=True)
 
     async def _get_enabled_module_rows(self):
         now_perf = time.perf_counter()
@@ -293,7 +470,12 @@ class DisplayService:
         self._manual_deadline = time.monotonic() + seconds
 
     def set_brightness(self, value: int):
-        self.led_driver.set_brightness(value)
+        self._day_brightness = value
+        asleep = self.time_stage and self.time_stage.sleep_state(self._stage_now())["active"]
+        bypass = self._stage_preview and self._stage_preview["confirm_wake"]
+        effective = self.time_stage_config["sleep"]["brightness"] if asleep and not bypass else value
+        self.led_driver.set_brightness(effective)
+        self._effective_brightness = effective
 
     def set_debug_pattern(self, pattern: str, seconds: int, interval_ms: int = 250):
         self.debug_override = (pattern, time.time() + seconds, max(interval_ms / 1000.0, 0.05))
@@ -341,6 +523,7 @@ class DisplayService:
             "manual_until": self.manual_override[2] if self.manual_override else None,
             "cache_snapshot_ts": self.last_cache_snapshot_ts,
             "cache_snapshot_keys": sorted(list(self.last_cache_snapshot.keys())),
+            "time_stage": self.time_stage_status(),
         }
 
     def get_live_data_snapshot(self) -> dict:
@@ -496,6 +679,29 @@ class DisplayService:
                 self._pacer = FramePacer(self.target_fps, time.perf_counter())
 
     async def _get_next_frame(self) -> tuple[list[list[int]], list[list[tuple[int, int, int] | None]]]:
+        if self.time_stage:
+            now_mono = time.monotonic()
+            wall = self._stage_now()
+            if self._stage_preview and now_mono >= self._stage_preview["end"]:
+                self._finish_stage_preview(now_mono)
+            await self._apply_stage_brightness()
+            sleeping = self.time_stage.sleep_state(wall)["active"]
+            if sleeping and not (self._stage_preview and self._stage_preview["confirm_wake"]):
+                from app.services.time_stage.core import Canvas
+                self.time_stage.tick(wall, now_mono, boundary=False, astronomy=self.astronomy_data)
+                if not self._was_sleeping:
+                    self.playlist.current = None
+                    self.playlist.deadline = 0
+                    self._play_once = None
+                    self.manual_override = self.debug_override = None
+                self._was_sleeping = True
+                canvas = Canvas()
+                canvas.clock(wall, parse_hex_color(self.time_stage_config["sleep"]["color"], (255, 80, 12)))
+                return self._stage_target(canvas.payload(wall, "sleep"), "sleep")
+            self._was_sleeping = False
+            if self._stage_preview:
+                preview = self._stage_preview
+                return self._stage_target(self.render_time_stage_preview(preview["key"], wall, now_mono - preview["start"]), "time-stage-preview")
         if self.debug_override:
             from app.services.patterns import PATTERN_FACTORIES
 
@@ -531,6 +737,29 @@ class DisplayService:
             # Resume with a fresh slot rather than jumping into a half-finished GIF.
             self._play_once = None
             self.playlist.deadline = now
+            self._stage_counted_generation = self.playlist.generation
+        if self.time_stage:
+            rows = [row for row in rows if row["key"].split("-")[0] != "clock"]
+            available = {self.playlist.identity(row) for row in rows}
+            boundary = not self._play_once and (not rows or self.playlist.current not in available or now >= self.playlist.deadline)
+            completed = boundary and self.playlist.current is not None and self._stage_counted_generation != self.playlist.generation
+            if completed:
+                self._stage_counted_generation = self.playlist.generation
+            slot = self.time_stage.tick(self._stage_now(), now, boundary=boundary,
+                                        completed=completed and self.playlist.slot_type == "regular",
+                                        astronomy=self.astronomy_data, idle=not rows)
+            if slot:
+                elapsed = now - slot["start"]
+                from app.services.time_stage import SCENES
+                if slot["key"] == "craft_roman_scroll" and not slot.get("cycle_adjusted"):
+                    from app.services.time_stage.craft import _roman
+                    wall = self._stage_now()
+                    cycle = (len(_roman(wall.hour)) + len(_roman(wall.minute)) + 4) * 4 / (5 * {"calm":.45,"normal":1,"lively":1.3}[self.time_stage_config["intensity"]])
+                    extended = slot["start"] + math.ceil((slot["end"] - slot["start"]) / cycle) * cycle
+                    self.time_stage.active.update(end=extended, cycle_adjusted=True)
+                if slot["kind"] == "event":
+                    elapsed *= SCENES[slot["key"]].duration / (slot["end"] - slot["start"])
+                return self._stage_target(self.render_time_stage_preview(slot["key"], self._stage_now(), elapsed))
         if not rows and not self._play_once:
             self.last_source = "idle"
             return [[0 for _ in range(32)] for _ in range(8)], blank_color_frame(32, 8)

@@ -33,7 +33,22 @@
   const header = document.createElement('header'); header.className = 'live-header';
   header.innerHTML = `<div class="live-header-inner"><div class="live-top"><a class="pixel-brand" href="/">PIXEL<span>DOCK</span><small> /32</small></a><span class="live-label"><i class="live-dot" aria-hidden="true"></i><span id="previewConnection">VERBINDE …</span></span></div><div class="live-matrix"><canvas id="headerMatrix" width="512" height="128" aria-label="Live-Vorschau der gerenderten LED-Anzeige"></canvas><div class="live-caption">GERENDERTES BILD<strong id="onAir">—</strong>32 × 8 · 256 Pixel</div></div><nav class="retro-nav" aria-label="Hauptnavigation"><a href="/">Dashboard</a><a href="/modules">Playlist</a><a href="/studio">Pixel-Studio</a><a href="/advanced">Erweitert</a><button id="shellLogout" type="button">Abmelden</button></nav></div>`;
   document.body.prepend(header);
+  const stageNav = document.createElement('a'); stageNav.href = '/time-stage'; stageNav.textContent = 'Time-Stage';
+  header.querySelector('.retro-nav').insertBefore(stageNav, header.querySelector('[href="/studio"]'));
   window.PixelDockBrightness?.mount({api,toast,header});
+  const sleepButton = document.createElement('button'); sleepButton.type = 'button'; sleepButton.id = 'shellSleep';
+  sleepButton.textContent = '☾'; sleepButton.disabled = true; sleepButton.setAttribute('aria-label','Schlafmodus umschalten');
+  sleepButton.setAttribute('aria-pressed','false'); header.querySelector('.live-top').append(sleepButton);
+  let sleepActive = false;
+  sleepButton.onclick = async () => {
+    if (sleepActive && !confirm('Schlafmodus jetzt ausschalten? Die normale Helligkeit und Playlist werden wieder aktiv.')) return;
+    sleepButton.disabled = true;
+    try {
+      await api('/api/time-stage/sleep',{method:'POST',body:JSON.stringify({mode:sleepActive?'wake':'sleep'})});
+      toast(sleepActive?'Manuell wach bis zum nächsten Schlafzeit-Umschaltpunkt.':'Schlafmodus bis zum nächsten Schlafzeit-Umschaltpunkt.');
+      lastStatus = 0;
+    } catch (error) {toast(error.message,true);} finally {sleepButton.disabled=false;}
+  };
   document.querySelectorAll('.retro-nav a').forEach(link => {
     const active = link.getAttribute('href') === location.pathname || (link.getAttribute('href') === '/advanced' && ['/debug','/mapping','/tools'].includes(location.pathname));
     link.classList.toggle('active', active); if (active) link.setAttribute('aria-current', 'page');
@@ -53,7 +68,13 @@
           if (Date.now() - namesUpdated > 30000) {
             const rows = await api('/api/modules'); moduleNames = Object.fromEntries(rows.map(row => [row.key,row.name])); namesUpdated = Date.now();
           }
-          document.getElementById('onAir').textContent = status.display.last_source === 'module' ? moduleNames[status.display.last_module] || 'Playlist' : status.display.last_source === 'manual' ? 'Nachricht / Zeichnung' : 'Testmuster';
+          const stage = status.display.time_stage;
+          if (stage?.sleep) {
+            sleepActive = stage.sleep.active; sleepButton.disabled = false;
+            sleepButton.setAttribute('aria-pressed',String(sleepActive));
+            sleepButton.title = `${sleepActive?'Schlafmodus':'Wach'} · ${stage.sleep.mode==='auto'?'Automatik':'Manuell'}${stage.sleep.until?' bis '+new Date(stage.sleep.until).toLocaleTimeString('de',{hour:'2-digit',minute:'2-digit'}):''}`;
+          }
+          document.getElementById('onAir').textContent = status.display.last_source === 'module' ? moduleNames[status.display.last_module] || 'Playlist' : status.display.last_source === 'manual' ? 'Nachricht / Zeichnung' : status.display.last_source === 'sleep' ? 'Time-Stage · Schlafmodus' : status.display.last_source.startsWith('time-stage') ? 'Time-Stage' : status.display.last_source === 'idle' ? 'Pause' : 'Testmuster';
           window.dispatchEvent(new CustomEvent('pixeldock-status', { detail: status }));
         }
       } catch (_) { document.querySelector('.live-dot').classList.remove('online'); document.getElementById('previewConnection').textContent = 'VERBINDUNG UNTERBROCHEN'; }

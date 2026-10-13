@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import ModuleConfig
+from app.models import ModuleConfig, TimeStagePreference
 
 DEFAULT_MODULES = [
     {
@@ -125,7 +125,10 @@ async def ensure_default_modules(db: AsyncSession):
     existing_by_key = {row.key: row for row in existing}
 
     inserted = False
+    migrated = await db.get(TimeStagePreference, "config") is not None
     for item in DEFAULT_MODULES:
+        if migrated and item["key"] == "clock":
+            continue
         if item["key"] in existing_by_key:
             continue
         db.add(ModuleConfig(enabled=True, **item))

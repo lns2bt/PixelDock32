@@ -262,11 +262,13 @@ def sanitize_settings(module_key: str, settings: dict) -> dict:
 
 @router.get("", response_model=list[ModuleConfigResponse])
 async def get_modules(_: str = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    return await list_modules(db)
+    return [row for row in await list_modules(db) if row.key.split('-')[0] != 'clock']
 
 
 @router.post("", response_model=ModuleConfigResponse, status_code=201)
 async def create_module(payload: ModuleCreate, request: Request, _: str = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    if payload.kind == "clock":
+        raise HTTPException(409, "Uhrzeit wird jetzt separat unter Time-Stage eingestellt.")
     if (await db.scalar(select(func.count()).select_from(ModuleConfig))) >= 128:
         raise HTTPException(409, "Maximal 128 Module")
     settings = sanitize_settings(payload.kind, payload.settings)
@@ -286,7 +288,7 @@ async def create_module(payload: ModuleCreate, request: Request, _: str = Depend
 
 @router.put("/order")
 async def reorder_modules(payload: ModuleOrder, _: str = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    rows = await list_modules(db)
+    rows = [row for row in await list_modules(db) if row.key.split('-')[0] != 'clock']
     if len(set(payload.ids)) != len(payload.ids) or set(payload.ids) != {row.id for row in rows}:
         raise HTTPException(409, "Modulliste geändert – bitte neu laden")
     order = {module_id: index for index, module_id in enumerate(payload.ids)}
@@ -301,6 +303,11 @@ async def play_module(module_id: int, request: Request, _: str = Depends(get_cur
     module = await db.get(ModuleConfig, module_id)
     if not module:
         raise HTTPException(404, "Modul nicht gefunden")
+    if module.key.split('-')[0] == 'clock':
+        raise HTTPException(409, "Uhrzeit wird jetzt separat unter Time-Stage eingestellt.")
+    service = request.app.state.display_service
+    if isinstance(getattr(service, "time_stage_config", None), dict) and service.time_stage.sleep_state(service._stage_now())["active"]:
+        raise HTTPException(409, "Schlafmodus aktiv. Bitte zuerst ausdrücklich auf Wach umschalten.")
     request.app.state.display_service.play_once(module)
     return {"ok": True}
 
@@ -328,6 +335,8 @@ async def update_module(
     module = await db.get(ModuleConfig, module_id)
     if not module:
         raise HTTPException(status_code=404, detail="module not found")
+    if module.key.split('-')[0] == 'clock':
+        raise HTTPException(409, "Archivierte Uhr-Einträge werden durch Time-Stage ersetzt.")
 
     module.enabled = payload.enabled
     module.duration_seconds = payload.duration_seconds

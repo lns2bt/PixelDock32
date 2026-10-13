@@ -13,7 +13,8 @@ import warnings
 from PIL import Image, ImageOps
 
 MAX_UPLOAD = 4 * 1024 * 1024
-MAX_FRAMES = 120
+MAX_FRAMES = 512
+MAX_ASSET_BYTES = 2 * 1024 * 1024
 MAX_ASSETS = 128
 ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 
@@ -21,7 +22,7 @@ ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 def validate_asset(data):
     frames = data.get("frames")
     if not isinstance(frames, list) or not 1 <= len(frames) <= MAX_FRAMES:
-        raise ValueError("1–120 Frames erforderlich")
+        raise ValueError(f"1–{MAX_FRAMES} Frames erforderlich")
     for frame in frames:
         if not isinstance(frame, dict):
             raise ValueError("Ungültiger Frame")
@@ -55,8 +56,10 @@ def decode_image(raw, name, fit):
                     image.seek(index)
                 except EOFError:
                     break
-                if index == MAX_FRAMES or image.width * image.height * (index + 1) > 8_000_000:
-                    raise ValueError("Zu viele Frames oder zu große Animation")
+                if index == MAX_FRAMES:
+                    raise ValueError(f"Zu viele Frames: maximal {MAX_FRAMES} pro Animation")
+                if image.width * image.height * (index + 1) > 8_000_000:
+                    raise ValueError("Animation-Auflösung zu groß: maximal 8 Millionen Quellpixel über alle Frames. Bitte vor dem Import auf 32 × 8 verkleinern.")
                 rgba = image.convert("RGBA")
                 if fit == "cover":
                     rgba = ImageOps.fit(rgba, (32, 8), method=Image.Resampling.NEAREST)
@@ -102,7 +105,7 @@ class AssetStore:
         with self._lock:
             if asset_id not in self._cache:
                 path = self.path(asset_id)
-                if path.stat().st_size > 512_000:
+                if path.stat().st_size > MAX_ASSET_BYTES:
                     raise ValueError("Asset-Datei zu groß")
                 data = validate_asset(json.loads(path.read_text()))
                 data["id"] = asset_id

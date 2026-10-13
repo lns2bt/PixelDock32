@@ -21,3 +21,10 @@ class DisplayPreference(Base):
 
     key: Mapped[str] = mapped_column(String(50), primary_key=True)
     value: Mapped[int] = mapped_column(Integer)
+
+
+class TimeStagePreference(Base):
+    __tablename__ = "time_stage_preferences"
+
+    key: Mapped[str] = mapped_column(String(50), primary_key=True)
+    value: Mapped[dict] = mapped_column(JSON)

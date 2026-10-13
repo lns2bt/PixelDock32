@@ -1,0 +1,32 @@
+/* Time-Stage uses the shared sticky shell. Controls remain usable at 320px. */
+#timeStageForm, #timeStageFields { display:grid; gap:1.25rem; }
+#timeStageFields { border:0; margin:0; padding:0; min-width:0; }
+.feedback { padding:.7rem 1rem; border-left:3px solid var(--mint); margin:0; overflow-wrap:anywhere; }
+.feedback.error { border-color:var(--pink); color:#ffadba; }
+.status-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:.8rem; }
+.status-grid strong { display:block; color:var(--gold); }
+#advancedSettings > summary { color:var(--text); font-weight:700; }
+#advancedSettings h2 { margin:1.5rem 0 .7rem; }
+.scene-list, .event-list { display:grid; gap:.65rem; margin:1rem 0; }
+.scene-row, .event-row { padding:.85rem; border:1px solid var(--border); border-radius:9px; min-width:0; }
+.scene-title { display:flex; align-items:center; gap:.6rem; }
+.scene-title label { flex:1; color:var(--text); font-size:1rem; }
+.scene-row p { margin:.3rem 0; overflow-wrap:anywhere; }
+.scene-controls { display:flex; align-items:end; flex-wrap:wrap; gap:.5rem; }
+.scene-controls label:not(.check) { width:100px; }
+.scene-controls .check { flex:1; min-width:115px; }
+.scene-controls button { min-width:44px; }
+.event-scenes, .panel-flags { display:flex; flex-wrap:wrap; gap:.2rem 1rem; }
+.event-scenes label { min-width:0; overflow-wrap:anywhere; }
+.sleep-strip { height:22px; border:1px solid var(--border); border-radius:6px; background:#29354d; }
+.time-scale { display:flex; justify-content:space-between; font-size:.7rem; color:var(--muted); margin:.35rem 0; }
+input[type=range] { accent-color:var(--mint); padding:0 !important; border:0 !important; background:transparent !important; }
+.sleep-actions { margin-top:1rem; }
+.save-bar { display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; }
+.save-bar span { font-size:.85rem; color:var(--muted); }
+#timeStageCanvas { display:block; width:100%; max-width:768px; height:auto; image-rendering:pixelated; border:1px solid var(--border); border-radius:8px; background:#070a11; }
+.sky-info { display:grid; grid-template-columns:minmax(110px,1fr) 2fr; gap:.4rem 1rem; }
+.sky-info dt { color:var(--muted); } .sky-info dd { margin:0; overflow-wrap:anywhere; }
+pre { white-space:pre-wrap; overflow-wrap:anywhere; font-size:.75rem; max-height:360px; overflow:auto; }
+#importTimeStage { width:100%; max-width:340px; }
+@media(max-width:480px) { .field-grid { grid-template-columns:1fr; } .scene-controls { gap:.4rem; } .sky-info { grid-template-columns:1fr; gap:.2rem; } .sky-info dd { margin-bottom:.6rem; } .save-bar button { width:100%; } .sleep-actions button { flex-basis:40%; } }

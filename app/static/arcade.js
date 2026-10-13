@@ -177,7 +177,7 @@
   $('undoPixel').onclick = () => { stopPreview(); const state = undo.pop(); if (state) { frames = state.frames; current = state.current; dirty = true; drawEditor(); } };
   $('clearFrame').onclick = () => { stopPreview(); checkpoint(); frames[current].pixels.fill(0); drawEditor(); };
   for (const [id,clone] of [['addFrame',false],['cloneFrame',true]]) $(id).onclick = () => {
-    if (frames.length >= 120) { toast('Maximal 120 Frames',true); return; }
+    if (frames.length >= 512) { toast('Maximal 512 Frames',true); return; }
     stopPreview(); checkpoint(); frames.splice(current+1,0,{ pixels:clone ? [...frames[current].pixels] : Array(256).fill(0), duration_ms:frames[current].duration_ms }); current++; drawEditor();
   };
   $('deleteFrame').onclick = () => { if (frames.length === 1) return; stopPreview(); checkpoint(); frames.splice(current,1); current = Math.min(current,frames.length-1); drawEditor(); };

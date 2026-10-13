@@ -15,6 +15,7 @@ class Playlist:
         self.last_priority = {}
         self.visits = {}
         self.generation = 0
+        self.slot_type = "regular"
 
     @staticmethod
     def identity(row):
@@ -37,10 +38,12 @@ class Playlist:
         shuffled = [row for row in rows if (row.get("settings") or {}).get("shuffle", False)]
         if due:
             selected = max(due, key=lambda row: now - self.last_priority[self.identity(row)])
+            self.slot_type = "priority"
         elif shuffled and (not regular or self.regular_count >= 3):
             choices = [row for row in shuffled if self.identity(row) != self.current] or shuffled
             selected = self.rng.choice(choices)
             self.regular_count = 0
+            self.slot_type = "shuffle"
         else:
             selected = regular[self.cursor % len(regular)]
             self.cursor = (self.cursor + 1) % len(regular)
@@ -48,6 +51,7 @@ class Playlist:
                 selected = regular[self.cursor % len(regular)]
                 self.cursor = (self.cursor + 1) % len(regular)
             self.regular_count += 1
+            self.slot_type = "regular"
         self.current = self.identity(selected)
         self.started = now
         self.deadline = now + selected["duration_seconds"]

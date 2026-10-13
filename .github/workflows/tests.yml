@@ -68,6 +68,25 @@ jobs:
               raise RuntimeError('UI fixture did not start')
           PY
           NODE_PATH="$RUNNER_TEMP/pixeldock-browser/node_modules" PIXELDOCK_UI_ARTIFACTS="$RUNNER_TEMP/ui-screenshots" node scripts/ui-smoke.cjs
+      - name: Time-Stage scene gallery
+        run: |
+          python scripts/preview-time-stage.py --output "$RUNNER_TEMP/time-stage-gallery"
+          python -m http.server 8767 --bind 127.0.0.1 --directory "$RUNNER_TEMP/time-stage-gallery" > "$RUNNER_TEMP/time-stage-gallery.log" 2>&1 &
+          gallery_pid=$!
+          trap 'kill "$gallery_pid" || true' EXIT
+          python - <<'PY'
+          import time
+          from urllib.request import urlopen
+          for _ in range(60):
+              try:
+                  with urlopen('http://127.0.0.1:8767/index.html', timeout=1):
+                      break
+              except OSError:
+                  time.sleep(0.5)
+          else:
+              raise RuntimeError('Time-Stage gallery did not start')
+          PY
+          NODE_PATH="$RUNNER_TEMP/pixeldock-browser/node_modules" node scripts/time-stage-smoke.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -75,3 +94,6 @@ jobs:
           path: |
             ${{ runner.temp }}/ui-screenshots
             ${{ runner.temp }}/pixeldock-ui.log
+            ${{ runner.temp }}/time-stage-gallery/contact-sheet.png
+            ${{ runner.temp }}/time-stage-gallery/catalog.json
+            ${{ runner.temp }}/time-stage-gallery.log

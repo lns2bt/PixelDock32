@@ -46,8 +46,11 @@ Es ist in `.gitignore` ausgeschlossen.
 - Transparenz wird auf Schwarz zusammengesetzt. GIF-Frames werden von Pillow
   inklusive Compositing/Disposal verarbeitet und anschließend vorab dekodiert.
 - Maximal 4 MB Upload, 1024 Pixel je Seite, 262144 Pixel pro Quellframe,
-  8 Millionen dekodierte Quellpixel und 120 Frames. Frame-Timing: 33–2000 ms.
-- Sprite-JSON: maximal 512 KB, 1–120 Frames, exakt 256 RGB-Integer je Frame.
+  8 Millionen dekodierte Quellpixel und 512 Frames. Frame-Timing: 33–2000 ms.
+- Sprite-JSON und gespeicherte Assets: maximal 2 MB, 1–512 Frames, exakt 256 RGB-Integer je Frame.
+  Diese erweiterten Grenzen sind ein lokal getesteter GIF-Import-Fix, noch nicht
+  Bestandteil des oben genannten Pi-Stands `1227bfa`. Zuvor galten 120 Frames und
+  512 KB für Sprite-JSON; GIFs mit mehr Frames wurden irreführend als zu groß gemeldet.
 - Bibliothek maximal 128 Assets einschließlich der drei Beispiele.
 - RAM-Cache maximal acht Assets; der laufende Slot hält zusätzlich seine aktuelle
   Referenz. Rendering braucht keine wiederholten Dateizugriffe oder Bilddekodierung.
@@ -112,7 +115,10 @@ und 390-Pixel-Mobilansicht: sticky Vorschau, Formulare, Reihenfolge, Zeichnen,
 Frame-Duplizieren, Bibliothek und einmalige Wiedergabe. Keine echte Hardware bei
 diesen Tests angesprochen.
 
-Aktueller lokaler Stand: **95 Tests erfolgreich**, Browser-Smoke ebenfalls erfolgreich.
+Aktueller lokaler Stand: **100 Tests erfolgreich**, Browser-Smoke ebenfalls erfolgreich.
+Zusätzlich wurde `ITEM0024_32x8.gif` (267 Frames, 18,72 s) lokal in allen drei
+Skalierungsmodi sowie über den mobilen Browser importiert, geladen und als Editor-Kopie
+gespeichert. Die Originaldatei ist kein Bestandteil des Repositories.
 
 ## Helligkeit und Kontrast
 

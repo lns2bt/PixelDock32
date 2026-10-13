@@ -10,14 +10,14 @@ from sqlalchemy import select
 from app.api.deps import get_current_user
 from app.database import get_db
 from app.models import ModuleConfig
-from app.services.assets import MAX_UPLOAD, decode_image
+from app.services.assets import MAX_UPLOAD, MAX_FRAMES, MAX_ASSET_BYTES, decode_image
 
 router = APIRouter(prefix="/api/assets", tags=["assets"])
 
 
 class SpriteRequest(BaseModel):
     name: str = Field(min_length=1, max_length=80)
-    frames: list[dict] = Field(min_length=1, max_length=120)
+    frames: list[dict] = Field(min_length=1, max_length=MAX_FRAMES)
 
 
 def store(request):
@@ -50,13 +50,13 @@ async def create_sprite(request: Request, _: str = Depends(get_current_user)):
     raw = bytearray()
     async for chunk in request.stream():
         raw.extend(chunk)
-        if len(raw) > 512_000:
-            raise HTTPException(413, "Sprite-Datei zu groß")
+        if len(raw) > MAX_ASSET_BYTES:
+            raise HTTPException(413, "Sprite-Datei zu groß: maximal 2 MB")
     try:
         payload = SpriteRequest.model_validate(json.loads(raw))
         return await asyncio.to_thread(store(request).save, payload.model_dump())
     except (ValueError, ValidationError) as error:
-        raise HTTPException(422, "Ungültige Sprite-Daten: Name, 1–120 Frames, je 256 RGB-Pixel und 33–2000 ms erforderlich") from error
+        raise HTTPException(422, f"Ungültige Sprite-Daten: Name, 1–{MAX_FRAMES} Frames, je 256 RGB-Pixel und 33–2000 ms erforderlich") from error
 
 
 @router.get("/{asset_id}")

@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import auth, debug, display, modules, assets
+from app.api import auth, debug, display, modules, assets, time_stage
 from app.config import get_settings
 from app.database import SessionLocal, Base, engine
 from app.services.display import DisplayService
@@ -18,6 +18,7 @@ from app.services.bitmap_loader import BitmapLoader
 from app.services.assets import AssetStore
 from app.services.retro_scenes import seed_retro_assets
 from app.models import DisplayPreference
+from app.services.time_stage.settings import load_or_migrate
 
 settings = get_settings()
 
@@ -36,6 +37,7 @@ async def lifespan(app: FastAPI):
             runtime_settings = settings
             if brightness is not None and 0 <= brightness.value <= 255:
                 runtime_settings = settings.model_copy(update={"led_brightness": brightness.value})
+            stage_config = await load_or_migrate(db, settings)
 
         ext_service = ExternalDataService(settings)
         led_driver = await asyncio.to_thread(LEDDriver, runtime_settings)
@@ -56,6 +58,7 @@ async def lifespan(app: FastAPI):
         )
         app.state.external_data_service = ext_service
         app.state.display_service = display_service
+        display_service.configure_time_stage(stage_config)
         await ext_service.start()
         await display_service.start()
         yield
@@ -81,6 +84,7 @@ app.include_router(modules.router)
 app.include_router(display.router)
 app.include_router(debug.router)
 app.include_router(assets.router)
+app.include_router(time_stage.router)
 
 static_dir = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
@@ -124,3 +128,8 @@ async def studio_page():
 @app.get("/advanced")
 async def advanced_page():
     return FileResponse(static_dir / "advanced.html")
+
+
+@app.get("/time-stage")
+async def time_stage_page():
+    return FileResponse(static_dir / "time-stage.html")

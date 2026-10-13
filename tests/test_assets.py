@@ -5,7 +5,7 @@ import unittest
 
 from PIL import Image
 
-from app.services.assets import AssetStore, asset_frame, decode_image, validate_asset
+from app.services.assets import MAX_FRAMES, MAX_ASSET_BYTES, AssetStore, asset_frame, decode_image, validate_asset
 from app.services.retro_scenes import seed_retro_assets
 
 
@@ -39,7 +39,30 @@ class AssetTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 validate_asset({"name": "Test", "frames": [{"pixels": [0] * 256, "duration_ms": duration}]})
         with self.assertRaises(ValueError):
-            validate_asset({"name": "Test", "frames": [{"pixels": [0] * 256, "duration_ms": 100}] * 121})
+            validate_asset({"name": "Test", "frames": [{"pixels": [0] * 256, "duration_ms": 100}] * (MAX_FRAMES + 1)})
+
+    def test_maximum_length_bright_asset_can_be_saved_loaded_and_listed(self):
+        data = {"name": "Long animation", "frames": [{"pixels": [0xffffff] * 256, "duration_ms": 2000}] * MAX_FRAMES}
+        saved = self.store.save(data)
+        self.assertGreater(self.store.path(saved['id']).stat().st_size, 512_000)
+        self.assertLess(self.store.path(saved['id']).stat().st_size, MAX_ASSET_BYTES)
+        loaded = self.store.load(saved['id'])
+        self.assertEqual(len(loaded['frames']), MAX_FRAMES)
+        self.assertEqual(len(self.store.list()), 1)
+        self.assertEqual(asset_frame(loaded, 1000)[1][0][0], (255, 255, 255))
+
+    def test_267_frame_gif_import_roundtrip_preserves_timing_and_all_frames(self):
+        buffer = BytesIO()
+        frames = [Image.new('RGB', (32, 8), 'red' if i % 2 else 'blue') for i in range(267)]
+        durations = [100 if i % 2 else 200 for i in range(267)]
+        frames[0].save(buffer, format='GIF', save_all=True, append_images=frames[1:], duration=durations)
+        decoded = decode_image(buffer.getvalue(), '267 frames', 'contain')
+        saved = self.store.save(decoded)
+        loaded = self.store.load(saved['id'])
+        self.assertEqual(len(loaded['frames']), 267)
+        self.assertEqual([f['duration_ms'] for f in loaded['frames']], durations)
+        self.assertEqual(loaded['frames'][-1]['pixels'][0], 0x0000ff)
+        self.assertEqual(self.store.list()[0]['frame_count'], 267)
 
     def test_gif_import_retains_frames_and_timing(self):
         buffer = BytesIO()
@@ -72,10 +95,17 @@ class AssetTests(unittest.TestCase):
 
     def test_gif_frame_limit_stops_without_scanning_unlimited_frames(self):
         buffer = BytesIO()
-        frames = [Image.new("RGB", (1, 1), "red" if i % 2 else "blue") for i in range(121)]
+        frames = [Image.new("RGB", (1, 1), "red" if i % 2 else "blue") for i in range(MAX_FRAMES + 1)]
         frames[0].save(buffer, format="GIF", save_all=True, append_images=frames[1:], duration=100)
-        with self.assertRaisesRegex(ValueError, "Frames"):
+        with self.assertRaisesRegex(ValueError, f"maximal {MAX_FRAMES}"):
             decode_image(buffer.getvalue(), "Too many", "contain")
+
+    def test_total_source_pixel_budget_has_distinct_error(self):
+        buffer = BytesIO()
+        frames = [Image.new('RGB', (512, 512), 'red' if i % 2 else 'blue') for i in range(31)]
+        frames[0].save(buffer, format='GIF', save_all=True, append_images=frames[1:], duration=100)
+        with self.assertRaisesRegex(ValueError, '8 Millionen Quellpixel'):
+            decode_image(buffer.getvalue(), 'Large resolution', 'contain')
 
     def test_original_demos_seed_once_and_render(self):
         seed_retro_assets(self.store)

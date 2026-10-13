@@ -61,6 +61,7 @@ async def get_brightness(request: Request, _: str = Depends(get_current_user), d
     preference = await db.get(DisplayPreference, "brightness")
     snapshot = _display(request).led_driver.get_debug_snapshot(poll=False)
     return {"brightness": preference.value if preference is not None else snapshot["brightness"],
+            "effective_brightness": snapshot["brightness"],
             "persisted": preference is not None,
             "connected": snapshot.get("serial", {}).get("connected", True)}
 

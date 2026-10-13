@@ -77,7 +77,7 @@
     document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!panel.hidden){close();trigger.focus();}});
     document.addEventListener('click',event=>{if(!panel.contains(event.target)&&!trigger.contains(event.target))close();});
     window.addEventListener('pixeldock-status',({detail})=>{
-      const current = detail.led_transport?.brightness;
+      const current = detail.display?.time_stage?.day_brightness ?? detail.led_transport?.brightness;
       if (loaded && panel.hidden && !dirty && !busy && Number.isInteger(current)) show(current);
     });
     load().catch(error=>{state.textContent=error.message;});

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PixelDock · Time-Stage</title>
+  <link rel="stylesheet" href="/static/retro.css"><link rel="stylesheet" href="/static/time-stage.css">
+  <script defer src="/static/brightness.js"></script><script defer src="/static/shell.js"></script><script defer src="/static/time-stage.js"></script>
+</head>
+<body data-screen="time-stage">
+<main class="retro-main">
+  <div class="page-heading"><div><p class="kicker">ZEIT FÜR EINEN AUFTRITT</p><h1>Time-Stage</h1><p class="muted">Uhransichten, Himmelsereignisse und eine ruhige Nacht – unabhängig von der Playlist.</p></div><button id="reloadTimeStage" type="button">Neu laden</button></div>
+  <p id="timeStageFeedback" class="feedback" role="status" aria-live="polite">Einstellungen werden geladen …</p>
+  <section class="panel" aria-labelledby="statusHeading"><h2 id="statusHeading">Aktuell</h2><div id="timeStageStatus" class="status-grid"></div><details><summary>API-Status anzeigen</summary><pre id="timeStageRawStatus">—</pre></details></section>
+  <form id="timeStageForm">
+    <fieldset id="timeStageFields" disabled>
+      <section class="panel" aria-labelledby="basicHeading">
+        <h2 id="basicHeading">Grundeinstellungen</h2>
+        <label class="check"><input id="enabled" type="checkbox">Time-Stage aktivieren</label>
+        <div class="field-grid">
+          <label>Profil<select id="profile"><option value="all">Alle Stile</option><option value="retro">Retro</option><option value="calm">Ruhig</option><option value="favorites">Favoriten</option><option value="custom">Eigene Auswahl</option></select></label>
+          <label>Bewegung<select id="intensity"><option value="calm">Ruhig</option><option value="normal">Normal</option><option value="lively">Lebhaft</option></select></label>
+           <label>Uhrdauer (Sekunden)<input id="duration_seconds" type="number" min="1" max="120" step="1" value="8" required></label>
+           <label>Nach Playlist-Einträgen<input id="after_entries" type="number" min="0" max="100" step="1" value="2" required></label>
+           <label>Spätestens nach Sekunden<input id="interval_seconds" type="number" min="0" max="3600" step="1" value="50" required></label>
+        </div>
+        <p class="muted">Pro Auftritt erscheint eine Uhransicht. Die Playlist bleibt erhalten. Details und eigene Szenen finden Sie weiter unten.</p>
+      </section>
+      <section class="panel" aria-labelledby="sleepHeading">
+        <h2 id="sleepHeading">Schlafzeit</h2><p class="muted">Nachts nur eine statische HH:MM-Uhr, ohne Sekunden oder Bewegung. Die Tageshelligkeit bleibt unverändert.</p>
+        <label class="check"><input id="sleep_enabled" type="checkbox">Tägliche Schlafzeit aktivieren</label>
+        <div class="field-grid">
+          <label>Beginn<input id="sleep_start" type="time" value="02:00" required></label>
+          <label>Ende<input id="sleep_end" type="time" value="08:00" required></label>
+          <label>Nachthelligkeit (0–255)<input id="sleep_brightness" type="number" min="0" max="255" step="1" value="1" required></label>
+          <label>Nachtfarbe<input id="sleep_color" type="color" value="#ff500c"></label>
+        </div>
+        <div class="sleep-timeline" aria-label="24-Stunden-Schlafplan"><div id="sleepStrip" class="sleep-strip"></div><div class="time-scale"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div></div>
+        <label>Beginn auf der Zeitleiste<input id="sleepStartRange" type="range" min="0" max="1439" step="1" value="120"></label>
+        <label>Ende auf der Zeitleiste<input id="sleepEndRange" type="range" min="0" max="1439" step="1" value="480"></label>
+        <p id="sleepPlan" class="muted"></p>
+        <div class="form-actions sleep-actions"><button type="button" data-sleep-mode="sleep" id="sleepNow">Jetzt schlafen</button><button type="button" data-sleep-mode="wake" id="wakeNow">Wach</button><button type="button" data-sleep-mode="auto" id="sleepAuto">Automatik</button><button type="button" data-sleep-mode="sleep" data-minutes="120" id="sleepTwoHours">2h schlafen</button></div>
+        <p class="muted">Diese Schalter wirken sofort. Manuelle Ausnahmen enden am nächsten Planwechsel oder nach der gewählten Dauer. Der Zeitplan wird erst mit „Speichern“ geändert.</p>
+      </section>
+      <details class="panel" id="advancedSettings"><summary>Erweiterte Einstellungen: Ablauf, Szenen, Ereignisse & Standort</summary>
+        <h2>Ablauf</h2>
+        <div class="field-grid">
+          <label>Auswahl<select id="selection"><option value="ordered">Der Reihe nach</option><option value="random">Zufällig (gewichtet)</option></select></label>
+          <label>Zeitzone<input id="timezone" type="text" placeholder="Europe/Berlin" required></label>
+          <label>Ereignis-Toleranz (Sekunden)<input id="event_grace_seconds" type="number" min="0" max="3600" step="1" value="120" required></label>
+          <label>Eigene Farbe (optional)<input id="color" type="text" pattern="#[0-9a-fA-F]{6}" placeholder="#47d7c4" maxlength="7"></label>
+        </div>
+        <label class="check"><input id="avoid_style_repeat" type="checkbox">Nicht zweimal denselben Stil hintereinander</label>
+        <label class="check"><input id="minute_transition" type="checkbox">Übergang beim Minutenwechsel</label>
+         <p class="muted">0 deaktiviert den jeweiligen Auslöser. Gezählt werden reguläre Playlist-Einträge, nicht Shuffle-Einwürfe oder „Jetzt“-Wiedergaben. Beide Auslöser können kombiniert werden. Die Zeitgrenze ist weich: laufende GIF-Schleifen und Lauftexte dürfen enden. Alte Ereignisse werden nach der Toleranz verworfen.</p>
+         <h2>Eigene Szenenprofile</h2><div class="field-grid"><label>Gespeichertes Profil<select id="savedProfile"></select></label><label>Name<input id="profileName" maxlength="40" placeholder="Mein Abendprofil"></label></div><div class="form-actions"><button id="loadProfile" type="button">Profil laden</button><button id="saveProfile" type="button">Auswahl als Profil merken</button><button id="deleteProfile" type="button">Profil entfernen</button></div><p class="muted">Bis zu acht eigene Profile. Enthält Szenen, Gewichte, Favoriten, Auswahl, Bewegung und Farbe – nicht den Schlafplan. Änderungen anschließend speichern.</p>
+        <h2>Uhransichten</h2><p class="muted">Auswahl und Reihenfolge gelten für das eigene Profil. Gewichte wirken bei Zufallsauswahl; Sterne markieren Favoriten.</p>
+        <div class="form-actions"><button id="selectAllScenes" type="button">Alle auswählen</button><button id="clearScenes" type="button">Auswahl leeren</button></div><div id="sceneList" class="scene-list"></div>
+         <h2>Ereignisse</h2><p class="muted">Jede Kategorie hat eine eigene Auswahl und Dauer: magische Momente 6–60 Sekunden, Himmelszeremonien 30–60 Sekunden. Zum Ausschalten die Kategorie deaktivieren; mindestens eine Szene bleibt ausgewählt.</p><div id="eventList" class="event-list"></div>
+        <h2>Standort</h2><div class="field-grid">
+          <label>Koordinatenquelle<select id="location_source"><option value="weather">Wetterstandort verwenden</option><option value="custom">Eigene Koordinaten</option></select></label>
+          <label>Breitengrad<input id="latitude" type="number" min="-90" max="90" step="any" placeholder="z. B. 52.52"></label>
+          <label>Längengrad<input id="longitude" type="number" min="-180" max="180" step="any" placeholder="z. B. 13.405"></label>
+        </div><p class="muted">Standard ist der Wetterstandort. Eigene Koordinaten sind optional; bei eigener Quelle werden beide benötigt.</p>
+      </details>
+      <div class="panel save-bar"><span id="dirtyState">Keine ungespeicherten Änderungen.</span><button id="saveTimeStage" class="primary" type="submit">Speichern</button></div>
+    </fieldset>
+  </form>
+  <section class="panel" aria-labelledby="previewHeading">
+    <h2 id="previewHeading">Browser-Vorschau</h2><p class="muted">Nur im Browser. Die echte Anzeige wird ausschließlich über den separaten LED-Knopf verändert. Einstellungen zuvor speichern.</p>
+    <canvas id="timeStageCanvas" width="512" height="128" aria-label="Time-Stage-Vorschau, 32 mal 8 Pixel"></canvas>
+    <div class="field-grid">
+      <label>Szene<select id="previewScene" disabled></select></label>
+      <label>Datum und Uhrzeit<input id="previewAt" type="datetime-local" step="1"></label>
+      <label>HH:MM-Schnappschuss<input id="previewTime" type="time" step="60"></label>
+      <label>Tempo<select id="previewSpeed"><option value="1">Echtzeit</option><option value="6">6× Zeitraffer</option></select></label>
+      <label>Animationsfortschritt (Sekunden)<input id="previewElapsed" type="number" min="0" max="120" step="0.1" value="0"></label>
+    </div>
+    <div class="form-actions"><button id="previewPlay" type="button" aria-pressed="false" disabled>Abspielen</button><button id="previewSnapshot" type="button" disabled>Schnappschuss</button><button id="previewNow" type="button">Aktuelle Zeit</button><button id="previewPhysical" type="button" disabled>Auf LEDs anzeigen …</button></div>
+    <p id="previewFeedback" class="muted" role="status">Vorschau bereit, sobald die Szenen geladen sind.</p>
+  </section>
+  <section class="panel"><h2>Himmel & Standort</h2><p class="muted">Berechnete und zwischengespeicherte Werte vom Gerät. Fehlende Ereignisse sind je nach Standort und Jahreszeit normal.</p><dl id="astronomyInfo" class="sky-info"></dl><details><summary>Berechnungsdaten anzeigen</summary><pre id="astronomyRaw">—</pre></details></section>
+  <section class="panel"><h2>Sichern & übertragen</h2><p class="muted">Exportiert ausschließlich die Time-Stage-Konfiguration, keine Zugangsdaten. Import: JSON-Datei bis 128 KiB. Vor dem Import die aktuelle Konfiguration sichern.</p><div class="form-actions"><button id="exportTimeStage" type="button" disabled>Konfiguration exportieren</button><label class="button" for="importTimeStage">JSON importieren</label><input id="importTimeStage" type="file" accept=".json,application/json" disabled></div></section>
+</main>
+</body>
+</html>
