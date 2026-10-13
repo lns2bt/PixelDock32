@@ -3,7 +3,7 @@
  * [data-category], sleep_start/end, sleepStartRange/sleepEndRange, sleepStrip,
  * sleepNow/wakeNow/sleepAuto/sleepTwoHours, previewScene/At/Time/Elapsed/Speed,
  * previewPlay/Snapshot/Physical, timeStageCanvas, exportTimeStage/importTimeStage.
- * GET never writes; previews use physical:false unless explicitly confirmed.
+ * GET never writes; only dedicated LED-Vorschau buttons use physical:true.
  */
 (() => {
   'use strict';
@@ -72,7 +72,7 @@
     const known = new Map(normalScenes().map(scene => [scene.key, scene]));
     $('sceneList').innerHTML = sceneOrder.filter(key => known.has(key)).map((key, i, keys) => {
       const scene = known.get(key);
-      return `<article class="scene-row" data-scene-key="${escapeHtml(key)}"><div class="scene-title"><label class="check"><input type="checkbox" data-action="select" ${selected.has(key) ? 'checked' : ''}>${escapeHtml(scene.title)}</label></div><p class="muted">${escapeHtml(scene.description)}</p><p class="muted">Stil: ${escapeHtml(scene.style)} · Sekunden: ${escapeHtml(scene.seconds)}</p><div class="scene-controls"><label>Gewicht<input type="number" data-action="weight" min="1" max="10" step="1" value="${escapeHtml(weights[key] ?? 1)}" required></label><label class="check"><input type="checkbox" data-action="favorite" ${favorites.has(key) ? 'checked' : ''}>★ Favorit</label><button type="button" data-action="up" aria-label="${escapeHtml(scene.title)} nach oben" ${i === 0 ? 'disabled' : ''}>↑</button><button type="button" data-action="down" aria-label="${escapeHtml(scene.title)} nach unten" ${i === keys.length - 1 ? 'disabled' : ''}>↓</button></div></article>`;
+      return `<article class="scene-row" data-scene-key="${escapeHtml(key)}"><div class="scene-title"><label class="check"><input type="checkbox" data-action="select" ${selected.has(key) ? 'checked' : ''}>${escapeHtml(scene.title)}</label></div><p class="muted">${escapeHtml(scene.description)}</p><p class="muted">Stil: ${escapeHtml(scene.style)} · Sekunden: ${escapeHtml(scene.seconds)}</p><div class="scene-controls"><label>Gewicht<input type="number" data-action="weight" min="1" max="10" step="1" value="${escapeHtml(weights[key] ?? 1)}" required></label><label class="check"><input type="checkbox" data-action="favorite" ${favorites.has(key) ? 'checked' : ''}>★ Favorit</label><button type="button" data-action="up" aria-label="${escapeHtml(scene.title)} nach oben" ${i === 0 ? 'disabled' : ''}>↑</button><button type="button" data-action="down" aria-label="${escapeHtml(scene.title)} nach unten" ${i === keys.length - 1 ? 'disabled' : ''}>↓</button><button type="button" data-preview-key="${escapeHtml(key)}" aria-label="${escapeHtml(scene.title)}: LED-Vorschau">LED-Vorschau</button></div></article>`;
     }).join('');
   }
   // Existing panel flags are always retained; only known, applicable controls are exposed.
@@ -90,7 +90,7 @@
     $('eventList').innerHTML = Object.entries(categories).map(([category, title]) => {
       const event = original.events?.[category] || {}, choices = catalog.filter(scene => scene.events?.includes(category));
       const flags = panelOptions(category, event.panels);
-       return `<details class="event-row" data-category="${category}"><summary>${title}${event.enabled ? ' · aktiv' : ''}</summary><label class="check"><input type="checkbox" data-event="enabled" ${event.enabled ? 'checked' : ''}>${title} aktivieren</label><label>Dauer (Sekunden)<input type="number" min="${['hour','half','quarter','midnight'].includes(category)?6:30}" max="60" step="1" data-event="duration" value="${escapeHtml(event.duration_seconds ?? 8)}" required></label><div class="event-scenes">${choices.length ? choices.map(scene => `<label class="check"><input type="checkbox" data-event="scene" value="${escapeHtml(scene.key)}" ${event.scenes?.includes(scene.key) ? 'checked' : ''}>${escapeHtml(categories[scene.key] || scene.title)}</label>`).join('') : '<p class="muted">Keine passende Szene im Katalog verfügbar.</p>'}</div>${flags.length ? `<p class="muted">Astronomische Anzeigefelder</p><div class="panel-flags">${flags.map(([key,label]) => `<label class="check"><input type="checkbox" data-panel="${escapeHtml(key)}" ${object(event.panels) ? event.panels[key] ? 'checked' : '' : Array.isArray(event.panels) && event.panels.includes(key) ? 'checked' : ''}>${escapeHtml(label)}</label>`).join('')}</div>` : ''}</details>`;
+       return `<details class="event-row" data-category="${category}"><summary>${title}${event.enabled ? ' · aktiv' : ''}</summary><label class="check"><input type="checkbox" data-event="enabled" ${event.enabled ? 'checked' : ''}>${title} aktivieren</label><label>Dauer (Sekunden)<input type="number" min="${['hour','half','quarter','midnight'].includes(category)?6:30}" max="60" step="1" data-event="duration" value="${escapeHtml(event.duration_seconds ?? 8)}" required></label><div class="event-scenes">${choices.length ? choices.map(scene => `<div class="event-scene-preview"><label class="check"><input type="checkbox" data-event="scene" value="${escapeHtml(scene.key)}" ${event.scenes?.includes(scene.key) ? 'checked' : ''}>${escapeHtml(categories[scene.key] || scene.title)}</label><button type="button" data-preview-key="${escapeHtml(scene.key)}" aria-label="${escapeHtml(categories[scene.key] || scene.title)}: LED-Vorschau">LED-Vorschau</button></div>`).join('') : '<p class="muted">Keine passende Szene im Katalog verfügbar.</p>'}</div>${flags.length ? `<p class="muted">Astronomische Anzeigefelder</p><div class="panel-flags">${flags.map(([key,label]) => `<label class="check"><input type="checkbox" data-panel="${escapeHtml(key)}" ${object(event.panels) ? event.panels[key] ? 'checked' : '' : Array.isArray(event.panels) && event.panels.includes(key) ? 'checked' : ''}>${escapeHtml(label)}</label>`).join('')}</div>` : ''}</details>`;
     }).join('');
   }
   function populate(data) {
@@ -142,6 +142,16 @@
     });
     return config;
   }
+  function validatedConfig() {
+    if (!$('timeStageForm').checkValidity()) throw new Error('Bitte die ungültigen Einstellungen korrigieren.');
+    const config = collect();
+    if (config.sleep.start === config.sleep.end) throw new Error('Bitte unterschiedliche Schlafzeiten wählen.');
+    if (!config.scenes.length || config.profile === 'favorites' && !config.favorites.length) throw new Error('Bitte mindestens eine Uhransicht auswählen (und für das Favoritenprofil einen Favoriten markieren).');
+    for (const [key, event] of Object.entries(config.events)) {
+      if (!event.scenes.length || Array.isArray(event.panels) && !event.panels.length) throw new Error(`Bitte mindestens eine Szene und ein Anzeigefeld für „${categories[key] || key}“ auswählen.`);
+    }
+    return config;
+  }
   async function load() {
     if (busy || dirty && !confirm('Ungespeicherte Änderungen verwerfen und neu laden?')) return;
     busy = true; $('reloadTimeStage').disabled = true;
@@ -159,12 +169,8 @@
   }, true);
   $('timeStageForm').onsubmit = async event => {
     event.preventDefault(); if (busy || !original || !$('timeStageForm').reportValidity()) return;
-    const config = collect();
-    if (config.sleep.start === config.sleep.end) { feedback('Bitte unterschiedliche Schlafzeiten wählen.', true); return; }
-    if (!config.scenes.length || config.profile === 'favorites' && !config.favorites.length) { feedback('Bitte mindestens eine Uhransicht auswählen (und für das Favoritenprofil einen Favoriten markieren).', true); return; }
-    for (const [key, event] of Object.entries(config.events)) {
-      if (!event.scenes.length || Array.isArray(event.panels) && !event.panels.length) { feedback(`Bitte mindestens eine Szene und ein Anzeigefeld für „${categories[key] || key}“ auswählen.`, true); return; }
-    }
+    let config;
+    try { config = validatedConfig(); } catch (error) { feedback(error.message, true); return; }
     busy = true; $('saveTimeStage').disabled = true; $('timeStageFields').disabled = true;
     try {
       const result = await api(base, {method:'PUT', body:JSON.stringify(config)});
@@ -223,7 +229,7 @@
   function setPlaying(value) {
     if (playing && !value) { const current = position(); clockAnchor = new Date(current.at).getTime(); elapsedAnchor = current.elapsed; }
     playing = value; motionAnchor = performance.now();
-    $('previewPlay').textContent = playing ? 'Pausieren' : 'Abspielen'; $('previewPlay').setAttribute('aria-pressed', String(playing));
+    $('previewPlay').textContent = playing ? 'Browser-Vorschau pausieren' : 'Browser-Vorschau abspielen'; $('previewPlay').setAttribute('aria-pressed', String(playing));
     if (!playing) { $('previewAt').value = localDate(new Date(clockAnchor)); $('previewElapsed').value = elapsedAnchor.toFixed(1); }
     invalidatePreview(); requestPreview();
   }
@@ -240,10 +246,11 @@
     previewController = new AbortController(); const timeout = setTimeout(() => previewController?.abort(), 8000);
     try {
       const current = position();
-      const result = await api(`${base}/preview`, {method:'POST', body:JSON.stringify({key:$('previewScene').value, ...current, physical:false, confirm_wake:false}), signal:previewController.signal});
+      const settings = validatedConfig();
+      const result = await api(`${base}/preview`, {method:'POST', body:JSON.stringify({key:$('previewScene').value, settings, ...current, physical:false, confirm_wake:false}), signal:previewController.signal});
       if (version !== generation || document.hidden) return;
       drawPixels(result.pixels);
-      $('previewFeedback').textContent = `${playing ? 'Läuft' : 'Schnappschuss'} · ${new Date(current.at).toLocaleString('de-DE')} (${original.timezone}) · ${Number($('previewSpeed').value)}× · nur Browser`;
+      $('previewFeedback').textContent = `Browser-Vorschau · ${playing ? 'Läuft' : 'Schnappschuss'} · ${new Date(current.at).toLocaleString('de-DE')} (${settings.timezone}) · ${Number($('previewSpeed').value)}×`;
     } catch (error) { if (version === generation && !document.hidden) $('previewFeedback').textContent = `POST ${base}/preview: ${error.message}`; }
     finally {
       clearTimeout(timeout); previewBusy = false; previewController = null;
@@ -267,19 +274,24 @@
     oldSpeed = Number($('previewSpeed').value); motionAnchor = performance.now(); invalidatePreview(); requestPreview();
   };
   $('previewNow').onclick = () => { $('previewAt').value = localDate(new Date()); $('previewTime').value = $('previewAt').value.slice(11,16); $('previewElapsed').value = '0'; setAnchor(); invalidatePreview(); requestPreview(); };
-  $('previewPhysical').onclick = async () => {
-    if (busy || !$('previewScene').value) return;
-    // Check the live status immediately before confirmation, not just the initial page state.
-    busy = true; $('previewPhysical').disabled = true;
+  async function physicalPreview(key) {
+    if (busy || !original || !key) return;
+    if (!$('timeStageForm').reportValidity()) return;
+    busy = true;
+    const buttons = [...document.querySelectorAll('[data-preview-key], #previewPhysical')];
+    buttons.forEach(button => { button.disabled = true; });
     try {
-      const currentStatus = await api(base); showStatus(currentStatus);
-      const sleeping = !!currentStatus.status?.sleep?.active;
-      if (!confirm(sleeping ? 'Schlafmodus ist aktiv! Die LED-Vorschau kann die Anzeige aufwecken und heller leuchten lassen. Trotzdem auf den echten LEDs anzeigen?' : 'Diese Vorschau verändert die echte LED-Anzeige. Jetzt anzeigen?')) return;
-      await api(`${base}/preview`, {method:'POST', body:JSON.stringify({key:$('previewScene').value, ...position(), physical:true, confirm_wake:sleeping})});
+      await api(`${base}/preview`, {method:'POST', body:JSON.stringify({key, settings:validatedConfig(), physical:true, confirm_wake:false})});
       $('previewFeedback').textContent = 'LED-Vorschau angefordert.';
-    } catch (error) { $('previewFeedback').textContent = `POST ${base}/preview (LED): ${error.message}`; }
-    finally { busy = false; $('previewPhysical').disabled = false; }
-  };
+      feedback('LED-Vorschau gestartet. Danach läuft die Playlist weiter.');
+    } catch (error) { $('previewFeedback').textContent = `LED-Vorschau: ${error.message}`; feedback(`LED-Vorschau: ${error.message}`, true); }
+    finally { busy = false; buttons.forEach(button => { button.disabled = false; }); }
+  }
+  $('previewPhysical').onclick = () => physicalPreview($('previewScene').value);
+  for (const id of ['sceneList','eventList']) $(id).addEventListener('click', event => {
+    const button = event.target.closest('button[data-preview-key]');
+    if (button) physicalPreview(button.dataset.previewKey);
+  });
   document.addEventListener('visibilitychange', () => { invalidatePreview(); if (!document.hidden) requestPreview(); });
   window.addEventListener('pagehide', () => { playing = false; invalidatePreview(); });
   window.addEventListener('beforeunload', event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });

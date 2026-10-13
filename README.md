@@ -10,9 +10,13 @@ Das README ist bewusst kurz gehalten. Die ausführliche, aufgeteilte Projektdoku
 
 ## Aktueller Standard: Datenweg, Dashboard und Pixel-Studio
 
-In Entwicklung: **Time-Stage**, 20 Uhransichten, 10 magische Ereignisanimationen,
-eigenständige Uhr-Regie, Schlafmodus und lokale Sonnen-/Mondzeremonien. Details:
-[Time-Stage](docs/time-stage.md). Noch kein GitHub-Push dieses Entwicklungsstands.
+**Time-Stage**: 20 Uhransichten, 10 magische Ereignisanimationen,
+eigenständige Uhr-Regie, Schlafmodus und lokale Sonnen-/Mondzeremonien.
+Details: [Time-Stage](docs/time-stage.md).
+
+**Bitcoin-Stage**: zehn gemeinsame Pixelstile für sieben gleichberechtigte Infos,
+standardmäßig höchstens zwei pro Vorstellung, mit eigenen Einstellungen und Vorschauen
+unter `/bitcoin`. Details: [docs/bitcoin-stage.md](docs/bitcoin-stage.md).
 
 Dieser Zweig enthält den überarbeiteten 30-FPS-Datenweg und Uno-Firmware v3.
 Vorhandene `.env`-Werte werden nicht überschrieben. Für vollständige
@@ -20,13 +24,13 @@ Helligkeits-Synchronisation ist die neue Firmware vorgesehen; Details und
 Kompatibilitätsgrenzen: [Phase 2](docs/rework-phase2.md).
 Für Entwicklung ohne Hardware explizit `LED_TRANSPORT=mock` verwenden.
 
-Das Dashboard bietet jetzt eine dauerhaft sichtbare LED-Vorschau, eine sortierbare
+Das Dashboard bietet jetzt eine einklappbare Live-LED-Vorschau, eine sortierbare
 Playlist mit Prioritäts-/Shuffle-Slots sowie GIF-/PNG-Import und einen Sprite-Editor
 mit Animationsframes. Uhransichten, Modulsymbole und Übergänge wurden überarbeitet;
 Diagnosewerkzeuge sind unter „Erweitert“ gebündelt.
 
-Der geprüfte Softwarestand `1227bfa` mit Firmware v3, Pixel-Studio und den Verbesserungen
-an Helligkeit, Login-Kontrast, Uhr und Bitcoin ist auf dem Pi installiert und als
+Der geprüfte Stand mit Firmware v3, Pixel-Studio, Time-Stage, Bitcoin-Stage und
+kompakter Oberfläche mit direkten LED-Vorschauen ist auf dem Pi installiert und als
 Autostart eingerichtet. `main` enthält diesen Standardstand; die früheren Pi-Stände
 und Sicherungen bleiben für einen Rückwechsel erhalten. Umfang und Testanleitung:
 [Pixel-Studio-Rework](docs/pixel-studio-rework.md).

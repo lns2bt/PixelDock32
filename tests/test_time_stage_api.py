@@ -146,16 +146,34 @@ class TimeStageApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.client.post("/api/time-stage/sleep", json={"mode": "auto"})).status_code, 200)
         self.assertIsNone((await self.persisted())["sleep"]["until"])
 
-    async def test_physical_preview_requires_wake_confirmation_and_ignores_at(self):
+    async def test_physical_preview_requires_actual_wake_and_ignores_at(self):
         self.display.time_stage_status.return_value = {"sleep": {"active": True}}
         payload = {"key": "sunrise", "physical": True, "at": "2000-01-01T12:00:00"}
         self.assertEqual((await self.client.post("/api/time-stage/preview", json=payload)).status_code, 409)
         self.display.preview_time_stage.assert_not_called()
-        self.assertEqual((await self.client.post("/api/time-stage/preview", json={**payload, "confirm_wake": True})).status_code, 200)
-        self.display.preview_time_stage.assert_called_once_with("sunrise", confirm_wake=True)
+        self.assertEqual((await self.client.post("/api/time-stage/preview", json={**payload, "confirm_wake": True})).status_code, 409)
+        self.display.time_stage_status.return_value = {"sleep": {"active": False}}
+        self.display.preview_astronomy.return_value = {}
+        self.assertEqual((await self.client.post("/api/time-stage/preview", json=payload)).status_code, 200)
+        call = self.display.preview_time_stage.call_args
+        self.assertEqual(call.args, ("sunrise",))
+        self.assertNotIn("confirm_wake", call.kwargs)
+        self.assertNotEqual(self.display.preview_astronomy.call_args.args[0].year, 2000)
         self.display.render_time_stage_preview.assert_not_called()
         for change in ({"key": "unknown"}, {"elapsed": -1}, {"elapsed": 121}):
             self.assertEqual((await self.client.post("/api/time-stage/preview", json={**payload, **change})).status_code, 422)
+
+    async def test_unsaved_preview_config_does_not_save_or_override_sleep_policy(self):
+        config = Config().model_dump(mode='json')
+        config.update(color='#ff0011',intensity='calm',duration_seconds=12)
+        before=await self.persisted()
+        response=await self.client.post('/api/time-stage/preview',json={'key':'retro_cartridge','physical':True,'settings':config})
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(self.display.preview_time_stage.call_args.kwargs['config']['color'],'#ff0011')
+        self.assertEqual(await self.persisted(),before)
+        self.display.time_stage_status.return_value={'sleep':{'active':True}}
+        config['sleep']['mode']='wake'
+        self.assertEqual((await self.client.post('/api/time-stage/preview',json={'key':'retro_cartridge','physical':True,'settings':config})).status_code,409)
 
     async def test_all_routes_require_authentication(self):
         self.app.dependency_overrides.pop(get_current_user)

@@ -79,19 +79,44 @@ class TimeStageDisplayTests(unittest.IsolatedAsyncioTestCase):
         await self.display._get_next_frame()
         self.driver.set_brightness.assert_called_with(3)
 
-    async def test_physical_preview_requires_sleep_confirmation_and_restores_it(self):
+    async def test_physical_preview_requires_actual_wake_even_with_old_confirmation_flag(self):
         self.config['sleep'].update(mode='sleep',until=(self.wall+timedelta(hours=1)).isoformat())
         self.display.configure_time_stage(self.config)
         with self.assertRaises(ValueError):self.display.preview_time_stage('retro_cartridge')
+        with self.assertRaises(ValueError):self.display.preview_time_stage('retro_cartridge',confirm_wake=True)
+        self.config['sleep']['mode']='wake'
+        self.display.configure_time_stage(self.config)
         with patch('app.services.display.time.monotonic',return_value=100):
-            self.display.preview_time_stage('retro_cartridge',confirm_wake=True)
+            self.display.preview_time_stage('retro_cartridge')
             await self.display._get_next_frame()
             self.assertEqual(self.display.last_source,'time-stage-preview')
             self.driver.set_brightness.assert_called_with(10)
         with patch('app.services.display.time.monotonic',return_value=109):
             await self.display._get_next_frame()
-            self.assertEqual(self.display.last_source,'sleep')
-            self.driver.set_brightness.assert_called_with(1)
+            self.assertIsNone(self.display._stage_preview)
+            self.assertNotEqual(self.display.last_source,'sleep')
+
+    async def test_time_stage_preview_uses_unsaved_options_without_mutating_live_config(self):
+        from copy import deepcopy
+        config=deepcopy(self.config);config.update(color='#ff0000',duration_seconds=12)
+        with patch('app.services.display.time.monotonic',return_value=100):
+            self.display.preview_time_stage('retro_cartridge',config=config)
+            _,colors=await self.display._get_next_frame()
+        self.assertEqual(self.display._stage_preview['end'],112)
+        self.assertIsNone(self.display.time_stage_config['color'])
+        self.assertTrue(all(rgb[1:]==(0,0) for row in colors for rgb in row if rgb))
+
+    async def test_preview_pauses_active_clock_without_selecting_another_scene(self):
+        with patch('app.services.display.time.monotonic',return_value=100):
+            await self.display._get_next_frame()
+        active=self.display.time_stage.active
+        with patch('app.services.display.time.monotonic',return_value=102):
+            self.display.preview_bitcoin({'bitcoin_infos':['fees'],'bitcoin_max_infos':1})
+        with patch('app.services.display.time.monotonic',return_value=112):
+            await self.display._get_next_frame()
+        self.assertIs(self.display.time_stage.active,active)
+        self.assertEqual(active['start'],110)
+        self.assertEqual(active['end'],118)
 
     async def test_broken_scene_falls_back_to_readable_clock(self):
         with patch('app.services.time_stage.render_scene',side_effect=RuntimeError('broken')):

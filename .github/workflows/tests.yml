@@ -68,6 +68,7 @@ jobs:
               raise RuntimeError('UI fixture did not start')
           PY
           NODE_PATH="$RUNNER_TEMP/pixeldock-browser/node_modules" PIXELDOCK_UI_ARTIFACTS="$RUNNER_TEMP/ui-screenshots" node scripts/ui-smoke.cjs
+          NODE_PATH="$RUNNER_TEMP/pixeldock-browser/node_modules" PIXELDOCK_UI_ARTIFACTS="$RUNNER_TEMP/ui-screenshots" node scripts/bitcoin-smoke.cjs
       - name: Time-Stage scene gallery
         run: |
           python scripts/preview-time-stage.py --output "$RUNNER_TEMP/time-stage-gallery"

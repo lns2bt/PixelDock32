@@ -1,0 +1,77 @@
+/* Mock-only browser regression: no tests that modify settings on real LEDs. */
+const {chromium}=require('playwright');
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+(async()=>{
+ const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||(fs.existsSync('/usr/bin/chromium')?'/usr/bin/chromium':undefined),headless:true,args:['--no-sandbox']});
+ try{
+  const context=await browser.newContext({viewport:{width:390,height:844}}),base='http://127.0.0.1:8765';
+  const login=await context.request.post(base+'/api/auth/login',{data:{username:'admin',password:'local-ui-test-only'}});
+  assert.equal(login.status(),200);const token=(await login.json()).access_token,headers={Authorization:`Bearer ${token}`};
+  assert.equal((await(await context.request.get(base+'/api/debug/led/metrics',{headers})).json()).result.transport,'mock');
+  await context.addInitScript(token=>localStorage.setItem('token',token),token);
+  const page=await context.newPage(),errors=[],dialogs=[];page.on('pageerror',error=>errors.push(error.message));
+  page.on('dialog',async dialog=>{dialogs.push(dialog.type());await dialog.dismiss();});
+  await page.goto(base+'/bitcoin');await page.locator('#bitcoinFields:not([disabled])').waitFor();
+  assert.equal(await page.locator('[data-info]').count(),7);assert.equal(await page.locator('[data-style]').count(),10);
+  assert.equal(await page.locator('#bitcoinPreviewInfo option').count(),8);
+  assert.equal(await page.locator('#bitcoin_max_infos').inputValue(),'2');
+  assert.equal(await page.locator('#bitcoinSavebar').isVisible(),false);
+  const expandedHeight=(await page.locator('.live-header').boundingBox()).height;
+  await page.locator('#headerMatrixToggle').click();
+  assert.equal(await page.locator('#headerMatrixToggle').getAttribute('aria-expanded'),'false');
+  assert.ok((await page.locator('.live-header').boundingBox()).height<expandedHeight-30);
+  assert.equal(await page.locator('#headerMatrix').isVisible(),false);
+  for(const width of [320,390,1280]){await page.setViewportSize({width,height:900});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`Bitcoin page overflow ${width}`);}
+  await page.setViewportSize({width:390,height:844});
+  const before=(await(await context.request.get(base+'/api/modules',{headers})).json()).find(v=>v.key==='btc');
+  await page.locator('#bitcoinBrowserPreview summary').first().click();
+  await page.locator('#bitcoinDemo').check();await page.locator('#bitcoinElapsed').fill('5');
+  await page.locator('#bitcoinSnapshot').click();await page.locator('#bitcoinPreviewStatus').filter({hasText:'Demo / Simulation'}).waitFor();
+  assert.deepEqual((await(await context.request.get(base+'/api/modules',{headers})).json()).find(v=>v.id===before.id),before);
+  await page.locator('#bitcoinPreviewEvent').selectOption('dock');
+  const liveRequest=page.waitForRequest(request=>request.url().endsWith('/api/bitcoin/preview')&&request.postDataJSON()?.physical);
+  await page.locator('#bitcoinPhysical').click();
+  const livePayload=(await liveRequest).postDataJSON();assert.equal(livePayload.demo,false);assert.equal(livePayload.event,null);
+  await page.locator('#bitcoinPreviewStatus').filter({hasText:'LED-Vorschau gestartet'}).waitFor();
+  await page.locator('#bitcoinPreviewEvent').selectOption('');
+  await page.locator('#bitcoinInfos').locator('..').locator('summary').click();
+  await page.locator('[data-info="fees"] [data-move="-1"]').click();
+  await page.locator('#bitcoin_max_infos').fill('3');await page.locator('#bitcoin_info_order').selectOption('random');
+  await page.locator('#bitcoin_read_seconds').fill('5');await page.locator('#bitcoin_intensity').selectOption('calm');
+  assert.equal(await page.locator('#bitcoinSavebar').isVisible(),true);
+  await page.locator('#bitcoinStyles').locator('..').locator('summary').first().click();
+  const unsavedRequest=page.waitForRequest(request=>request.url().endsWith('/api/bitcoin/preview')&&request.postDataJSON()?.physical);
+  await page.locator('[data-led-style="train"]').click();
+  const unsaved=(await unsavedRequest).postDataJSON();assert.equal(unsaved.settings.bitcoin_read_seconds,5);assert.equal(unsaved.settings.bitcoin_max_infos,3);assert.equal(unsaved.info,null);
+  assert.deepEqual((await(await context.request.get(base+'/api/modules',{headers})).json()).find(v=>v.id===before.id),before);
+  await page.locator('#saveBitcoin').click();await page.locator('#bitcoinFeedback').filter({hasText:'Gespeichert. Änderungen gelten ab der nächsten Vorstellung.'}).waitFor();
+  assert.equal(await page.locator('#bitcoinSavebar').isVisible(),false);
+  const saved=(await(await context.request.get(base+'/api/modules',{headers})).json()).find(v=>v.id===before.id);
+  assert.equal(saved.settings.bitcoin_max_infos,3);assert.equal(saved.settings.bitcoin_info_order,'random');
+  assert.equal(saved.settings.bitcoin_read_seconds,5);assert.equal(saved.settings.bitcoin_intensity,'calm');
+  assert.ok(saved.settings.bitcoin_infos.indexOf('fees')<saved.settings.bitcoin_infos.indexOf('age'));
+  assert.equal(saved.duration_seconds,before.duration_seconds);assert.equal(saved.enabled,before.enabled);
+  const scene=await context.request.post(base+'/api/bitcoin/preview',{headers,data:{module_id:before.id,demo:true,elapsed:5}});
+  assert.equal((await scene.json()).info.length,3);
+  const cfg=(await(await context.request.get(base+'/api/time-stage',{headers})).json()).config;
+  await context.request.post(base+'/api/time-stage/sleep',{headers,data:{mode:'sleep'}});
+  assert.equal((await context.request.post(base+'/api/bitcoin/preview',{headers,data:{module_id:before.id,physical:true}})).status(),409);
+  await context.request.put(base+'/api/time-stage',{headers,data:cfg});
+  await page.reload();await page.locator('#bitcoinFields:not([disabled])').waitFor();assert.equal(await page.locator('#bitcoin_max_infos').inputValue(),'3');
+  assert.equal(await page.locator('#headerMatrixToggle').getAttribute('aria-expanded'),'false');
+  await page.goto(base+'/modules');await page.locator('.module-card').first().waitFor();
+  const btcCard=page.locator('.module-card').filter({has:page.getByRole('heading',{name:before.name,exact:true})});
+  assert.equal(await btcCard.locator('input[name="duration_seconds"]').getAttribute('type'),'hidden');
+  await btcCard.locator('.module-head [data-duration]').filter({hasText:'28,4'}).waitFor();
+  assert.equal(await page.locator('#headerMatrixToggle').getAttribute('aria-expanded'),'false');
+  await page.goto(base+'/time-stage');await page.locator('#timeStageFields:not([disabled])').waitFor();
+  await page.locator('#advancedSettings summary').first().click();await page.locator('#color').fill('#ff0011');
+  const timeRequest=page.waitForRequest(request=>request.url().endsWith('/api/time-stage/preview')&&request.postDataJSON()?.physical);
+  await page.locator('[data-preview-key="retro_cartridge"]').first().click();
+  assert.equal((await timeRequest).postDataJSON().settings.color,'#ff0011');
+  assert.deepEqual((await(await context.request.get(base+'/api/time-stage',{headers})).json()).config,cfg);
+  assert.deepEqual(dialogs,[]);
+  if(process.env.PIXELDOCK_UI_ARTIFACTS){fs.mkdirSync(process.env.PIXELDOCK_UI_ARTIFACTS,{recursive:true});await page.screenshot({path:path.join(process.env.PIXELDOCK_UI_ARTIFACTS,'bitcoin-mobile.png'),fullPage:true});}
+  assert.deepEqual(errors,[]);console.log('UX smoke passed: compact accordions, persistent collapsed header, automatic timing, dirty-only savebar, unsaved direct Bitcoin/Time-Stage LED previews without dialogs, sleep guards.');
+ }finally{await browser.close();}
+})().catch(error=>{console.error(error);process.exitCode=1;});

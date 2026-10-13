@@ -76,6 +76,21 @@ body[data-page=login] input:focus-visible { outline:3px solid var(--gold); outli
 .live-top { gap:.5rem; }
 #shellSleep { min-width:40px; flex-shrink:0; }
 #shellSleep[aria-pressed=true] { color:var(--gold); border-color:var(--gold); }
+/* Compact shared shell; the matrix alone collapses, never the controls or nav. */
+.live-header .live-top { flex-wrap:wrap; justify-content:flex-start; gap:.35rem .5rem; }
+.live-header .pixel-brand { white-space:nowrap; }
+.live-header .live-label { margin-left:auto; }
+.live-header .live-on-air { color:var(--text); font-size:.75rem; font-weight:600; min-width:0; max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.live-header #headerMatrixToggle { min-width:44px; padding:.3rem .5rem; flex-shrink:0; }
+.live-header.matrix-collapsed .live-header-inner { padding-top:.25rem; padding-bottom:.25rem; }
+.live-header .retro-nav { min-width:0; }
+.live-header .retro-nav > * { flex-shrink:0; }
+.module-card .automatic-duration { align-self:start; padding:.6rem .7rem; border:1px solid var(--border); border-radius:7px; }
+.module-card .automatic-duration strong { display:block; color:var(--text); }
+.module-card .automatic-duration p { margin:.3rem 0; }
+body[data-screen=time-stage] .event-scene-preview { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:.5rem; min-width:0; }
+body[data-screen=dashboard] .mini-item { flex-wrap:wrap; gap:.5rem; }
+@media(max-width:440px) { .live-header .live-on-air { flex-basis:100%; max-width:100%; order:5; } .live-header .live-label { max-width:110px; } .live-header .live-top .pixel-brand { font-size:.85rem; } .live-header .live-top .live-label { font-size:.55rem; } .live-header .brightness-trigger { min-width:44px; padding:.3rem .4rem; } }
 @media(max-width:440px) { .live-top .live-label { font-size:.55rem; } .live-top .pixel-brand { font-size:.95rem; } }
 @media(min-width:900px) { #spriteCanvas { width:100%; height:auto; } }
 @media(max-width:650px) { .metric-row { grid-template-columns:repeat(3,minmax(0,1fr)); gap:.5rem; } .metric-row .panel { padding:.8rem; } .metric-row strong { font-size:1.1rem; } .metric-row small { font-size:.65rem; } .asset-grid { grid-template-columns:1fr; } .field-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .retro-main { padding:1.2rem .75rem 3rem; } .panel { padding:1rem; } .live-caption { display:none; } .live-matrix canvas { width:280px; max-width:100%; } .live-header-inner { padding:.4rem .75rem; } .live-label { font-size:.65rem; } .module-head { gap:.5rem; } .form-actions button { flex:1; } }

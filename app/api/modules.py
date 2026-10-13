@@ -179,6 +179,9 @@ def sanitize_settings(module_key: str, settings: dict) -> dict:
         merged["transition_ms"] = _clamp_int(merged.get("transition_ms"), 0, 2000, defaults["transition_ms"])
 
     elif module_key == "btc":
+        from app.services.bitcoin_stage import normalize
+        merged = normalize(merged)
+        merged.pop("_bitcoin_preview", None)
         merged["font_size"] = _normalize_font_size(merged.get("font_size"), defaults["font_size"])
         merged["x_offset"] = _clamp_int(merged.get("x_offset"), -16, 16, defaults["x_offset"])
         merged["y_offset"] = _clamp_int(merged.get("y_offset"), -4, 4, defaults["y_offset"])

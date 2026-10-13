@@ -2,13 +2,28 @@
 (() => {
   'use strict';
   if (!window.PixelDock) return;
-  const { api, toast, matrix } = window.PixelDock;
+  const { api, toast, matrix, bitcoinDuration, bitcoinDurationText } = window.PixelDock;
   const $ = id => document.getElementById(id);
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
   const guarded = fn => async event => { try { await fn(event); } catch (error) { toast(error.message, true); } };
   const json = (method, data) => ({ method, body: JSON.stringify(data) });
   const names = { clock:'Uhr', btc:'Bitcoin', weather:'Wetter & Raumklima', textbox:'Text', bitmap:'Bitmap', animations:'Animation', asset:'GIF / Sprite' };
   let modules = [], assets = [], dirty = false;
+  const automaticBitcoin = row => row.key.split('-')[0] === 'btc' && row.settings?.bitcoin_stage !== false;
+  function durationLabel(row) { return automaticBitcoin(row) ? 'Automatische Dauer' : `${row.duration_seconds}s`; }
+  function renderBitcoinTiming(row, container) {
+    if (!automaticBitcoin(row)) return;
+    bitcoinDuration(row).then(timing => {
+      if (!container.isConnected) return;
+      container.querySelectorAll('[data-duration]').forEach(node => { node.textContent = bitcoinDurationText(timing); });
+      const info = container.querySelector('[data-duration-info]');
+      if (info) info.textContent = `${timing.info_count} Info${timing.info_count === 1 ? '' : 's'} · ${timing.read_seconds} s Lesezeit pro Info${Number(timing.event_extra_seconds) > 0 ? ` · ggf. +${timing.event_extra_seconds} s Blockzeremonie` : ''}. Die Vorstellung läuft vollständig durch.`;
+    }).catch(() => {
+      if (!container.isConnected) return;
+      const info = container.querySelector('[data-duration-info]');
+      if (info) info.textContent = 'Automatische Dauer momentan nicht verfügbar. Details auf der Bitcoin-Seite.';
+    });
+  }
   window.addEventListener('beforeunload', event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });
 
   // Dashboard stays intentionally quiet: useful values, no GPIO/protocol dumps.
@@ -25,7 +40,9 @@
       await api('/api/display/text', json('POST', { text:values.get('text'), seconds:Number(values.get('seconds')), font_size:'small' })); toast('Nachricht läuft.');
     });
     api('/api/modules').then(rows => {
-      $('dashboardModules').innerHTML = rows.filter(row => row.enabled).map(row => `<div class="mini-item"><span class="pill">${escape(names[row.key.split('-')[0]])}</span><strong class="grow">${escape(row.name)}</strong><span class="muted">${row.duration_seconds}s</span><button type="button" data-play="${row.id}">▶</button></div>`).join('') || '<p class="muted">Keine aktiven Module. Füge deiner Playlist etwas hinzu.</p>';
+      const active = rows.filter(row => row.enabled);
+      $('dashboardModules').innerHTML = active.map(row => `<div class="mini-item"><span class="pill">${escape(names[row.key.split('-')[0]])}</span><strong class="grow">${escape(row.name)}</strong><span class="muted" data-duration>${escape(durationLabel(row))}</span><button type="button" data-play="${row.id}">▶</button></div>`).join('') || '<p class="muted">Keine aktiven Module. Füge deiner Playlist etwas hinzu.</p>';
+      $('dashboardModules').querySelectorAll('.mini-item').forEach((card, index) => renderBitcoinTiming(active[index], card));
       $('dashboardModules').querySelectorAll('[data-play]').forEach(button => button.onclick = guarded(async () => { await api(`/api/modules/${button.dataset.play}/play`, { method:'POST' }); toast('Wird jetzt abgespielt.'); }));
     }).catch(error => toast(error.message, true));
   }
@@ -40,7 +57,7 @@
   function settingsFields(row) {
     const s = row.settings || {}, kind = row.key.split('-')[0];
     let html = input('Name', 'module_name', row.name, 'text', 'maxlength="100" required')
-      + input('Dauer (Sekunden)', 'duration_seconds', row.duration_seconds, 'number', 'min="1" max="300" required')
+      + (automaticBitcoin(row) ? `<div class="automatic-duration"><strong data-duration>Automatische Dauer</strong><p class="muted" data-duration-info>Info- und Lesezeiten werden geladen …</p><a href="/bitcoin">Bitcoin-Stage einstellen</a><input type="hidden" name="duration_seconds" value="${escape(row.duration_seconds)}"></div>` : input('Dauer (Sekunden)', 'duration_seconds', row.duration_seconds, 'number', 'min="1" max="300" required'))
       + select('Übergang', 'transition_effect', s.transition_effect || 'fade', [['fade','Sanfter Fade'],['dissolve','Pixel-Dissolve'],['slide','Slide'],['none','Ohne']])
       + input('Übergang (ms)', 'transition_ms', s.transition_ms ?? 450, 'number', 'min="0" max="2000"')
       + input('Priorität alle … Sekunden (0 = aus)', 'priority_every', s.priority_every ?? (kind === 'clock' ? 45 : 0), 'number', 'min="0" max="3600"')
@@ -72,13 +89,12 @@
         + checkbox('Luftfeuchtigkeit', 'show_humidity', s.show_humidity ?? true)
         + '<p class="wide muted">Alle Wettermodule nutzen denselben konfigurierten Standort. Standortwechsel erfolgt über WEATHER_LAT / WEATHER_LON in der Systemkonfiguration.</p>';
     } else if (kind === 'btc') {
-      html += checkbox('Zusätzlich Blockhöhe anzeigen', 'show_block_height', s.show_block_height)
-        + input('Werte wechseln alle … Sekunden', 'screen_seconds', s.screen_seconds || 4, 'number', 'min="1" max="60"')
+      html += '<p class="wide muted">Neue Bitcoin-Stage: gleichberechtigte Infos, maximal zwei pro Vorstellung als Standard. Szenen, Auswahl, Rotation und Vorschauen auf der eigenen Seite einstellen: <a href="/bitcoin">Bitcoin-Stage öffnen</a>. Eine begonnene Vorstellung läuft vollständig durch.</p>'
         + input('Bitcoin-Symbol', 'color_b', s.color_b || '#ff8c00', 'color')
         + input('Preis bei steigendem Trend', 'color_up', s.color_up || '#00c850', 'color')
         + input('Preis bei fallendem Trend', 'color_down', s.color_down || '#e63c3c', 'color')
         + input('Preis bei neutralem Trend', 'color_flat', s.color_flat || '#dcdc50', 'color')
-        + '<p class="wide muted">Das ₿-Symbol pulsiert unabhängig von der Preisfarbe. k = tausend Euro, M = Millionen Euro; Trendfarbe und Pfeil zeigen die Richtung.</p>';
+        + '<p class="wide muted">Die Farbfelder gelten für die alte Darstellung. Neue Szenen verwenden ihre abgestimmten Bitcoin-Paletten.</p>';
     } else if (kind === 'bitmap') {
       html += input('Datei im Bitmap-Verzeichnis', 'file', s.file || 'sample_gradient.ppm')
         + select('Scrollrichtung', 'scroll_direction', s.scroll_direction || 'top_to_bottom', [['top_to_bottom','Von oben nach unten'],['bottom_to_top','Von unten nach oben']])
@@ -88,9 +104,10 @@
   }
 
   function renderModules() {
-    $('moduleList').innerHTML = modules.map((row,index) => `<article class="panel module-card ${row.enabled ? '' : 'disabled'}" data-id="${row.id}"><div class="module-head"><button class="drag-handle" draggable="true" aria-label="${escape(row.name)} verschieben" type="button">⠿</button><div class="grow"><h2>${escape(row.name)}</h2><small>${escape(names[row.key.split('-')[0]])} · ${row.duration_seconds}s</small></div><button type="button" data-move="-1" aria-label="${escape(row.name)} nach oben" ${index === 0 ? 'disabled' : ''}>↑</button><button type="button" data-move="1" aria-label="${escape(row.name)} nach unten" ${index === modules.length - 1 ? 'disabled' : ''}>↓</button><button type="button" data-action="play">▶ Jetzt</button></div><form class="module-form">${checkbox('Aktiv', 'enabled', row.enabled)}<details><summary>Einstellungen & Wiedergabe</summary><div class="field-grid">${settingsFields(row)}</div><details><summary>Weitere Einstellungen (JSON)</summary><p class="muted">Für zusätzliche Optionen der bestehenden Module. Formularfelder haben Vorrang.</p><textarea name="settings_json" rows="5">${escape(JSON.stringify(row.settings, null, 2))}</textarea></details></details><div class="form-actions"><button class="primary" type="submit">Speichern</button><button type="button" data-action="duplicate">Duplizieren</button>${row.key.includes('-') ? '<button type="button" class="danger" data-action="delete">Entfernen</button>' : ''}<span class="muted save-state" role="status"></span></div></form></article>`).join('');
+    $('moduleList').innerHTML = modules.map((row,index) => `<article class="panel module-card ${row.enabled ? '' : 'disabled'}" data-id="${row.id}"><div class="module-head"><button class="drag-handle" draggable="true" aria-label="${escape(row.name)} verschieben" type="button">⠿</button><div class="grow"><h2>${escape(row.name)}</h2><small>${escape(names[row.key.split('-')[0]])} · <span data-duration>${escape(durationLabel(row))}</span></small></div><button type="button" data-move="-1" aria-label="${escape(row.name)} nach oben" ${index === 0 ? 'disabled' : ''}>↑</button><button type="button" data-move="1" aria-label="${escape(row.name)} nach unten" ${index === modules.length - 1 ? 'disabled' : ''}>↓</button><button type="button" data-action="play">▶ Jetzt</button></div><form class="module-form">${checkbox('Aktiv', 'enabled', row.enabled)}<details><summary>Einstellungen & Wiedergabe</summary><div class="field-grid">${settingsFields(row)}</div><details><summary>Weitere Einstellungen (JSON)</summary><p class="muted">Für zusätzliche Optionen der bestehenden Module. Formularfelder haben Vorrang.</p><textarea name="settings_json" rows="5">${escape(JSON.stringify(row.settings, null, 2))}</textarea></details></details><div class="form-actions"><button class="primary" type="submit">Speichern</button><button type="button" data-action="duplicate">Duplizieren</button>${row.key.includes('-') ? '<button type="button" class="danger" data-action="delete">Entfernen</button>' : ''}<span class="muted save-state" role="status"></span></div></form></article>`).join('');
     $('moduleList').querySelectorAll('.module-card').forEach(card => {
       const row = modules.find(item => item.id === Number(card.dataset.id)), form = card.querySelector('form');
+      renderBitcoinTiming(row, card);
       form.oninput = () => { card.classList.add('dirty'); card.querySelector('.save-state').textContent = 'Ungespeichert'; dirty = true; };
       form.onsubmit = guarded(async event => {
         event.preventDefault(); const data = new FormData(form);
@@ -107,7 +124,8 @@
         const saved = await api(`/api/modules/${row.id}`, json('PUT', { name:data.get('module_name'), enabled:form.elements.enabled.checked, duration_seconds:Number(data.get('duration_seconds')), sort_order:row.sort_order, settings }));
         Object.assign(row, saved); card.classList.remove('dirty'); card.classList.toggle('disabled', !row.enabled); card.querySelector('.save-state').textContent = 'Gespeichert';
         card.querySelector('h2').textContent = row.name;
-        card.querySelector('.module-head small').textContent = `${names[row.key.split('-')[0]]} · ${row.duration_seconds}s`;
+        card.querySelector('.module-head small').innerHTML = `${escape(names[row.key.split('-')[0]])} · <span data-duration>${escape(durationLabel(row))}</span>`;
+        renderBitcoinTiming(row, card);
         dirty = !!$('moduleList').querySelector('.dirty'); toast('Modul gespeichert.');
       });
       card.querySelectorAll('[data-move]').forEach(button => button.onclick = guarded(() => moveModule(row.id, modules.indexOf(row) + Number(button.dataset.move))));

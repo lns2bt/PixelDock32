@@ -6,6 +6,7 @@ import logging
 import os
 import platform
 import time
+import math
 import threading
 from contextlib import suppress
 
@@ -127,6 +128,7 @@ class ExternalDataService:
             asyncio.create_task(self._poll_btc()),
             asyncio.create_task(self._poll_weather()),
             asyncio.create_task(self._poll_btc_block_height()),
+            asyncio.create_task(self._poll_btc_network()),
         ]
         if self.settings.dht_enabled:
             self._tasks.append(asyncio.create_task(self._poll_dht()))
@@ -143,10 +145,15 @@ class ExternalDataService:
                 async with httpx.AsyncClient(timeout=8) as client:
                     response = await client.get(
                         self.settings.btc_api_url,
-                        params={"ids": "bitcoin", "vs_currencies": "eur"},
+                        params={"ids": "bitcoin", "vs_currencies": "eur", "include_24hr_change": "true"},
                     )
                     response.raise_for_status()
-                    new_price = response.json()["bitcoin"]["eur"]
+                    data = response.json()["bitcoin"]
+                    new_price = float(data["eur"])
+                    if not math.isfinite(new_price) or new_price <= 0:
+                        raise ValueError("Invalid Bitcoin price")
+                    change = data.get("eur_24h_change")
+                    self.cache["btc_change_24h"] = float(change) if isinstance(change,(int,float)) and math.isfinite(change) and change >= -100 else None
                     old_price = self.cache.get("btc_eur")
                     if old_price is None:
                         self.cache["btc_trend"] = "flat"
@@ -828,10 +835,50 @@ class ExternalDataService:
                 async with httpx.AsyncClient(timeout=8) as client:
                     response = await client.get(self.settings.btc_block_height_api_url)
                     response.raise_for_status()
-                    self.cache["btc_block_height"] = int(response.text.strip())
+                    height = int(response.text.strip())
+                    if not 0 <= height <= 100_000_000: raise ValueError("Invalid block height")
+                    self.cache["btc_block_height"] = height
                     self.cache["btc_block_height_updated_at"] = time.time()
                     self.cache["btc_block_height_error"] = None
             except Exception as exc:  # noqa: BLE001
                 logger.warning("BTC block height polling failed: %s", exc)
                 self.cache["btc_block_height_error"] = str(exc)
             await asyncio.sleep(self.settings.poll_btc_seconds)
+
+    async def _poll_btc_network(self):
+        """Low-rate optional data; errors never remove previous values or block LEDs."""
+        base = self.settings.btc_network_api_url.rstrip('/')
+        while self._running:
+            async with httpx.AsyncClient(timeout=8) as client:
+                try:
+                    fees = await client.get(base+'/v1/fees/recommended')
+                    fees.raise_for_status()
+                    data = fees.json()
+                    validated = {}
+                    for key in ('economyFee','hourFee','halfHourFee','fastestFee'):
+                        value = float(data[key])
+                        if not math.isfinite(value) or value < 0 or value > 1_000_000: raise ValueError('Invalid fee recommendation')
+                        validated[key] = value
+                    self.cache.update(btc_fees=validated,btc_fees_updated_at=time.time(),btc_fees_error=None)
+                except Exception as exc:
+                    self.cache['btc_fees_error'] = str(exc)
+                    logger.warning('BTC fee polling failed: %s',exc)
+                try:
+                    height = self.cache.get('btc_block_height')
+                    if type(height) is int:
+                        response = await client.get(base+f'/block-height/{height}')
+                        response.raise_for_status()
+                        block_hash = response.text.strip()
+                        if len(block_hash)!=64 or any(c not in '0123456789abcdef' for c in block_hash): raise ValueError('Invalid block hash')
+                        response = await client.get(base+'/block/'+block_hash)
+                        response.raise_for_status()
+                        block = response.json(); stamp = float(block['timestamp'])
+                        if block['height'] != height or not math.isfinite(stamp) or not 0 < stamp <= time.time()+7200:
+                            raise ValueError('Block metadata does not match height')
+                        if self.cache.get('btc_block_height') == height:
+                            self.cache.update(btc_block_time=stamp,btc_block_details_height=height,
+                                              btc_block_details_updated_at=time.time(),btc_block_details_error=None)
+                except Exception as exc:
+                    self.cache['btc_block_details_error'] = str(exc)
+                    logger.warning('BTC block metadata polling failed: %s',exc)
+            await asyncio.sleep(max(60,self.settings.poll_btc_seconds))

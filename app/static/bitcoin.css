@@ -1,0 +1,27 @@
+#bitcoinFields{border:0;margin:0;padding:0;min-width:0;display:grid;gap:.75rem}
+body[data-screen=bitcoin] .retro-main{gap:.75rem}
+.bitcoin-accordion{padding:.5rem 1rem}
+.bitcoin-accordion>summary{gap:.5rem;justify-content:space-between;flex-wrap:wrap;color:var(--text);font-weight:650}
+.bitcoin-accordion>summary::before{content:'▸';color:var(--mint)}
+.bitcoin-accordion[open]>summary::before{content:'▾'}
+.bitcoin-accordion>summary>span{flex:1;min-width:0}
+.bitcoin-accordion>summary small{font-weight:400;text-align:right}
+.bitcoin-accordion[open]>summary{margin-bottom:.5rem;border-bottom:1px solid var(--border);padding-bottom:.5rem}
+.bitcoin-grid{display:grid;gap:.35rem}
+.bitcoin-row{border-bottom:1px solid var(--border);padding:.35rem 0;min-width:0}
+.bitcoin-row .row-top{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap}
+.bitcoin-row .check{flex:1;min-width:110px;color:var(--text)}
+.bitcoin-row p{margin:.4rem 0;overflow-wrap:anywhere}
+.bitcoin-row button{flex-shrink:0;padding:.4rem .6rem;font-size:.8rem}
+.bitcoin-description summary{font-size:.8rem;min-height:44px;gap:.4rem}
+.bitcoin-description summary::before{content:'+';color:var(--mint)}
+.bitcoin-description[open] summary::before{content:'−'}
+.bitcoin-description{margin-left:1.7rem}
+#bitcoinCanvas{width:100%;height:auto;image-rendering:pixelated;background:#08080c;margin:.75rem 0;border:1px solid var(--border);border-radius:8px}
+#bitcoinFeedback,#bitcoinLedStatus,#bitcoinPreviewStatus{overflow-wrap:anywhere;margin-bottom:0;font-size:.85rem}
+#bitcoinData{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.65rem}
+#bitcoinData strong{display:block;color:var(--gold)}
+#bitcoinSavebar{position:sticky;bottom:0;background:var(--bg);padding:.6rem 0;border-top:1px solid var(--border);z-index:2}
+#bitcoinSavebar small{flex-basis:100%}
+@media(max-width:440px){body[data-screen=bitcoin] .field-grid{grid-template-columns:1fr;gap:.65rem}.bitcoin-accordion{padding:.4rem .75rem}.bitcoin-accordion>summary small{flex-basis:100%;text-align:left;margin-left:1.1rem}.bitcoin-row .row-top{gap:.3rem}.bitcoin-row [data-style]{margin-left:auto}}
+@media(prefers-reduced-motion:reduce){#bitcoinPreviewPlay{border-style:dashed}}

@@ -3,6 +3,7 @@ import logging
 import math
 import time
 import threading
+from copy import deepcopy
 from collections.abc import Callable
 from datetime import datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -117,6 +118,10 @@ class DisplayService:
         initial = snapshot.get("brightness") if isinstance(snapshot, dict) else None
         self._day_brightness = initial if type(initial) is int else get_settings().led_brightness
         self._stage_render_error = None
+        self._bitcoin_directors = {}
+        self._bitcoin_visit = None
+        self._bitcoin_generation = None
+        self._bitcoin_error = None
         self._preview_sky_cache = {}
         self._preview_sky_lock = threading.Lock()
         self.playlist = Playlist()
@@ -234,8 +239,8 @@ class DisplayService:
             self.astronomy_data = {}
         self._astronomy_changed.set()
 
-    def time_stage_location(self):
-        location = self.time_stage_config["location"]
+    def time_stage_location(self, config=None):
+        location = (config or self.time_stage_config)["location"]
         system = get_settings()
         return {"latitude": location["latitude"] if location["source"] == "custom" else system.weather_lat,
                 "longitude": location["longitude"] if location["source"] == "custom" else system.weather_lon,
@@ -270,27 +275,28 @@ class DisplayService:
                       physical_preview=bool(self._stage_preview))
         return status
 
-    def preview_for_browser(self, key, now, elapsed=0):
+    def preview_for_browser(self, key, now, elapsed=0, config=None):
         from app.services.time_stage.celestial import KEYS
-        info = None
-        if key in KEYS:
-            from app.services.time_stage.astronomy import calculate
-            location = self.time_stage_location()
-            stamp = now.replace(second=0, microsecond=0).isoformat()
-            identity = (stamp, location["latitude"], location["longitude"])
-            with self._preview_sky_lock:
-                if identity not in self._preview_sky_cache:
-                    self._preview_sky_cache[identity] = calculate(now, location["latitude"], location["longitude"])
-                    if len(self._preview_sky_cache) > 8:
-                        self._preview_sky_cache.pop(next(iter(self._preview_sky_cache)))
-                info = self._preview_sky_cache[identity]
-        return self.render_time_stage_preview(key, now, elapsed, info=info)
+        info = self.preview_astronomy(now, config) if key in KEYS else None
+        return self.render_time_stage_preview(key, now, elapsed, info=info, config=config)
 
-    def render_time_stage_preview(self, key, now, elapsed=0, info=None):
+    def preview_astronomy(self, now, config=None):
+        from app.services.time_stage.astronomy import calculate
+        location = self.time_stage_location(config)
+        stamp = now.replace(second=0, microsecond=0).isoformat()
+        identity = (stamp, location["latitude"], location["longitude"])
+        with self._preview_sky_lock:
+            if identity not in self._preview_sky_cache:
+                self._preview_sky_cache[identity] = calculate(now, location["latitude"], location["longitude"])
+                if len(self._preview_sky_cache) > 8:
+                    self._preview_sky_cache.pop(next(iter(self._preview_sky_cache)))
+            return self._preview_sky_cache[identity]
+
+    def render_time_stage_preview(self, key, now, elapsed=0, info=None, config=None):
         from app.services.time_stage import SCENES, render_scene
         from app.services.time_stage.celestial import KEYS, render_celestial
         from app.services.time_stage.core import Canvas, shade
-        config = self.time_stage_config
+        config = config or self.time_stage_config
         if key not in SCENES and key not in KEYS:
             raise ValueError("Unbekannte Time-Stage-Szene")
         elapsed = float(elapsed)
@@ -328,39 +334,94 @@ class DisplayService:
             fallback.clock(now)
             return fallback.payload(now, "fallback")
 
-    def preview_time_stage(self, key, confirm_wake=False):
+    def preview_time_stage(self, key, confirm_wake=False, config=None, info=None):
         from app.services.time_stage import SCENES
         from app.services.time_stage.celestial import KEYS
         if not self.time_stage or key not in SCENES and key not in KEYS:
             raise ValueError("Unbekannte Time-Stage-Szene")
-        if self.time_stage.sleep_state(self._stage_now())["active"] and not confirm_wake:
-            raise ValueError("Schlafmodus aktiv. LED-Vorschau erfordert eine ausdrückliche Bestätigung.")
-        duration = self.time_stage_config["events"][key]["duration_seconds"] if key in KEYS else SCENES[key].duration if SCENES[key].events else self.time_stage_config["duration_seconds"]
+        if self.time_stage.sleep_state(self._stage_now())["active"]:
+            raise ValueError("Schlafmodus aktiv. Bitte zuerst ausdrücklich auf Wach umschalten.")
+        config = config or self.time_stage_config
+        duration = config["events"][key]["duration_seconds"] if key in KEYS else SCENES[key].duration if SCENES[key].events else config["duration_seconds"]
+        self._start_live_preview({"key": key, "config": deepcopy(config), "info": deepcopy(info),
+                                  "kind": "time-stage", "confirm_wake": False}, duration)
+
+    def preview_bitcoin(self, settings):
+        from app.services.bitcoin_stage import Director
+        if self.time_stage and self.time_stage.sleep_state(self._stage_now())["active"]:
+            raise ValueError("Schlafmodus aktiv. Bitte zuerst ausdrücklich auf Wach umschalten.")
+        visit = Director().begin(settings, dict(self.cache_provider() or {}), preview=True)
+        self._start_live_preview({"kind": "bitcoin", "visit": visit, "confirm_wake": False}, visit.duration)
+
+    def _start_live_preview(self, preview, duration):
+        """One preview slot shared by stages; replacement never queues or saves."""
         now = time.monotonic()
         if self._stage_preview:
             self._finish_stage_preview(now)
-        self._stage_preview = {"key": key, "start": now, "end": now + duration, "confirm_wake": bool(confirm_wake)}
+        self._stage_preview = {**preview, "start": now, "end": now + duration}
         self.transition_state = None
 
     def _finish_stage_preview(self, now):
         delta = now - self._stage_preview["start"]
         if self.playlist.current is not None:
+            self._shift_slot_generation(self.playlist.started, delta)
             self.playlist.started += delta
             self.playlist.deadline += delta
         if self._play_once:
+            self._shift_slot_generation(self._play_once["start"], delta)
             self._play_once["start"] += delta
             self._play_once["end"] += delta
+        if self.time_stage:
+            if self.time_stage.active:
+                self.time_stage.active["start"] += delta
+                self.time_stage.active["end"] += delta
+            if self.time_stage._last_clock is not None:
+                self.time_stage._last_clock += delta
+        if self.manual_override:
+            pixels, colors, until = self.manual_override
+            self.manual_override = (pixels, colors, until + delta)
+            self._manual_deadline += delta
+        if self.debug_override:
+            pattern, until, interval = self.debug_override
+            self.debug_override = (pattern, until + delta, interval)
+            self._debug_deadline += delta
         self._stage_preview = None
+
+    def _shift_slot_generation(self, started, delta):
+        # Preserve visit identity when paused playback resumes: no new rotation.
+        for field in ("_slot_generation", "_bitcoin_generation"):
+            generation = getattr(self, field)
+            if generation and generation[1] == started:
+                setattr(self, field, (generation[0], started + delta))
+        if self._asset_identity and self._asset_identity[2] == started:
+            self._asset_identity = (*self._asset_identity[:2], started + delta)
 
     def _stage_target(self, payload, source="time-stage"):
         self.last_source = source
-        self.last_module_key = "time-stage:" + str(payload.scene_key)
+        self.last_module_key = str(payload.scene_key) if source == "bitcoin-preview" else "time-stage:" + str(payload.scene_key)
         self.last_target_key = self.last_module_key
         self.last_target_frame = [row[:] for row in payload.frame]
         self.last_target_colors = [row[:] for row in payload.color_frame]
         self.transition_state = None
         self._update_live_debug(self.last_module_key, {}, {}, payload)
         return payload.frame, payload.color_frame
+
+    def _render_bitcoin_visit(self, visit, elapsed):
+        from app.services.bitcoin_stage import render
+        try:
+            payload = render(visit, elapsed)
+            self._bitcoin_error = None
+            return payload
+        except Exception as exc:
+            if self._bitcoin_error != str(exc):
+                self._logger.exception("Bitcoin story failed; keeping a readable data fallback")
+            self._bitcoin_error = str(exc)
+            from app.services.time_stage.core import Canvas
+            canvas = Canvas()
+            value = visit.infos[0]["value"]
+            canvas.text(value, max(0, (32-len(value)*4+1)//2), 1, (255, 190, 75))
+            return ModulePayload(text=value, frame=[[int(rgb is not None) for rgb in row] for row in canvas.colors],
+                                 color_frame=canvas.colors, scene_key="bitcoin:fallback")
 
     async def _apply_stage_brightness(self):
         async with self.brightness_lock:
@@ -524,6 +585,12 @@ class DisplayService:
             "cache_snapshot_ts": self.last_cache_snapshot_ts,
             "cache_snapshot_keys": sorted(list(self.last_cache_snapshot.keys())),
             "time_stage": self.time_stage_status(),
+            "bitcoin_stage": {
+                "style": self._bitcoin_visit.style if self._bitcoin_visit else None,
+                "infos": self._bitcoin_visit.infos if self._bitcoin_visit else [],
+                "duration": self._bitcoin_visit.duration if self._bitcoin_visit else None,
+                "error": self._bitcoin_error,
+            },
         }
 
     def get_live_data_snapshot(self) -> dict:
@@ -679,6 +746,10 @@ class DisplayService:
                 self._pacer = FramePacer(self.target_fps, time.perf_counter())
 
     async def _get_next_frame(self) -> tuple[list[list[int]], list[list[tuple[int, int, int] | None]]]:
+        bitcoin_cache = dict(self.cache_provider() or {})
+        bitcoin_sleeping = bool(self.time_stage and self.time_stage.sleep_state(self._stage_now())["active"])
+        for director in self._bitcoin_directors.values():
+            director.observe(bitcoin_cache, time.time(), sleeping=bitcoin_sleeping)
         if self.time_stage:
             now_mono = time.monotonic()
             wall = self._stage_now()
@@ -686,7 +757,9 @@ class DisplayService:
                 self._finish_stage_preview(now_mono)
             await self._apply_stage_brightness()
             sleeping = self.time_stage.sleep_state(wall)["active"]
-            if sleeping and not (self._stage_preview and self._stage_preview["confirm_wake"]):
+            if sleeping:
+                if self._stage_preview:
+                    self._finish_stage_preview(now_mono)
                 from app.services.time_stage.core import Canvas
                 self.time_stage.tick(wall, now_mono, boundary=False, astronomy=self.astronomy_data)
                 if not self._was_sleeping:
@@ -699,9 +772,20 @@ class DisplayService:
                 canvas.clock(wall, parse_hex_color(self.time_stage_config["sleep"]["color"], (255, 80, 12)))
                 return self._stage_target(canvas.payload(wall, "sleep"), "sleep")
             self._was_sleeping = False
-            if self._stage_preview:
+        if self._stage_preview:
+            now_mono = time.monotonic()
+            if now_mono >= self._stage_preview["end"]:
+                self._finish_stage_preview(now_mono)
+            else:
                 preview = self._stage_preview
-                return self._stage_target(self.render_time_stage_preview(preview["key"], wall, now_mono - preview["start"]), "time-stage-preview")
+                if preview["kind"] == "bitcoin":
+                    payload = self._render_bitcoin_visit(preview["visit"], now_mono - preview["start"])
+                else:
+                    config = preview["config"]
+                    wall = datetime.now(ZoneInfo(config["timezone"]))
+                    payload = self.render_time_stage_preview(preview["key"], wall, now_mono - preview["start"],
+                                                             config=config, info=preview["info"])
+                return self._stage_target(payload, preview["kind"] + "-preview")
         if self.debug_override:
             from app.services.patterns import PATTERN_FACTORIES
 
@@ -794,6 +878,29 @@ class DisplayService:
         target_key = selected["key"]
         self.last_cache_snapshot = live_cache
         self.last_cache_snapshot_ts = time.time()
+
+        if kind == "btc" and settings.get("bitcoin_stage", True):
+            from app.services.bitcoin_stage import Director
+            identity = self.playlist.identity(selected)
+            if identity not in self._bitcoin_directors:
+                if len(self._bitcoin_directors) >= 128:
+                    self._bitcoin_directors.pop(next(iter(self._bitcoin_directors)))
+                self._bitcoin_directors[identity] = Director()
+                self._bitcoin_directors[identity].observe(live_cache, time.time())
+            if self._bitcoin_generation != generation:
+                self._bitcoin_generation = generation
+                self._bitcoin_visit = self._bitcoin_directors[identity].begin(settings, live_cache, preview=bool(settings.get("_bitcoin_preview")))
+                deadline = slot_start + self._bitcoin_visit.duration
+                if self._play_once: self._play_once["end"] = deadline
+                else: self.playlist.deadline = deadline
+            payload = self._render_bitcoin_visit(self._bitcoin_visit, now-slot_start)
+            self._update_live_debug(selected["key"], settings, live_cache, payload)
+            # Choreography is complete; do not layer generic per-value transitions.
+            self.transition_state = None
+            self.last_target_key = selected["key"]
+            self.last_target_frame = [row[:] for row in payload.frame]
+            self.last_target_colors = [row[:] for row in payload.color_frame]
+            return payload.frame, payload.color_frame
 
         if kind == "asset":
             identity = (selected["key"], settings.get("asset_id"), slot_start)

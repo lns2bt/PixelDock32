@@ -37,6 +37,7 @@ class PreviewRequest(StrictModel):
     elapsed: float = Field(default=0, ge=0, le=120, allow_inf_nan=False)
     physical: bool = False
     confirm_wake: bool = False
+    settings: Config | None = None
 
     @field_validator("key")
     @classmethod
@@ -144,24 +145,30 @@ async def set_sleep(payload: SleepRequest, request: Request, db=Depends(get_db))
 @router.post("/preview")
 async def preview(payload: PreviewRequest, request: Request, db=Depends(get_db)):
     service = _display(request)
+    config = payload.settings.model_dump(mode="json") if payload.settings is not None else await _config(db, service)
     if payload.physical:
         status = service.time_stage_status()
         if (status.get("sleep_active") or status.get("sleeping") or
-                status.get("sleep", {}).get("active")) and not payload.confirm_wake:
-            raise HTTPException(status_code=409, detail="Sleep is active; confirm_wake is required")
+                 status.get("sleep", {}).get("active")):
+            raise HTTPException(status_code=409, detail="Schlafmodus aktiv. Bitte zuerst ausdrücklich auf Wach umschalten.")
         try:
-            result = service.preview_time_stage(payload.key, confirm_wake=payload.confirm_wake)
+            from app.services.time_stage.celestial import KEYS
+            info = None
+            if payload.key in KEYS:
+                now = datetime.now(ZoneInfo(config["timezone"]))
+                info = await asyncio.to_thread(service.preview_astronomy, now, config)
+            result = service.preview_time_stage(payload.key, config=config, info=info)
             if inspect.isawaitable(result):
                 result = await result
         except (ValueError, PermissionError) as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         return jsonable_encoder(result if result is not None else {"ok": True})
-    config = await _config(db, service)
     timezone = ZoneInfo(config["timezone"])
     now = payload.at or datetime.now(timezone)
     now = now.replace(tzinfo=timezone) if now.tzinfo is None else now.astimezone(timezone)
     renderer = getattr(service, "preview_for_browser", service.render_time_stage_preview)
-    result = await asyncio.to_thread(renderer, payload.key, now, payload.elapsed)
+    options = {"config": config} if payload.settings is not None else {}
+    result = await asyncio.to_thread(renderer, payload.key, now, payload.elapsed, **options)
     if inspect.isawaitable(result):
         result = await result
     encoded = jsonable_encoder(result)

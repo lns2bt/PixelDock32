@@ -66,7 +66,7 @@
     </fieldset>
   </form>
   <section class="panel" aria-labelledby="previewHeading">
-    <h2 id="previewHeading">Browser-Vorschau</h2><p class="muted">Nur im Browser. Die echte Anzeige wird ausschließlich über den separaten LED-Knopf verändert. Einstellungen zuvor speichern.</p>
+    <h2 id="previewHeading">Browser-Vorschau</h2><p class="muted">Beide Vorschauen verwenden auch ungespeicherte Einstellungen. Datum, Uhrzeit und Tempo werden nur im Browser simuliert. LED-Vorschau zeigt die Szene sofort zur aktuellen Zeit, danach läuft die Playlist weiter. Im Schlafmodus bleibt sie gesperrt.</p>
     <canvas id="timeStageCanvas" width="512" height="128" aria-label="Time-Stage-Vorschau, 32 mal 8 Pixel"></canvas>
     <div class="field-grid">
       <label>Szene<select id="previewScene" disabled></select></label>
@@ -75,7 +75,7 @@
       <label>Tempo<select id="previewSpeed"><option value="1">Echtzeit</option><option value="6">6× Zeitraffer</option></select></label>
       <label>Animationsfortschritt (Sekunden)<input id="previewElapsed" type="number" min="0" max="120" step="0.1" value="0"></label>
     </div>
-    <div class="form-actions"><button id="previewPlay" type="button" aria-pressed="false" disabled>Abspielen</button><button id="previewSnapshot" type="button" disabled>Schnappschuss</button><button id="previewNow" type="button">Aktuelle Zeit</button><button id="previewPhysical" type="button" disabled>Auf LEDs anzeigen …</button></div>
+    <div class="form-actions"><button id="previewPlay" type="button" aria-pressed="false" disabled>Browser-Vorschau abspielen</button><button id="previewSnapshot" type="button" disabled>Browser-Vorschau</button><button id="previewNow" type="button">Aktuelle Zeit</button><button id="previewPhysical" type="button" disabled>LED-Vorschau</button></div>
     <p id="previewFeedback" class="muted" role="status">Vorschau bereit, sobald die Szenen geladen sind.</p>
   </section>
   <section class="panel"><h2>Himmel & Standort</h2><p class="muted">Berechnete und zwischengespeicherte Werte vom Gerät. Fehlende Ereignisse sind je nach Standort und Jahreszeit normal.</p><dl id="astronomyInfo" class="sky-info"></dl><details><summary>Berechnungsdaten anzeigen</summary><pre id="astronomyRaw">—</pre></details></section>

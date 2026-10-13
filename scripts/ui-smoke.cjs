@@ -134,7 +134,7 @@ const fs = require('node:fs');
     assert.equal(await page.locator('[data-category="midnight"] [data-event="scene"]').count(),10);
     await page.locator('#previewScene').selectOption('moonrise');
     await page.locator('#previewSnapshot').click();
-    await page.locator('#previewFeedback').filter({hasText:'nur Browser'}).waitFor();
+    await page.locator('#previewFeedback').filter({hasText:'Browser-Vorschau'}).waitFor();
     const downloadPromise=page.waitForEvent('download');await page.locator('#exportTimeStage').click();
     const download=await downloadPromise, exported=JSON.parse(fs.readFileSync(await download.path(),'utf8'));
     assert.equal(exported.config.sleep.mode,'auto');assert.ok(exported.config.profiles['UI Abendprofil']);

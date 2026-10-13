@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///./pixeldock32.db"
 
     tz: str = "Europe/Vienna"
+    btc_network_api_url: str = "https://mempool.space/api"
 
     led_count: int = Field(default=256, ge=1)
     led_transport: str = "auto"

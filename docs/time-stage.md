@@ -68,7 +68,7 @@ Profile: Alle Stile, Retro, Ruhig, Favoriten oder eigene Auswahl; bis zu acht be
 Szenenprofile speicherbar. Gewichte gelten bei Zufallsauswahl, unmittelbare Wiederholungen
 werden vermieden. Bewegung, optionaler Farbton und Minutenwechsel-Effekt sind einstellbar.
 Die Browser-Vorschau erlaubt frei gewählte Uhrzeiten, Echtzeit/Zeitraffer und einen
-separaten, bestätigungspflichtigen Knopf für echte LED-Vorschauen. Browser-Vorschauen
+separaten Knopf für direkte echte LED-Vorschauen. Browser-Vorschauen
 sind off-thread und verändern keine Playlist oder Hardware; Himmelsdaten für simulierte
 Zeiten werden separat und begrenzt gecacht.
 
@@ -120,6 +120,18 @@ bei fehlenden Horizontwechseln wird der dunkle Anteil des lokalen Tages verwende
 
 ## Versionierung
 
-Der vorherige GIF-Import-Fix ist vom Benutzer auf dem Pi bestätigt. Dieser und die
-Time-Stage-Erweiterung bleiben zunächst lokal; kein GitHub-Push ohne erneute Freigabe.
+GIF-Import-Fix, Time-Stage und Bitcoin-Stage einschließlich der kompakten Oberfläche
+wurden vom Benutzer auf dem Pi geprüft und zur Veröffentlichung auf `main` freigegeben.
 Nach einem größeren Schritt wird ein separater Pi-Stand mit Sicherung erstellt.
+
+## Kompakte Bedienung und gemeinsame LED-Vorschauen
+
+Die Header-Matrix ist einklappbar; Status, Helligkeit und Schlafsteuerung bleiben
+erreichbar. Der Zustand wird pro Browser gespeichert. Szenen bieten direkte
+LED-Vorschauen ohne Überlagerungswarnung, auch mit ungespeicherten Farben/Optionen.
+Vorschauen speichern nichts und laufen in einem gemeinsamen Slot mit Bitcoin:
+neu ersetzt alt, danach läuft die pausierte Vorstellung ohne Rotationsverbrauch
+weiter. Browser-Vorschauen bleiben separat und haben keine Hardwarewirkung.
+Der frühere `confirm_wake`-Parameter erlaubt keinen Schlaf-Bypass mehr: erst
+ausdrücklich auf Wach umschalten. Auch eine ungespeicherte Schlafkonfiguration
+kann die tatsächlich laufende Schlafpolicy nicht überschreiben.
