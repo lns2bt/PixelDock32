@@ -11,6 +11,7 @@ from app.services.display import DisplayService
 from app.services.led_mapper import LEDMapper
 from app.services.rendering import blank_color_frame, blank_frame
 from app.modules.base import ModulePayload
+from app.services.assets import AssetStore
 
 
 class DisplayLoopTests(unittest.IsolatedAsyncioTestCase):
@@ -91,3 +92,40 @@ class DisplayLoopTests(unittest.IsolatedAsyncioTestCase):
         self.assertIs(self.display.transition_state, state)
         self.assertEqual(state["start_time"], 100)
         self.assertEqual(self.display.last_target_frame, frame2)
+
+    async def test_asset_preloads_once_finishes_loop_and_then_returns_to_playlist(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = AssetStore(directory)
+            saved = store.save({"name":"Test", "frames":[{"pixels":[0x123456] * 256, "duration_ms":2000}]})
+            self.display.asset_store = store
+            self.display._get_enabled_module_rows = AsyncMock(return_value=[{
+                "id":10, "key":"asset-test", "duration_seconds":3,
+                "settings":{"asset_id":saved["id"], "transition_ms":0},
+            }, {"id":11, "key":"clock", "duration_seconds":8, "settings":{}}])
+            clock = Mock(wraps=time)
+            clock.monotonic.return_value = 100
+            with patch("app.services.display.time", clock), patch.object(store, "load", wraps=store.load) as load:
+                frame, colors = await self.display._get_next_frame()
+                self.assertEqual(colors[0][0], (0x12,0x34,0x56))
+                self.assertEqual(self.display.playlist.deadline, 104)
+                clock.monotonic.return_value = 103.5
+                await self.display._get_next_frame()
+                self.assertEqual(self.display.last_module_key, "asset-test")
+                load.assert_called_once()
+                clock.monotonic.return_value = 104
+                await self.display._get_next_frame()
+                self.assertEqual(self.display.last_module_key, "clock")
+
+    async def test_play_once_works_with_empty_playlist_and_expires(self):
+        module = Mock(id=10, key="clock", duration_seconds=8, settings={})
+        self.display._get_enabled_module_rows = AsyncMock(return_value=[])
+        clock = Mock(wraps=time)
+        clock.monotonic.return_value = 100
+        with patch("app.services.display.time", clock):
+            self.display.play_once(module)
+            frame, _ = await self.display._get_next_frame()
+            self.assertTrue(any(any(row) for row in frame))
+            clock.monotonic.return_value = 108
+            frame, _ = await self.display._get_next_frame()
+            self.assertFalse(any(any(row) for row in frame))
+            self.assertIsNone(self.display._play_once)

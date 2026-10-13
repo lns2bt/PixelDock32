@@ -4,6 +4,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from app.config import get_settings
 from app.modules.base import ModuleBase, ModulePayload
 from app.services.colors import clamp, parse_hex_color
+from app.services.module_visuals import clock_visual
 
 
 class ClockModule(ModuleBase):
@@ -17,6 +18,9 @@ class ClockModule(ModuleBase):
             now = datetime.now(ZoneInfo(tz_name))
         except ZoneInfoNotFoundError:
             now = datetime.now(ZoneInfo(get_settings().tz))
+
+        if settings.get("visual_style", "retro") != "legacy":
+            return clock_visual(now, settings)
 
         fmt = "%H:%M:%S" if show_seconds else "%H:%M"
         font_size = settings.get("font_size", "normal")

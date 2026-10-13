@@ -107,13 +107,13 @@ DEFAULT_MODULES = [
         "sort_order": 5,
         "duration_seconds": 12,
         "settings": {
-            "preset": "psychedelic_plasma",
+            "preset": "bit_invaders",
             "speed": 1.0,
             "palette": "neon",
             "intensity": 0.8,
             "mirror_mode": "none",
             "transition_direction": "down",
-            "transition_ms": 0,
+            "transition_ms": 450,
         },
     },
 ]
@@ -136,5 +136,5 @@ async def ensure_default_modules(db: AsyncSession):
 
 
 async def list_modules(db: AsyncSession) -> list[ModuleConfig]:
-    result = await db.execute(select(ModuleConfig).order_by(ModuleConfig.sort_order.asc()))
+    result = await db.execute(select(ModuleConfig).order_by(ModuleConfig.sort_order.asc(), ModuleConfig.id.asc()))
     return list(result.scalars().all())

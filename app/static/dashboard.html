@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="de">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PixelDock · Dashboard</title><link rel="stylesheet" href="/static/retro.css"><script defer src="/static/shell.js"></script><script defer src="/static/arcade.js"></script></head>
+<body data-screen="dashboard">
+<main class="retro-main">
+  <div class="page-heading"><div><p class="kicker">DEIN KLEINES PIXEL-UNIVERSUM</p><h1>Ready. Set. Pixel.</h1><p class="muted">Live-Daten, kleine Geschichten und große Ideen auf 256 LEDs.</p></div><a class="button primary" href="/studio">+ Pixel erschaffen</a></div>
+  <section class="metric-row" aria-label="Live-Daten">
+    <article class="panel"><span class="kicker">BITCOIN</span><strong id="btcValue">—</strong><small>EUR · letzter verfügbarer Wert</small></article>
+    <article class="panel"><span class="kicker">DRAUSSEN</span><strong id="outValue">—</strong><small>Temperatur</small></article>
+    <article class="panel"><span class="kicker">DRINNEN</span><strong id="inValue">—</strong><small id="humidityValue">Luftfeuchtigkeit —</small></article>
+  </section>
+  <section class="panel"><div class="section-heading"><div><p class="kicker">ON AIR</p><h2>Deine Playlist</h2></div><a href="/modules">Playlist bearbeiten →</a></div><div id="dashboardModules" class="mini-list"><p>Lade Module …</p></div></section>
+  <section class="panel"><p class="kicker">QUICK PLAY</p><h2>Eine Nachricht für dein Display</h2><form id="quickText" class="inline-form"><label class="grow">Text<input name="text" maxlength="64" placeholder="HELLO PIXEL WORLD" required></label><label>Dauer (s)<input name="seconds" type="number" min="1" max="120" value="8"></label><button class="primary" type="submit">Jetzt zeigen</button></form><p class="muted">Danach übernimmt wieder deine Playlist.</p></section>
+  <section class="panel accent-panel"><p class="kicker">NEXT LEVEL</p><h2>Von einem Pixel zur eigenen Geschichte.</h2><p>GIFs importieren, Sprites zeichnen und Frames animieren. Drei originale Arcade-Szenen warten bereits in deiner Bibliothek.</p><a class="button" href="/studio">Pixel-Studio öffnen →</a></section>
+</main></body></html>

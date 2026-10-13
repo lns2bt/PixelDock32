@@ -2,6 +2,7 @@ import time
 
 from app.modules.base import ModuleBase, ModulePayload
 from app.services.colors import clamp, lerp_color, parse_hex_color
+from app.services.module_visuals import icon_value
 
 
 def temperature_to_rgb(temp_c: float, cold: tuple[int, int, int], warm: tuple[int, int, int]) -> tuple[int, int, int]:
@@ -36,18 +37,20 @@ class WeatherModule(ModuleBase):
 
         screens: list[tuple[str, tuple[int, int, int]]] = []
 
-        if outdoor_temp is not None:
+        if outdoor_temp is not None and settings.get("show_outdoor", True):
             outdoor_value = float(outdoor_temp)
             screens.append((self._format_temp("Out", outdoor_value), temperature_to_rgb(outdoor_value, cold_color, warm_color)))
 
-        if indoor_temp is not None:
+        if indoor_temp is not None and settings.get("show_indoor", True):
             indoor_value = float(indoor_temp)
             screens.append((self._format_temp("In", indoor_value), temperature_to_rgb(indoor_value, cold_color, warm_color)))
 
-        if indoor_humidity is not None:
+        if indoor_humidity is not None and settings.get("show_humidity", True):
             screens.append((f"H{float(indoor_humidity):.0f}%", humidity_color))
 
         if not screens:
+            if settings.get("visual_style", "retro") != "legacy":
+                return icon_value("sun", "--C", fallback_color, settings.get("_elapsed", 0))
             return ModulePayload(
                 text="W...",
                 font_size=font_size,
@@ -60,8 +63,15 @@ class WeatherModule(ModuleBase):
         now = cache.get("now")
         if not isinstance(now, (int, float)):
             now = time.time()
-        screen_slot = int(now / screen_seconds) % len(screens)
+        screen_slot = (int(settings.get("_elapsed", now) / screen_seconds) + settings.get("_visit", 0)) % len(screens)
         text, color = screens[screen_slot]
+
+        if settings.get("visual_style", "retro") != "legacy":
+            icon = "sun" if text.startswith("Out") else "house" if text.startswith("In") else "drop"
+            value = text.replace("Out", "").replace("In", "").strip()
+            if icon == "drop":
+                value = value[1:]
+            return icon_value(icon, value, color, settings.get("_elapsed", 0))
 
         return ModulePayload(
             text=text,

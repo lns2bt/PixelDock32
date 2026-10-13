@@ -13,3 +13,4 @@ rpi-ws281x==5.0.0
 adafruit-circuitpython-dht==4.0.9
 adafruit-blinka==8.66.2
 pyserial==3.5
+Pillow==12.3.0

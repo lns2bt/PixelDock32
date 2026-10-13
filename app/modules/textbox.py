@@ -15,6 +15,13 @@ def _safe_int(value: object, default: int) -> int:
 class TextBoxModule(ModuleBase):
     key = "textbox"
 
+    @staticmethod
+    def scroll_cycle(settings):
+        lines = [line.strip() for line in str(settings.get("lines", "HELLO\nPIXEL")).splitlines() if line.strip()] or ["..."]
+        speed = max(5, _safe_int(settings.get("scroll_speed", 35), 35))
+        widths = [measure_text_width(line, font_size=settings.get("font_size", "small"), char_spacing=_safe_int(settings.get("char_spacing", 1), 1)) + 32 for line in lines]
+        return lines, widths, speed
+
     async def render(self, settings: dict, cache: dict) -> ModulePayload:
         raw_lines = str(settings.get("lines", "HELLO\nPIXEL")).splitlines()
         lines = [line.strip() for line in raw_lines if line.strip()]
@@ -22,7 +29,8 @@ class TextBoxModule(ModuleBase):
             lines = ["..."]
 
         line_seconds = max(1, _safe_int(settings.get("line_seconds", 2), 2))
-        idx = int(time.monotonic() / line_seconds) % len(lines)
+        elapsed = settings.get("_elapsed", time.monotonic())
+        idx = int(elapsed / line_seconds) % len(lines)
         text = lines[idx]
 
         font_size = settings.get("font_size", "small")
@@ -36,11 +44,14 @@ class TextBoxModule(ModuleBase):
             text_mode = "static"
 
         if text_mode == "scroll":
-            speed = max(1, _safe_int(settings.get("scroll_speed", 35), 35))
-            text_width = measure_text_width(text, font_size=font_size, char_spacing=char_spacing)
-            cycle = text_width + 32
-            offset = 32 - (int(time.monotonic() * speed / 10) % cycle)
-            x_offset = clamp(offset, -text_width, 32)
+            lines, widths, speed = self.scroll_cycle(settings)
+            position = (elapsed * speed) % sum(widths)
+            for line, width in zip(lines, widths):
+                text = line
+                if position < width:
+                    break
+                position -= width
+            x_offset = 32 - int(position)
 
         return ModulePayload(
             text=text,
@@ -49,4 +60,5 @@ class TextBoxModule(ModuleBase):
             y_offset=y_offset,
             default_color=color,
             char_spacing=char_spacing,
+            scene_key=text if text_mode == "static" else None,
         )

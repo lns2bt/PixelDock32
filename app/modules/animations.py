@@ -77,7 +77,7 @@ class AnimationsModule(ModuleBase):
         if mirror_mode not in {"none", "horizontal", "vertical", "quad"}:
             mirror_mode = "none"
         colors = _palette(settings.get("palette", "neon"))
-        t = time.monotonic() * speed
+        t = settings.get("_elapsed", time.monotonic()) * speed
 
         renderer = getattr(self, f"_{preset}")
         frame, color_frame = renderer(t, colors, intensity, cache)

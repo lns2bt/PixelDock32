@@ -4,3 +4,4 @@ __pycache__/
 .venv/
 pixeldock32.db
 measurements/
+data/assets/

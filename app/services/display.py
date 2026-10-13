@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import math
 import time
 from collections.abc import Callable
 from datetime import datetime
@@ -23,6 +24,8 @@ from app.services.animations import ANIMATION_FACTORIES
 from app.services.rendering import blank_color_frame, render_text_with_colors
 from app.services.bitmap_loader import BitmapLoader
 from app.config import get_settings
+from app.services.playlist import Playlist
+from app.services.assets import asset_frame
 
 MODULE_REGISTRY = {
     "clock": ClockModule(),
@@ -88,6 +91,7 @@ class DisplayService:
         cache_provider: Callable[[], dict],
         fps: int,
         bitmap_loader: BitmapLoader,
+        asset_store=None,
     ):
         self._logger = logging.getLogger(__name__)
         self.session_factory = session_factory
@@ -96,6 +100,12 @@ class DisplayService:
         self.cache_provider = cache_provider
         self.frame_delay = 1 / fps
         self.bitmap_loader = bitmap_loader
+        self.asset_store = asset_store
+        self.playlist = Playlist()
+        self._play_once = None
+        self._asset_data = None
+        self._asset_identity = None
+        self._slot_generation = -1
         self.target_fps = fps
         self._running = False
         self._task: asyncio.Task | None = None
@@ -189,6 +199,33 @@ class DisplayService:
         self._running = True
         self._task = asyncio.create_task(self._loop())
 
+    def play_once(self, module):
+        now = time.monotonic()
+        row = {"id": module.id, "key": module.key, "settings": dict(module.settings or {}), "duration_seconds": module.duration_seconds}
+        self._play_once = {"row": row, "start": now, "end": now + module.duration_seconds}
+        self._asset_identity = None
+
+    @staticmethod
+    def _transition(from_frame, from_colors, to_frame, to_colors, progress, direction):
+        if direction in {"up", "down"}:
+            return DisplayService._slide_vertical(from_frame, from_colors, to_frame, to_colors, progress, direction)
+        frame = [[0] * 32 for _ in range(8)]
+        colors = blank_color_frame(32, 8)
+        for y in range(8):
+            for x in range(32):
+                old = from_colors[y][x] or (80, 80, 80) if from_frame[y][x] else (0, 0, 0)
+                new = to_colors[y][x] or (80, 80, 80) if to_frame[y][x] else (0, 0, 0)
+                if direction == "dissolve":
+                    rank = (((x * 73 + y * 37) % 256) + 1) / 256
+                    color = new if progress >= rank else old
+                else:
+                    # Smooth crossfade: never brighten beyond either source.
+                    p = progress * progress * (3 - 2 * progress)
+                    color = tuple(round(a * (1 - p) + b * p) for a, b in zip(old, new))
+                if any(color):
+                    frame[y][x], colors[y][x] = 1, color
+        return frame, colors
+
     async def stop(self):
         self._running = False
         if self._task:
@@ -212,7 +249,7 @@ class DisplayService:
                 await db.execute(
                     ModuleConfig.__table__.select()
                     .where(ModuleConfig.enabled.is_(True))
-                    .order_by(ModuleConfig.sort_order.asc())
+                    .order_by(ModuleConfig.sort_order.asc(), ModuleConfig.id.asc())
                 )
             ).mappings().all()
 
@@ -485,23 +522,19 @@ class DisplayService:
 
         rows = await self._get_enabled_module_rows()
 
-        if not rows:
+        now = time.monotonic()
+        if self._play_once and now >= self._play_once["end"]:
+            # Resume with a fresh slot rather than jumping into a half-finished GIF.
+            self._play_once = None
+            self.playlist.deadline = now
+        if not rows and not self._play_once:
             self.last_source = "idle"
             return [[0 for _ in range(32)] for _ in range(8)], blank_color_frame(32, 8)
 
-        durations = [row["duration_seconds"] for row in rows]
-        total = max(sum(durations), 1)
-        t = int(time.monotonic() - self._started_monotonic) % total
-        idx = 0
-        for duration in durations:
-            if t < duration:
-                break
-            t -= duration
-            idx += 1
-        selected = rows[min(idx, len(rows) - 1)]
-
-        module = MODULE_REGISTRY.get(selected["key"])
-        if not module:
+        selected = self._play_once["row"] if self._play_once else self.playlist.select(rows, now)
+        kind = selected["key"].split("-")[0]
+        module = MODULE_REGISTRY.get(kind)
+        if not module and kind != "asset":
             self.last_source = "module"
             self.last_module_key = None
             self._update_live_debug(None, {}, {}, None)
@@ -509,13 +542,46 @@ class DisplayService:
 
         self.last_source = "module"
         self.last_module_key = selected["key"]
-        settings = selected["settings"] or {}
+        settings = dict(selected["settings"] or {})
+        slot_start = self._play_once["start"] if self._play_once else self.playlist.started
+        settings["_elapsed"] = now - slot_start
+        settings["_visit"] = self.playlist.visits.get(self.playlist.identity(selected), 1) - 1
+        generation = (selected["key"], slot_start)
+        if self._slot_generation != generation:
+            self._slot_generation = generation
+            if kind == "textbox" and settings.get("text_mode") == "scroll":
+                _, widths, speed = TextBoxModule.scroll_cycle(settings)
+                cycle = sum(widths) / speed
+                if self._play_once:
+                    self._play_once["end"] = slot_start + math.ceil(selected["duration_seconds"] / cycle) * cycle
+                else:
+                    self.playlist.finish_cycle(cycle)
 
         live_cache = dict(self.cache_provider() or {})
+        target_key = selected["key"]
         self.last_cache_snapshot = live_cache
         self.last_cache_snapshot_ts = time.time()
 
-        if selected["key"] == "bitmap":
+        if kind == "asset":
+            identity = (selected["key"], settings.get("asset_id"), slot_start)
+            if self._asset_identity != identity:
+                try:
+                    self._asset_data = await asyncio.to_thread(self.asset_store.load, settings.get("asset_id"))
+                except (ValueError, OSError, AttributeError):
+                    self._asset_data = None
+                self._asset_identity = identity
+                if self._asset_data:
+                    cycle = self._asset_data["cycle_seconds"] / max(0.1, float(settings.get("speed", 1)))
+                    if self._play_once:
+                        self._play_once["end"] = slot_start + math.ceil(selected["duration_seconds"] / cycle) * cycle
+                    else:
+                        self.playlist.finish_cycle(cycle)
+            if self._asset_data:
+                frame, color_frame = asset_frame(self._asset_data, now - slot_start, settings.get("speed", 1))
+            else:
+                frame, color_frame = [[0] * 32 for _ in range(8)], blank_color_frame(32, 8)
+            self._update_live_debug(selected["key"], settings, live_cache, None)
+        elif kind == "bitmap":
             try:
                 file_path = str(settings.get("file", "")).strip()
                 bitmap = self.bitmap_loader.load(file_path)
@@ -546,6 +612,8 @@ class DisplayService:
             self._update_live_debug(selected["key"], settings, live_cache, None)
         else:
             payload: ModulePayload = await module.render(settings, live_cache)
+            if payload.scene_key:
+                target_key += ":" + payload.scene_key
             self._update_live_debug(selected["key"], settings, live_cache, payload)
             if payload.frame is not None:
                 frame = payload.frame
@@ -563,7 +631,7 @@ class DisplayService:
 
             color_frame = payload.color_frame or blank_color_frame(32, 8)
 
-        if selected["key"] == "clock":
+        if kind == "clock":
             frame = [row[:] for row in frame]
             color_frame = [row[:] for row in color_frame]
             frame, color_frame = self._apply_clock_border_seconds(frame, color_frame, settings)
@@ -572,12 +640,15 @@ class DisplayService:
         if transition_direction not in {"down", "up"}:
             transition_direction = "down"
         transition_ms = max(0, min(2000, _safe_int(settings.get("transition_ms", 350), 350)))
-        if selected["key"] == "clock":
+        effect = settings.get("transition_effect", "fade")
+        if effect in {"fade", "dissolve"}:
+            transition_direction = effect
+        elif effect == "none":
             transition_ms = 0
 
         if self.transition_state:
             state = self.transition_state
-            if state.get("to_key") == selected["key"]:
+            if state.get("to_key") == target_key:
                 elapsed = (time.monotonic() - state["start_time"]) * 1000.0
                 if elapsed < state["duration_ms"]:
                     # Keep the transition timeline while the incoming animation
@@ -585,7 +656,7 @@ class DisplayService:
                     self.last_target_frame = [row[:] for row in frame]
                     self.last_target_colors = [row[:] for row in color_frame]
                     progress = elapsed / max(state["duration_ms"], 1)
-                    return self._slide_vertical(
+                    return self._transition(
                         state["from_frame"],
                         state["from_colors"],
                         frame,
@@ -595,20 +666,7 @@ class DisplayService:
                     )
             self.transition_state = None
 
-        transition_on_content_change = bool(settings.get("transition_on_content_change", True))
-        if selected["key"] == "clock":
-            transition_on_content_change = False
-        if selected["key"] in {"animations", "bitmap"} or (
-            selected["key"] == "textbox" and settings.get("text_mode") == "scroll"
-        ):
-            transition_on_content_change = False
-
-        same_module = self.last_target_key == selected["key"]
-        content_changed = self.last_target_frame != frame or self.last_target_colors != color_frame
-        target_changed = (
-            self.last_target_key != selected["key"]
-            or (transition_on_content_change and same_module and content_changed)
-        )
+        target_changed = self.last_target_key != target_key
 
         if transition_ms > 0 and self.last_target_key is not None and target_changed:
             self.transition_state = {
@@ -616,15 +674,15 @@ class DisplayService:
                 "from_colors": [row[:] for row in self.last_target_colors],
                 "to_frame": [row[:] for row in frame],
                 "to_colors": [row[:] for row in color_frame],
-                "to_key": selected["key"],
+                "to_key": target_key,
                 "start_time": time.monotonic(),
                 "duration_ms": transition_ms,
                 "direction": transition_direction,
             }
-            self.last_target_key = selected["key"]
+            self.last_target_key = target_key
             self.last_target_frame = [row[:] for row in frame]
             self.last_target_colors = [row[:] for row in color_frame]
-            return self._slide_vertical(
+            return self._transition(
                 self.transition_state["from_frame"],
                 self.transition_state["from_colors"],
                 self.transition_state["to_frame"],
@@ -633,7 +691,7 @@ class DisplayService:
                 transition_direction,
             )
 
-        self.last_target_key = selected["key"]
+        self.last_target_key = target_key
         self.last_target_frame = [row[:] for row in frame]
         self.last_target_colors = [row[:] for row in color_frame]
         return frame, color_frame

@@ -1,10 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException
+import asyncio
+import math
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
 from app.models import ModuleConfig
-from app.schemas import ModuleConfigResponse, ModuleConfigUpdate
+from app.schemas import ModuleConfigResponse, ModuleConfigUpdate, ModuleCreate, ModuleOrder
 from app.services.module_manager import list_modules
 
 router = APIRouter(prefix="/api/modules", tags=["modules"])
@@ -61,13 +66,17 @@ MODULE_SETTING_DEFAULTS = {
         "preset": "welcome",
     },
     "animations": {
-        "preset": "psychedelic_plasma",
+        "preset": "bit_invaders",
         "speed": 1.0,
         "palette": "neon",
         "intensity": 0.8,
         "mirror_mode": "none",
         "transition_direction": "down",
-        "transition_ms": 0,
+        "transition_ms": 450,
+    },
+    "bitmap": {
+        "file": "sample_gradient.ppm", "scroll_direction": "top_to_bottom",
+        "scroll_speed": 2.0, "color_mode": "bitmap", "transition_ms": 350,
     },
 }
 
@@ -102,7 +111,7 @@ def _clamp_float(value: object, minimum: float, maximum: float, fallback: float)
         parsed = float(value)
     except (TypeError, ValueError):
         return fallback
-    return max(minimum, min(maximum, parsed))
+    return max(minimum, min(maximum, parsed)) if math.isfinite(parsed) else fallback
 
 
 def _normalize_font_size(value: object, fallback: str = "normal") -> str:
@@ -152,6 +161,7 @@ def _normalize_allowed_string(value: object, allowed: set[str], fallback: str) -
 
 
 def sanitize_settings(module_key: str, settings: dict) -> dict:
+    module_key = module_key.split("-")[0]
     defaults = MODULE_SETTING_DEFAULTS.get(module_key, {})
     merged = {**defaults, **(settings or {})}
 
@@ -229,6 +239,23 @@ def sanitize_settings(module_key: str, settings: dict) -> dict:
         )
         merged["transition_ms"] = _clamp_int(merged.get("transition_ms"), 0, 2000, defaults["transition_ms"])
 
+    merged["kind"] = module_key
+    merged["transition_effect"] = _normalize_allowed_string(merged.get("transition_effect"), {"fade", "dissolve", "slide", "none"}, "fade")
+    merged["transition_ms"] = _clamp_int(merged.get("transition_ms", 450), 0, 2000, 450)
+    merged["transition_on_content_change"] = False
+    merged["shuffle"] = bool(merged.get("shuffle", False))
+    merged["priority_every"] = _clamp_int(merged.get("priority_every", 45 if module_key == "clock" else 0), 0, 3600, 0)
+    merged["speed"] = _clamp_float(merged.get("speed", 1), 0.1, 4, 1)
+    if module_key == "clock":
+        variants = merged.get("variants", ["classic", "arcade", "progress"])
+        allowed = {"classic", "arcade", "progress", "binary"}
+        merged["variants"] = list(dict.fromkeys(v for v in variants if isinstance(v, str) and v in allowed)) if isinstance(variants, list) else []
+        if not merged["variants"]:
+            merged["variants"] = ["classic"]
+        merged["variant_seconds"] = _clamp_int(merged.get("variant_seconds", 4), 2, 30, 4)
+    if module_key == "weather":
+        for key in ("show_outdoor", "show_indoor", "show_humidity"):
+            merged[key] = bool(merged.get(key, True))
     return merged
 
 
@@ -237,10 +264,63 @@ async def get_modules(_: str = Depends(get_current_user), db: AsyncSession = Dep
     return await list_modules(db)
 
 
+@router.post("", response_model=ModuleConfigResponse, status_code=201)
+async def create_module(payload: ModuleCreate, request: Request, _: str = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    if (await db.scalar(select(func.count()).select_from(ModuleConfig))) >= 128:
+        raise HTTPException(409, "Maximal 128 Module")
+    settings = sanitize_settings(payload.kind, payload.settings)
+    if payload.kind == "asset":
+        try:
+            await asyncio.to_thread(request.app.state.asset_store.load, settings.get("asset_id"))
+        except (ValueError, OSError) as error:
+            raise HTTPException(422, "Asset nicht gefunden") from error
+    order = (await db.scalar(select(func.max(ModuleConfig.sort_order)))) or 0
+    module = ModuleConfig(key=payload.kind + "-" + uuid.uuid4().hex[:12], name=payload.name.strip() or payload.kind,
+                          enabled=payload.enabled, duration_seconds=payload.duration_seconds, sort_order=order + 1, settings=settings)
+    db.add(module)
+    await db.commit()
+    await db.refresh(module)
+    return module
+
+
+@router.put("/order")
+async def reorder_modules(payload: ModuleOrder, _: str = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    rows = await list_modules(db)
+    if len(set(payload.ids)) != len(payload.ids) or set(payload.ids) != {row.id for row in rows}:
+        raise HTTPException(409, "Modulliste geändert – bitte neu laden")
+    order = {module_id: index for index, module_id in enumerate(payload.ids)}
+    for row in rows:
+        row.sort_order = order[row.id]
+    await db.commit()
+    return {"ok": True}
+
+
+@router.post("/{module_id}/play")
+async def play_module(module_id: int, request: Request, _: str = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    module = await db.get(ModuleConfig, module_id)
+    if not module:
+        raise HTTPException(404, "Modul nicht gefunden")
+    request.app.state.display_service.play_once(module)
+    return {"ok": True}
+
+
+@router.delete("/{module_id}")
+async def delete_module(module_id: int, _: str = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    module = await db.get(ModuleConfig, module_id)
+    if not module:
+        raise HTTPException(404, "Modul nicht gefunden")
+    if "-" not in module.key:
+        raise HTTPException(409, "Standardmodule bitte deaktivieren statt löschen")
+    await db.delete(module)
+    await db.commit()
+    return {"ok": True}
+
+
 @router.put("/{module_id}", response_model=ModuleConfigResponse)
 async def update_module(
     module_id: int,
     payload: ModuleConfigUpdate,
+    request: Request,
     _: str = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -252,6 +332,13 @@ async def update_module(
     module.duration_seconds = payload.duration_seconds
     module.sort_order = payload.sort_order
     module.settings = sanitize_settings(module.key, payload.settings)
+    if module.key.split("-")[0] == "asset":
+        try:
+            await asyncio.to_thread(request.app.state.asset_store.load, module.settings.get("asset_id"))
+        except (ValueError, OSError) as error:
+            raise HTTPException(422, "Asset nicht gefunden") from error
+    if payload.name is not None:
+        module.name = payload.name.strip() or module.name
 
     await db.commit()
     await db.refresh(module)

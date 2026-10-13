@@ -15,6 +15,7 @@ class ModulePayload:
     default_color: tuple[int, int, int] = (80, 80, 80)
     char_colors: list[tuple[int, int, int]] = field(default_factory=list)
     char_spacing: int = 1
+    scene_key: str | None = None
 
 
 class ModuleBase:

@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="de">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PixelDock · Playlist</title><link rel="stylesheet" href="/static/retro.css"><script defer src="/static/shell.js"></script><script defer src="/static/arcade.js"></script></head>
+<body data-screen="playlist"><main class="retro-main">
+  <div class="page-heading"><div><p class="kicker">DIRECTOR MODE</p><h1>Dein Display. Dein Rhythmus.</h1><p class="muted">Ziehe die Karten am Griff oder nutze die Pfeile. Änderungen pro Karte speichern.</p></div><a class="button" href="/studio">GIF / Sprite hinzufügen</a></div>
+  <section class="panel"><form id="addModule" class="inline-form"><label class="grow">Modul<select name="kind"><option value="clock">Uhr</option><option value="weather">Wetter & Raumklima</option><option value="btc">Bitcoin</option><option value="textbox">Laufschrift / Text</option><option value="animations">Generative Animation</option><option value="bitmap">Bitmap</option></select></label><label class="grow">Name<input name="name" maxlength="100" placeholder="Mein neues Modul" required></label><button type="submit" class="primary">+ Hinzufügen</button></form></section>
+  <div class="playlist-help"><span>↕ Feste Reihenfolge</span><span>✦ Shuffle: ein Einwurf nach je 3 normalen Slots</span><span>◷ Priorität: an der nächsten Inhaltsgrenze</span></div>
+  <div id="moduleList" class="module-list" aria-label="Playlist"><p>Lade Module …</p></div>
+</main></body></html>

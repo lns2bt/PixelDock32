@@ -35,3 +35,42 @@ jobs:
       - run: arduino-cli core install arduino:avr@1.8.6
       - run: arduino-cli lib install "Adafruit NeoPixel@1.12.3"
       - run: arduino-cli compile --fqbn arduino:avr:uno arduino/PixelDockUnoR3
+
+  browser-ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: python -m pip install -r requirements-test.txt
+      - run: npm install --prefix "$RUNNER_TEMP/pixeldock-browser" playwright@1.64.0
+      - run: '"$RUNNER_TEMP/pixeldock-browser/node_modules/.bin/playwright" install --with-deps chromium'
+      - name: Mock-only browser smoke
+        run: |
+          python scripts/ui-test-server.py > "$RUNNER_TEMP/pixeldock-ui.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" || true' EXIT
+          python - <<'PY'
+          import time
+          from urllib.request import urlopen
+          for _ in range(60):
+              try:
+                  with urlopen('http://127.0.0.1:8765/login', timeout=1):
+                      break
+              except OSError:
+                  time.sleep(0.5)
+          else:
+              raise RuntimeError('UI fixture did not start')
+          PY
+          NODE_PATH="$RUNNER_TEMP/pixeldock-browser/node_modules" PIXELDOCK_UI_ARTIFACTS="$RUNNER_TEMP/ui-screenshots" node scripts/ui-smoke.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ui-smoke
+          path: |
+            ${{ runner.temp }}/ui-screenshots
+            ${{ runner.temp }}/pixeldock-ui.log

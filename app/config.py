@@ -63,6 +63,7 @@ class Settings(BaseSettings):
     poll_btc_seconds: int = Field(default=60, ge=15)
     poll_weather_seconds: int = Field(default=300, ge=60)
     render_fps: int = Field(default=30, ge=1, le=60)
+    asset_directory: str = "data/assets"
 
     @model_validator(mode="after")
     def validate_uno_geometry(self):

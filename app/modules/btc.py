@@ -1,5 +1,6 @@
 from app.modules.base import ModuleBase, ModulePayload
 from app.services.colors import clamp, parse_hex_color
+from app.services.module_visuals import icon_value
 
 
 class BTCModule(ModuleBase):
@@ -31,20 +32,23 @@ class BTCModule(ModuleBase):
                 import time
 
                 now = time.time()
-            screen_slot = int(now / screen_seconds) % 2
+            screen_slot = (int(settings.get("_elapsed", now) / screen_seconds) + settings.get("_visit", 0)) % 2
             if screen_slot == 1:
                 block_text = f"H{int(block_height)}"
                 return ModulePayload(
                     text=block_text,
-                    font_size=font_size,
+                    font_size="small",
                     x_offset=x_offset,
                     y_offset=y_offset,
                     default_color=flat_color,
                     char_colors=[base_b_color] + [flat_color] * max(0, len(block_text) - 1),
                     char_spacing=char_spacing,
+                    scene_key="block",
                 )
 
         if price is None:
+            if settings.get("visual_style", "retro") != "legacy":
+                return icon_value("coin", "...k", fallback_color, settings.get("_elapsed", 0))
             return ModulePayload(
                 text="B...k",
                 font_size=font_size,
@@ -64,6 +68,9 @@ class BTCModule(ModuleBase):
             price_color = down_color
         else:
             price_color = flat_color
+
+        if settings.get("visual_style", "retro") != "legacy":
+            return icon_value("coin", text[1:], price_color, settings.get("_elapsed", 0))
 
         return ModulePayload(
             text=text,

@@ -19,7 +19,19 @@ class ModuleConfigBase(BaseModel):
 
 
 class ModuleConfigUpdate(ModuleConfigBase):
-    pass
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+
+
+class ModuleCreate(BaseModel):
+    kind: str = Field(pattern="^(clock|btc|weather|textbox|bitmap|animations|asset)$")
+    name: str = Field(min_length=1, max_length=100)
+    settings: dict = Field(default_factory=dict)
+    duration_seconds: int = Field(default=10, ge=1, le=300)
+    enabled: bool = True
+
+
+class ModuleOrder(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=128)
 
 
 class ModuleConfigResponse(ModuleConfigBase):

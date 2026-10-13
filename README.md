@@ -8,13 +8,22 @@ PixelDock32 ist ein modularer 8x32-Controller für 4x WS2812B-8x8 Panels. Standa
 
 Das README ist bewusst kurz gehalten. Die ausführliche, aufgeteilte Projektdokumentation liegt unter [`/docs`](docs).
 
-## Rework-Zweig: noch nicht auf Hardware abgenommen
+## Rework-Zweig: Datenweg, Dashboard und Pixel-Studio
 
 Dieser Zweig enthält den überarbeiteten 30-FPS-Datenweg und Uno-Firmware v3.
 Vorhandene `.env`-Werte werden nicht überschrieben. Für vollständige
 Helligkeits-Synchronisation ist die neue Firmware vorgesehen; Details und
 Kompatibilitätsgrenzen: [Phase 2](docs/rework-phase2.md).
 Für Entwicklung ohne Hardware explizit `LED_TRANSPORT=mock` verwenden.
+
+Das Dashboard bietet jetzt eine dauerhaft sichtbare LED-Vorschau, eine sortierbare
+Playlist mit Prioritäts-/Shuffle-Slots sowie GIF-/PNG-Import und einen Sprite-Editor
+mit Animationsframes. Uhransichten, Modulsymbole und Übergänge wurden überarbeitet;
+Diagnosewerkzeuge sind unter „Erweitert“ gebündelt.
+
+Der Datenweg mit Firmware v3 wurde erstmals am Pi/Uno getestet. Das neue UI-/Asset-Rework
+ist lokal getestet, aber noch nicht auf dem Pi installiert oder optisch auf den LEDs
+geprüft. Umfang, Grenzen und Testanleitung: [Pixel-Studio-Rework](docs/pixel-studio-rework.md).
 
 ## Version 0.1.0 — Working Snapshot
 

@@ -5,30 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PixelDock32 • Login</title>
   <link rel="stylesheet" href="/static/style.css" />
+  <link rel="stylesheet" href="/static/retro.css" />
 </head>
 <body data-page="login" data-requires-auth="false">
   <header class="top-nav">
     <div class="top-nav-inner">
-      <a class="brand" href="/">PixelDock32</a>
-      <nav class="top-nav-links" aria-label="Hauptnavigation">
-        <a data-page-link="overview" href="/">Overview</a>
-        <a data-page-link="modules" href="/modules">Modules</a>
-        <a data-page-link="debug" href="/debug">Debugging</a>
-        <a data-page-link="tools" href="/tools">Preview & Tools</a>
-        <a data-page-link="mapping" href="/mapping">Mapping Assistant</a>
-        <a data-page-link="login" href="/login">Login</a>
-      </nav>
+      <a class="pixel-brand" href="/">PIXEL<span>DOCK</span> /32</a>
     </div>
   </header>
 
   <main class="app-shell auth-shell">
     <section class="card auth-card" data-section-title="Login">
-      <h2>Anmelden</h2>
+      <p class="kicker">WELCOME BACK, PLAYER ONE</p>
+      <h2>Dein Pixel-Universum wartet.</h2>
       <p class="subtle">Bitte melde dich an, um die PixelDock32-Steuerung zu öffnen.</p>
       <form id="loginForm" class="form-row three" onsubmit="login(event)">
         <div class="field"><label for="username">Benutzername</label><input id="username" autocomplete="username" placeholder="z. B. admin" value="admin" /></div>
         <div class="field"><label for="password">Passwort</label><input id="password" type="password" autocomplete="current-password" placeholder="••••••••" /></div>
-        <div class="field actions-end"><button id="loginButton" class="btn" type="submit">Einloggen</button></div>
+        <div class="field actions-end"><button id="loginButton" class="btn primary" type="submit">Einloggen</button></div>
       </form>
       <p id="loginStatus" class="subtle"></p>
     </section>

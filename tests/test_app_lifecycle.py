@@ -15,7 +15,7 @@ class AppLifecycleTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
-        self.settings = Settings(_env_file=None, led_transport="mock", dht_enabled=False, mapping_state_file=str(Path(directory.name) / "mapping.json"))
+        self.settings = Settings(_env_file=None, led_transport="mock", dht_enabled=False, mapping_state_file=str(Path(directory.name) / "mapping.json"), asset_directory=str(Path(directory.name) / "assets"))
         self.engine = create_async_engine("sqlite+aiosqlite:///:memory:")
         self.sessions = async_sessionmaker(self.engine, expire_on_commit=False)
         self.external = Mock(cache={}, start=AsyncMock(), stop=AsyncMock(), _tasks=[], _running=False, settings=self.settings)
