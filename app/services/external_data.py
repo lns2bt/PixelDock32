@@ -38,6 +38,22 @@ except ImportError:  # pragma: no cover - optional on non-RPi systems
 
 logger = logging.getLogger(__name__)
 
+WMO_WEATHER_CODES = frozenset({0, 1, 2, 3, 45, 48, 51, 53, 55, 56, 57,
+                               61, 63, 65, 66, 67, 71, 73, 75, 77,
+                               80, 81, 82, 85, 86, 95, 96, 99})
+
+
+def _bounded_number(value, minimum: float, maximum: float) -> float | None:
+    # JSON numbers only: booleans and numeric-looking strings aren't readings.
+    if type(value) not in (int, float):
+        return None
+    try:
+        number = float(value)
+    except (ValueError, OverflowError):
+        return None
+    return number if math.isfinite(number) and minimum <= number <= maximum else None
+
+
 def _module_available(module_name: str) -> bool:
     with suppress(Exception):
         return importlib.util.find_spec(module_name) is not None
@@ -90,6 +106,16 @@ class ExternalDataService:
             "btc_eur": None,
             "weather_temp": None,
             "weather_outdoor_temp": None,
+            "weather_outdoor_humidity": None,
+            "weather_outdoor_updated_at": None,
+            "weather_outdoor_error": None,
+            "weather_code": None,
+            "weather_is_day": None,
+            "weather_precipitation": None,
+            "weather_wind_speed": None,
+            "weather_outdoor_trend": None,
+            "weather_indoor_trend": None,
+            "weather_humidity_trend": None,
             "weather_indoor_temp": None,
             "weather_indoor_humidity": None,
             "btc_updated_at": None,
@@ -121,6 +147,59 @@ class ExternalDataService:
         self._running = False
         self._dht_lock = threading.Lock()
         self._tasks: list[asyncio.Task] = []
+        self._weather_history = {
+            key: collections.deque(maxlen=24)
+            for key in ("weather_outdoor_trend", "weather_indoor_trend", "weather_humidity_trend")
+        }
+
+    def _record_weather_sample(self, key: str, value: float, now: float,
+                               interval: float, threshold: float) -> None:
+        """Trends use actual source readings, never copies of cached values.
+
+        A gap exceeding three poll intervals (at least ten minutes) breaks the
+        history. Three distinct samples spanning five minutes are required.
+        Humidity history is indoor/DHT, independent of the outdoor API.
+        """
+        history = self._weather_history[key]
+        stale_after = max(600, interval * 3)
+        if history and (now - history[-1][0] > stale_after or now < history[-1][0]):
+            history.clear()
+        if not history or now > history[-1][0]:
+            history.append((now, value))
+        while history and now - history[0][0] > max(1800, interval * 24):
+            history.popleft()
+        trend = None
+        if len(history) >= 3 and history[-1][0] - history[0][0] >= 300:
+            delta = history[-1][1] - history[0][1]
+            trend = 1 if delta >= threshold else -1 if delta <= -threshold else 0
+        self.cache[key] = trend
+
+    def _store_dht_reading(self, humidity, temperature, backend: str, source: str) -> None:
+        raw_temp = _bounded_number(temperature, -90, 70)
+        raw_humidity = _bounded_number(humidity, 0, 100)
+        if raw_temp is None or raw_humidity is None:
+            raise ValueError("Invalid DHT temperature or humidity")
+        now = time.time()
+        self.cache.update(
+            dht_raw_temperature=raw_temp, dht_raw_humidity=raw_humidity,
+            dht_backend=backend, weather_indoor_temp=round(raw_temp, 1),
+            weather_indoor_humidity=round(raw_humidity, 1),
+            dht_processing=self._build_dht_processing(raw_humidity, raw_temp),
+            dht_last_success_source=source, weather_source="dht",
+            dht_updated_at=now, weather_updated_at=now,
+            weather_error=None, dht_error=None,
+        )
+        self._record_weather_sample("weather_indoor_trend", raw_temp, now,
+                                    self.settings.poll_dht_seconds, 0.5)
+        self._record_weather_sample("weather_humidity_trend", raw_humidity, now,
+                                    self.settings.poll_dht_seconds, 3)
+
+    def _store_dht_error(self, error: Exception, source: str) -> None:
+        self.cache["dht_error"] = str(error)
+        self.cache["dht_last_error_source"] = source
+        self.cache["weather_error"] = str(error)
+        self.cache["weather_indoor_trend"] = None
+        self.cache["weather_humidity_trend"] = None
 
     async def start(self):
         self._running = True
@@ -180,19 +259,38 @@ class ExternalDataService:
                         params={
                             "latitude": self.settings.weather_lat,
                             "longitude": self.settings.weather_lon,
-                            "current": "temperature_2m,relative_humidity_2m",
+                            "current": "temperature_2m,relative_humidity_2m,weather_code,is_day,precipitation,wind_speed_10m",
                         },
                     )
                     response.raise_for_status()
                     current = response.json()["current"]
-                    self.cache["weather_outdoor_temp"] = current["temperature_2m"]
-                    self.cache["weather_temp"] = self.cache["weather_outdoor_temp"]
+                    temperature = _bounded_number(current.get("temperature_2m"), -90, 70)
+                    if temperature is None:
+                        raise ValueError("Invalid outdoor temperature")
+                    code = current.get("weather_code")
+                    is_day = current.get("is_day")
+                    now = time.time()
+                    self.cache.update(
+                        weather_outdoor_temp=temperature,
+                        weather_outdoor_humidity=_bounded_number(current.get("relative_humidity_2m"), 0, 100),
+                        weather_code=code if type(code) is int and code in WMO_WEATHER_CODES else None,
+                        weather_is_day=bool(is_day) if type(is_day) in (bool, int) and is_day in (0, 1) else None,
+                        weather_precipitation=_bounded_number(current.get("precipitation"), 0, 1000),
+                        weather_wind_speed=_bounded_number(current.get("wind_speed_10m"), 0, 500),
+                        weather_outdoor_updated_at=now,
+                        weather_outdoor_error=None,
+                    )
+                    self.cache["weather_temp"] = temperature
                     self.cache["weather_source"] = "api"
-                    self.cache["weather_updated_at"] = time.time()
+                    self.cache["weather_updated_at"] = now
                     self.cache["weather_error"] = None
+                    self._record_weather_sample("weather_outdoor_trend", temperature, now,
+                                                self.settings.poll_weather_seconds, 0.5)
             except Exception as exc:  # noqa: BLE001
                 logger.warning("Weather polling failed: %s", exc)
                 self.cache["weather_error"] = str(exc)
+                self.cache["weather_outdoor_error"] = str(exc)
+                self.cache["weather_outdoor_trend"] = None
             await asyncio.sleep(self.settings.poll_weather_seconds)
 
     async def _poll_dht(self):
@@ -206,29 +304,15 @@ class ExternalDataService:
                 humidity, temperature, backend = await asyncio.to_thread(self._read_dht, model, "poller")
                 if humidity is None or temperature is None:
                     raise RuntimeError("DHT read returned no data")
-                raw_temp = float(temperature)
-                raw_humidity = float(humidity)
-                self.cache["dht_raw_temperature"] = raw_temp
-                self.cache["dht_raw_humidity"] = raw_humidity
-                self.cache["dht_backend"] = backend
-                self.cache["weather_indoor_temp"] = round(raw_temp, 1)
-                self.cache["weather_indoor_humidity"] = round(raw_humidity, 1)
-                self.cache["dht_processing"] = self._build_dht_processing(raw_humidity, raw_temp)
-                self.cache["dht_last_success_source"] = "poller"
-                self.cache["weather_source"] = "dht"
-                self.cache["dht_updated_at"] = time.time()
-                self.cache["weather_updated_at"] = self.cache["dht_updated_at"]
-                self.cache["weather_error"] = None
-                self.cache["dht_error"] = None
+                self._store_dht_reading(humidity, temperature, backend, "poller")
                 logger.info(
                     "DHT read ok (%s): %.1f°C, %.1f%%",
                     backend,
-                    raw_temp,
-                    raw_humidity,
+                    temperature,
+                    humidity,
                 )
             except Exception as exc:  # noqa: BLE001
-                self.cache["dht_error"] = str(exc)
-                self.cache["dht_last_error_source"] = "poller"
+                self._store_dht_error(exc, "poller")
             finally:
                 self.cache["dht_last_duration_ms"] = round((time.perf_counter() - started) * 1000, 2)
                 self.cache["dht_gpio_level"] = self._read_gpio_level()
@@ -537,10 +621,13 @@ class ExternalDataService:
     def read_dht_debug_snapshot(self) -> dict:
         model = self.settings.dht_model.strip().upper()
         started = time.perf_counter()
+        self.cache["dht_last_attempt_at"] = time.time()
         gpio_before = self._read_gpio_level()
         try:
             humidity, temperature, backend = self._read_dht(model, source="read-once")
+            self._store_dht_reading(humidity, temperature, backend, "read-once")
             duration_ms = round((time.perf_counter() - started) * 1000, 2)
+            self.cache["dht_last_duration_ms"] = duration_ms
             gpio_after = self._read_gpio_level()
             return {
                 "ok": humidity is not None and temperature is not None,
@@ -557,7 +644,9 @@ class ExternalDataService:
                 "diagnostics": self.cache.get("dht_diagnostics"),
             }
         except Exception as exc:  # noqa: BLE001
+            self._store_dht_error(exc, "read-once")
             duration_ms = round((time.perf_counter() - started) * 1000, 2)
+            self.cache["dht_last_duration_ms"] = duration_ms
             gpio_after = self._read_gpio_level()
             return {
                 "ok": False,

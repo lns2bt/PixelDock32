@@ -100,7 +100,7 @@ class DisplayLoopTests(unittest.IsolatedAsyncioTestCase):
             self.display.asset_store = store
             self.display._get_enabled_module_rows = AsyncMock(return_value=[{
                 "id":10, "key":"asset-test", "duration_seconds":3,
-                "settings":{"asset_id":saved["id"], "transition_ms":0},
+                "settings":{"asset_id":saved["id"], "transition_ms":0, "playback_mode":"finish_loop"},
             }, {"id":11, "key":"clock", "duration_seconds":8, "settings":{}}])
             clock = Mock(wraps=time)
             clock.monotonic.return_value = 100
@@ -115,6 +115,30 @@ class DisplayLoopTests(unittest.IsolatedAsyncioTestCase):
                 clock.monotonic.return_value = 104
                 await self.display._get_next_frame()
                 self.assertEqual(self.display.last_module_key, "clock")
+
+    async def test_asset_modes_apply_to_playlist_and_play_once(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store=AssetStore(directory);self.display.asset_store=store
+            asset=store.save({'name':'12 seconds','frames':[{'pixels':[0x123456]*256,'duration_ms':2000} for _ in range(6)]})
+            for once in (False,True):
+                for mode,speed,duration in [('limit',1,6),('once',1,12),('once',2,6),('finish_loop',1,12)]:
+                    with self.subTest(once=once,mode=mode,speed=speed):
+                        self.display._asset_identity=None;self.display.playlist.current=None;self.display._play_once=None
+                        settings={'asset_id':asset['id'],'playback_mode':mode,'speed':speed,'transition_ms':0}
+                        row={'id':10,'key':'asset-test','duration_seconds':6,'settings':settings}
+                        self.display._get_enabled_module_rows=AsyncMock(return_value=[row,{'id':11,'key':'clock','duration_seconds':8,'settings':{}}])
+                        clock=Mock(wraps=time);clock.monotonic.return_value=100
+                        with patch('app.services.display.time',clock):
+                            if once:self.display.play_once(Mock(**row))
+                            await self.display._get_next_frame()
+                            deadline=self.display._play_once['end'] if once else self.display.playlist.deadline
+                            self.assertEqual(deadline,100+duration)
+                            clock.monotonic.return_value=100+duration-.01
+                            await self.display._get_next_frame();self.assertEqual(self.display.last_module_key,'asset-test')
+                            clock.monotonic.return_value=100+duration
+                            await self.display._get_next_frame()
+                            if once:self.assertIsNone(self.display._play_once)
+                            else:self.assertEqual(self.display.last_module_key,'clock')
 
     async def test_play_once_works_with_empty_playlist_and_expires(self):
         module = Mock(id=10, key="clock", duration_seconds=8, settings={})

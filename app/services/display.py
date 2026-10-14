@@ -122,6 +122,10 @@ class DisplayService:
         self._bitcoin_visit = None
         self._bitcoin_generation = None
         self._bitcoin_error = None
+        self._weather_directors = {}
+        self._weather_visit = None
+        self._weather_generation = None
+        self._weather_error = None
         self._preview_sky_cache = {}
         self._preview_sky_lock = threading.Lock()
         self.playlist = Playlist()
@@ -361,6 +365,13 @@ class DisplayService:
         self._stage_preview = {**preview, "start": now, "end": now + duration}
         self.transition_state = None
 
+    def preview_weather(self, settings):
+        from app.services.weather_stage import Director
+        if self.time_stage and self.time_stage.sleep_state(self._stage_now())["active"]:
+            raise ValueError("Schlafmodus aktiv. Bitte zuerst ausdrücklich auf Wach umschalten.")
+        visit = Director().begin(settings, dict(self.cache_provider() or {}), preview=True)
+        self._start_live_preview({"kind": "weather", "visit": visit, "confirm_wake": False}, visit.duration)
+
     def _finish_stage_preview(self, now):
         delta = now - self._stage_preview["start"]
         if self.playlist.current is not None:
@@ -389,7 +400,7 @@ class DisplayService:
 
     def _shift_slot_generation(self, started, delta):
         # Preserve visit identity when paused playback resumes: no new rotation.
-        for field in ("_slot_generation", "_bitcoin_generation"):
+        for field in ("_slot_generation", "_bitcoin_generation", "_weather_generation"):
             generation = getattr(self, field)
             if generation and generation[1] == started:
                 setattr(self, field, (generation[0], started + delta))
@@ -398,7 +409,7 @@ class DisplayService:
 
     def _stage_target(self, payload, source="time-stage"):
         self.last_source = source
-        self.last_module_key = str(payload.scene_key) if source == "bitcoin-preview" else "time-stage:" + str(payload.scene_key)
+        self.last_module_key = str(payload.scene_key) if source in ("bitcoin-preview", "weather-preview") else "time-stage:" + str(payload.scene_key)
         self.last_target_key = self.last_module_key
         self.last_target_frame = [row[:] for row in payload.frame]
         self.last_target_colors = [row[:] for row in payload.color_frame]
@@ -434,6 +445,23 @@ class DisplayService:
                 except OSError as exc:
                     self._logger.warning("Time-Stage brightness deferred: %s", exc)
                 self._effective_brightness = wanted
+
+    def _render_weather_visit(self, visit, elapsed):
+        from app.services.weather_stage import render
+        try:
+            payload = render(visit, elapsed)
+            self._weather_error = None
+            return payload
+        except Exception as exc:
+            if self._weather_error != str(exc):
+                self._logger.exception("Weather story failed; keeping a readable data fallback")
+            self._weather_error = str(exc)
+            from app.services.time_stage.core import Canvas
+            canvas = Canvas()
+            value = visit.infos[0]["value"]
+            canvas.text(value, max(0, (32-len(value)*4+1)//2), 1, (100, 220, 230))
+            return ModulePayload(text=value, frame=[[int(rgb is not None) for rgb in row] for row in canvas.colors],
+                                 color_frame=canvas.colors, scene_key="weather:fallback")
 
     def play_once(self, module):
         now = time.monotonic()
@@ -590,6 +618,12 @@ class DisplayService:
                 "infos": self._bitcoin_visit.infos if self._bitcoin_visit else [],
                 "duration": self._bitcoin_visit.duration if self._bitcoin_visit else None,
                 "error": self._bitcoin_error,
+            },
+            "weather_stage": {
+                "style": self._weather_visit.style if self._weather_visit else None,
+                "infos": self._weather_visit.infos if self._weather_visit else [],
+                "duration": self._weather_visit.duration if self._weather_visit else None,
+                "error": self._weather_error,
             },
         }
 
@@ -780,6 +814,8 @@ class DisplayService:
                 preview = self._stage_preview
                 if preview["kind"] == "bitcoin":
                     payload = self._render_bitcoin_visit(preview["visit"], now_mono - preview["start"])
+                elif preview["kind"] == "weather":
+                    payload = self._render_weather_visit(preview["visit"], now_mono - preview["start"])
                 else:
                     config = preview["config"]
                     wall = datetime.now(ZoneInfo(config["timezone"]))
@@ -902,6 +938,29 @@ class DisplayService:
             self.last_target_colors = [row[:] for row in payload.color_frame]
             return payload.frame, payload.color_frame
 
+        if kind == "weather" and settings.get("weather_stage", True):
+            from app.services.weather_stage import Director
+            identity = self.playlist.identity(selected)
+            if identity not in self._weather_directors:
+                if len(self._weather_directors) >= 128:
+                    self._weather_directors.pop(next(iter(self._weather_directors)))
+                self._weather_directors[identity] = Director()
+            if self._weather_generation != generation:
+                self._weather_generation = generation
+                self._weather_visit = self._weather_directors[identity].begin(settings, live_cache)
+                deadline = slot_start + self._weather_visit.duration
+                if self._play_once:
+                    self._play_once["end"] = deadline
+                else:
+                    self.playlist.deadline = deadline
+            payload = self._render_weather_visit(self._weather_visit, now-slot_start)
+            self._update_live_debug(selected["key"], settings, live_cache, payload)
+            self.transition_state = None
+            self.last_target_key = selected["key"]
+            self.last_target_frame = [row[:] for row in payload.frame]
+            self.last_target_colors = [row[:] for row in payload.color_frame]
+            return payload.frame, payload.color_frame
+
         if kind == "asset":
             identity = (selected["key"], settings.get("asset_id"), slot_start)
             if self._asset_identity != identity:
@@ -911,11 +970,14 @@ class DisplayService:
                     self._asset_data = None
                 self._asset_identity = identity
                 if self._asset_data:
-                    cycle = self._asset_data["cycle_seconds"] / max(0.1, float(settings.get("speed", 1)))
+                    from app.services.asset_editing import playback_timing
+                    timing = playback_timing(self._asset_data['cycle_seconds'], selected['duration_seconds'],
+                                             settings.get('speed',1),settings.get('playback_mode','limit'))
+                    deadline = slot_start + timing['duration']
                     if self._play_once:
-                        self._play_once["end"] = slot_start + math.ceil(selected["duration_seconds"] / cycle) * cycle
+                        self._play_once["end"] = deadline
                     else:
-                        self.playlist.finish_cycle(cycle)
+                        self.playlist.deadline = deadline
             if self._asset_data:
                 frame, color_frame = asset_frame(self._asset_data, now - slot_start, settings.get("speed", 1))
             else:

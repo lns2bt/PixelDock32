@@ -1,0 +1,29 @@
+body[data-screen=weather] .retro-main{gap:.75rem;min-width:0}
+#weatherFields{border:0;margin:0;padding:0;min-width:0;display:grid;gap:.75rem}
+.weather-accordion{padding:.5rem 1rem;min-width:0}
+.weather-accordion>summary{gap:.5rem;justify-content:space-between;flex-wrap:wrap;color:var(--text);font-weight:650;min-height:44px}
+.weather-accordion>summary::before{content:'▸';color:var(--mint)}
+.weather-accordion[open]>summary::before{content:'▾'}
+.weather-accordion>summary>span{flex:1;min-width:0}
+.weather-accordion>summary small{font-weight:400;text-align:right}
+.weather-accordion[open]>summary{margin-bottom:.5rem;border-bottom:1px solid var(--border);padding-bottom:.5rem}
+.weather-row{border-bottom:1px solid var(--border);padding:.35rem 0;min-width:0}
+.weather-row .row-top{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap}
+.weather-row .check{flex:1;min-width:110px;color:var(--text);min-height:44px}
+.weather-row p{margin:.4rem 0;overflow-wrap:anywhere}
+body[data-screen=weather] button,body[data-screen=weather] select,body[data-screen=weather] input:not([type=checkbox]){min-height:44px;max-width:100%}
+.weather-row button{flex-shrink:0;padding:.4rem .6rem;font-size:.8rem;min-width:44px}
+.weather-description summary{font-size:.8rem;min-height:44px;gap:.4rem}
+.weather-description summary::before{content:'+';color:var(--mint)}
+.weather-description[open] summary::before{content:'−'}
+.weather-description{margin-left:1.7rem}
+#weatherCanvas{width:100%;height:auto;image-rendering:pixelated;background:#08080c;margin:.75rem 0;border:1px solid var(--border);border-radius:8px}
+#weatherFeedback,#weatherLedStatus,#weatherPreviewStatus,#weatherSource,#weatherFrameData{overflow-wrap:anywhere;margin-bottom:0;font-size:.85rem}
+#weatherData{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.65rem}
+#weatherData strong{display:block;color:var(--gold)}
+#weatherData small{display:block}
+#weatherSavebar{position:sticky;bottom:0;background:var(--bg);padding:.5rem 0;border-top:1px solid var(--border);z-index:2}
+#weatherSavebar small{flex-basis:100%}
+body[data-screen=weather] label,body[data-screen=weather] .field-grid{min-width:0}
+@media(max-width:440px){body[data-screen=weather] .field-grid{grid-template-columns:1fr;gap:.65rem}.weather-accordion{padding:.4rem .75rem}.weather-accordion>summary small{flex-basis:100%;text-align:left;margin-left:1.1rem}.weather-row .row-top{gap:.3rem}.weather-row [data-style]{margin-left:auto}}
+@media(prefers-reduced-motion:reduce){#weatherPreviewPlay{border-style:dashed}}

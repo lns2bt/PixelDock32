@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import auth, debug, display, modules, assets, time_stage, bitcoin
+from app.api import auth, debug, display, modules, assets, time_stage, bitcoin, weather
 from app.config import get_settings
 from app.database import SessionLocal, Base, engine
 from app.services.display import DisplayService
@@ -86,6 +86,7 @@ app.include_router(debug.router)
 app.include_router(assets.router)
 app.include_router(time_stage.router)
 app.include_router(bitcoin.router)
+app.include_router(weather.router)
 
 static_dir = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
@@ -139,3 +140,8 @@ async def time_stage_page():
 @app.get("/bitcoin")
 async def bitcoin_page():
     return FileResponse(static_dir / "bitcoin.html")
+
+
+@app.get('/weather')
+async def weather_page():
+    return FileResponse(static_dir / 'weather.html')

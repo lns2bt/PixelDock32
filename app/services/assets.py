@@ -9,6 +9,7 @@ import re
 import threading
 import uuid
 import warnings
+from app.services.asset_editing import MAX_SOURCE_FRAMES, selection_plan
 
 from PIL import Image, ImageOps
 
@@ -38,28 +39,53 @@ def validate_asset(data):
     return {"name": name.strip(), "frames": frames}
 
 
-def decode_image(raw, name, fit):
+def _open_image(raw):
     if len(raw) > MAX_UPLOAD:
         raise ValueError("Maximal 4 MB pro Upload")
-    if fit not in {"contain", "cover", "stretch"}:
-        raise ValueError("Ungültige Skalierung")
+    image = Image.open(BytesIO(raw))
+    if image.format not in {'GIF','PNG'}:
+        image.close();raise ValueError('Nur GIF und PNG werden unterstützt')
+    if image.width > 1024 or image.height > 1024 or image.width * image.height > 262144:
+        image.close();raise ValueError('Bild zu groß: maximal 1024 je Seite und 262144 Pixel')
+    return image
+
+
+def analyze_image(raw):
+    """Only durations/geometry; do not allocate an unbounded decoded animation."""
     with warnings.catch_warnings():
         warnings.simplefilter("error", Image.DecompressionBombWarning)
-        with Image.open(BytesIO(raw)) as image:
-            if image.format not in {"GIF", "PNG"}:
-                raise ValueError("Nur GIF und PNG werden unterstützt")
-            if image.width > 1024 or image.height > 1024 or image.width * image.height > 262144:
-                raise ValueError("Bild zu groß: maximal 1024 je Seite und 262144 Pixel")
-            frames = []
-            for index in range(MAX_FRAMES + 1):
+        with _open_image(raw) as image:
+            durations=[];width,height=image.size
+            for index in range(MAX_SOURCE_FRAMES+1):
                 try:
                     image.seek(index)
                 except EOFError:
                     break
-                if index == MAX_FRAMES:
-                    raise ValueError(f"Zu viele Frames: maximal {MAX_FRAMES} pro Animation")
+                if index == MAX_SOURCE_FRAMES:
+                    raise ValueError('Zu viele Quellframes: maximal 4096 für die Importvorbereitung')
                 if image.width * image.height * (index + 1) > 8_000_000:
                     raise ValueError("Animation-Auflösung zu groß: maximal 8 Millionen Quellpixel über alle Frames. Bitte vor dem Import auf 32 × 8 verkleinern.")
+                durations.append(max(33,min(655350,int(image.info.get('duration',100) or 100))))
+            return {'frame_count':len(durations),'durations_ms':durations,'width':width,'height':height,
+                    'cycle_seconds':sum(durations)/1000,'bytes':len(raw),'max_frames':MAX_FRAMES}
+
+
+def decode_image(raw, name, fit, **options):
+    if fit not in {'contain','cover','stretch'}: raise ValueError('Ungültige Skalierung')
+    analysis=analyze_image(raw)
+    plan=selection_plan(analysis['durations_ms'],**options)
+    if plan['frame_count']>MAX_FRAMES:
+        raise ValueError(f'Zu viele Frames: maximal {MAX_FRAMES} im fertigen Asset. Bitte Bereich kürzen oder Frames ausdünnen.')
+    frames=[]
+    with warnings.catch_warnings():
+        warnings.simplefilter('error',Image.DecompressionBombWarning)
+        with _open_image(raw) as image:
+            previous_index=None; pixels=None
+            for group in plan['groups']:
+                index=group['index']
+                if index==previous_index:
+                    frames.append({'pixels':pixels,'duration_ms':group['duration_ms']});continue
+                image.seek(index)
                 rgba = image.convert("RGBA")
                 if fit == "cover":
                     rgba = ImageOps.fit(rgba, (32, 8), method=Image.Resampling.NEAREST)
@@ -73,8 +99,8 @@ def decode_image(raw, name, fit):
                 black = Image.new("RGB", (32, 8))
                 black.paste(rgba, mask=rgba.getchannel("A"))
                 pixels = [(r << 16) | (g << 8) | b for r, g, b in black.get_flattened_data()]
-                duration = max(33, min(2000, int(image.info.get("duration", 100) or 100)))
-                frames.append({"pixels": pixels, "duration_ms": duration})
+                frames.append({"pixels": pixels, "duration_ms": group['duration_ms']})
+                previous_index=index
     return validate_asset({"name": name, "frames": frames})
 
 
@@ -122,7 +148,8 @@ class AssetStore:
             try:
                 data = self.load(path.stem)
                 result.append({"id": path.stem, "name": data["name"], "frame_count": len(data["frames"]),
-                               "cycle_seconds": data["cycle_seconds"], "preview": data["frames"][0]["pixels"]})
+                               "cycle_seconds": data["cycle_seconds"], "width":32,"height":8,
+                               "preview": data["frames"][0]["pixels"]})
             except (ValueError, OSError):
                 continue
         return result

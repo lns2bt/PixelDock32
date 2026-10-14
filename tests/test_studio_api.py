@@ -93,6 +93,20 @@ class StudioApiTests(unittest.IsolatedAsyncioTestCase):
         response = await self.client.post('/api/assets/sprites', json={'name': 'Edited copy', 'frames': loaded['frames']})
         self.assertEqual(response.status_code, 201)
 
+    async def test_import_analysis_and_preview_never_save(self):
+        buf=BytesIO();images=[Image.new('RGB',(32,8),c) for c in ['red','blue','green']]
+        images[0].save(buf,format='GIF',save_all=True,append_images=images[1:],duration=[100,200,300])
+        raw=buf.getvalue()
+        response=await self.client.post('/api/assets/analyze',content=raw)
+        self.assertEqual(response.status_code,200);self.assertEqual(response.json()['durations_ms'],[100,200,300])
+        response=await self.client.post('/api/assets/import?preview=true&trim_start=1&step=2',content=raw)
+        self.assertEqual(response.status_code,201);self.assertEqual(response.json()['cycle_seconds'],.5)
+        self.assertEqual((await self.client.get('/api/assets')).json(),[])
+        self.assertEqual((await self.client.post('/api/assets/import?trim_start=3',content=raw)).status_code,422)
+        self.assertEqual((await self.client.post('/api/assets/import?step=0',content=raw)).status_code,422)
+        response=await self.client.post('/api/assets/import?range_kind=time&start_seconds=.1&end_seconds=.3',content=raw)
+        self.assertEqual(response.status_code,201);self.assertEqual(len(response.json()['frames']),1)
+
     async def test_maximum_sprite_roundtrip_and_upload_size_limit(self):
         response = await self.client.post('/api/assets/sprites', json={'name':'512 bright frames', 'frames':[{'pixels':[0xffffff]*256, 'duration_ms':100}]*MAX_FRAMES})
         self.assertEqual(response.status_code, 201)

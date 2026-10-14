@@ -1,7 +1,7 @@
 # PixelDock32
 
-![Version](https://img.shields.io/badge/version-0.1.0-blue)
-![Status](https://img.shields.io/badge/status-working%20snapshot-brightgreen)
+![Version](https://img.shields.io/badge/version-0.2.0-blue)
+![Status](https://img.shields.io/badge/status-release-brightgreen)
 
 
 PixelDock32 ist ein modularer 8x32-Controller für 4x WS2812B-8x8 Panels. Standardmäßig rendert der Raspberry Pi die Daten und überträgt Frames effizient per USB-Serial an einen Arduino UNO R3, der das WS2812B-Signal erzeugt (optional bleibt GPIO18 + `rpi_ws281x`).
@@ -18,6 +18,11 @@ Details: [Time-Stage](docs/time-stage.md).
 standardmäßig höchstens zwei pro Vorstellung, mit eigenen Einstellungen und Vorschauen
 unter `/bitcoin`. Details: [docs/bitcoin-stage.md](docs/bitcoin-stage.md).
 
+**Wetter-Stage**: vier gemeinsame Pixelstile für Außentemperatur, Innentemperatur,
+Innenfeuchtigkeit und aktuelle Wetterbedingungen. Szenen, Rotation und direkte
+Vorschauen unter `/weather`. Modellbasierte Open-Meteo-Außendaten und lokale
+Innenmessung mit getrenntem Datenstatus: [Wetter-Stage](docs/weather-stage.md).
+
 Dieser Zweig enthält den überarbeiteten 30-FPS-Datenweg und Uno-Firmware v3.
 Vorhandene `.env`-Werte werden nicht überschrieben. Für vollständige
 Helligkeits-Synchronisation ist die neue Firmware vorgesehen; Details und
@@ -26,7 +31,8 @@ Für Entwicklung ohne Hardware explizit `LED_TRANSPORT=mock` verwenden.
 
 Das Dashboard bietet jetzt eine einklappbare Live-LED-Vorschau, eine sortierbare
 Playlist mit Prioritäts-/Shuffle-Slots sowie GIF-/PNG-Import und einen Sprite-Editor
-mit Animationsframes. Uhransichten, Modulsymbole und Übergänge wurden überarbeitet;
+mit Bereichskürzung, zeitgetreuem Ausdünnen und drei GIF-Wiedergabemodi
+([GIF-Bearbeitung](docs/gif-editing.md)). Uhransichten, Modulsymbole und Übergänge wurden überarbeitet;
 Diagnosewerkzeuge sind unter „Erweitert“ gebündelt.
 
 Der geprüfte Stand mit Firmware v3, Pixel-Studio, Time-Stage, Bitcoin-Stage und
@@ -35,13 +41,14 @@ Autostart eingerichtet. `main` enthält diesen Standardstand; die früheren Pi-S
 und Sicherungen bleiben für einen Rückwechsel erhalten. Umfang und Testanleitung:
 [Pixel-Studio-Rework](docs/pixel-studio-rework.md).
 
-## Version 0.1.0 — Working Snapshot
+## Version 0.2.0 — Pixel-Studio und Szenen-Stages
 
-Diese Projektfassung ist als **funktionierender 0.1-Rückkehrpunkt** markiert, damit spätere Verbesserungen sicher darauf aufbauen können.
+Dieser auf dem Pi geprüfte Stand umfasst GIF-Bearbeitung, Time-Stage,
+Bitcoin-Stage und Wetter-Stage mit kompakter Oberfläche und direkten Vorschauen.
 
-- Aktuelle Version: [`0.1.0`](VERSION)
+- Aktuelle Version: [`0.2.0`](VERSION)
 - Release-Notizen: [`CHANGELOG.md`](CHANGELOG.md)
-- Empfohlener GitHub-Tag nach dem Merge: `v0.1.0`
+- Release-Tag: `v0.2.0` auf `main`
 
 ## Schnellstart
 

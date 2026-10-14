@@ -2,7 +2,7 @@
 (() => {
   'use strict';
   if (!window.PixelDock) return;
-  const { api, toast, matrix, bitcoinDuration, bitcoinDurationText } = window.PixelDock;
+  const { api, toast, matrix, bitcoinDuration, bitcoinDurationText, weatherDuration } = window.PixelDock;
   const $ = id => document.getElementById(id);
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
   const guarded = fn => async event => { try { await fn(event); } catch (error) { toast(error.message, true); } };
@@ -10,10 +10,11 @@
   const names = { clock:'Uhr', btc:'Bitcoin', weather:'Wetter & Raumklima', textbox:'Text', bitmap:'Bitmap', animations:'Animation', asset:'GIF / Sprite' };
   let modules = [], assets = [], dirty = false;
   const automaticBitcoin = row => row.key.split('-')[0] === 'btc' && row.settings?.bitcoin_stage !== false;
-  function durationLabel(row) { return automaticBitcoin(row) ? 'Automatische Dauer' : `${row.duration_seconds}s`; }
+  const automaticWeather = row => row.key.split('-')[0] === 'weather' && row.settings?.weather_stage !== false;
+  function durationLabel(row) { return automaticBitcoin(row)||automaticWeather(row) ? 'Automatische Dauer' : row.key.split('-')[0]==='asset'&&row.settings?.playback_mode==='once'?'Ein vollständiger Durchlauf':`${row.duration_seconds}s`; }
   function renderBitcoinTiming(row, container) {
-    if (!automaticBitcoin(row)) return;
-    bitcoinDuration(row).then(timing => {
+    if (!automaticBitcoin(row)&&!automaticWeather(row)) return;
+    (automaticWeather(row)?weatherDuration(row):bitcoinDuration(row)).then(timing => {
       if (!container.isConnected) return;
       container.querySelectorAll('[data-duration]').forEach(node => { node.textContent = bitcoinDurationText(timing); });
       const info = container.querySelector('[data-duration-info]');
@@ -21,7 +22,7 @@
     }).catch(() => {
       if (!container.isConnected) return;
       const info = container.querySelector('[data-duration-info]');
-      if (info) info.textContent = 'Automatische Dauer momentan nicht verfügbar. Details auf der Bitcoin-Seite.';
+      if (info) info.textContent = 'Automatische Dauer momentan nicht verfügbar. Details auf der Stage-Seite.';
     });
   }
   window.addEventListener('beforeunload', event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });
@@ -57,7 +58,7 @@
   function settingsFields(row) {
     const s = row.settings || {}, kind = row.key.split('-')[0];
     let html = input('Name', 'module_name', row.name, 'text', 'maxlength="100" required')
-      + (automaticBitcoin(row) ? `<div class="automatic-duration"><strong data-duration>Automatische Dauer</strong><p class="muted" data-duration-info>Info- und Lesezeiten werden geladen …</p><a href="/bitcoin">Bitcoin-Stage einstellen</a><input type="hidden" name="duration_seconds" value="${escape(row.duration_seconds)}"></div>` : input('Dauer (Sekunden)', 'duration_seconds', row.duration_seconds, 'number', 'min="1" max="300" required'))
+      + (automaticBitcoin(row)||automaticWeather(row) ? `<div class="automatic-duration"><strong data-duration>Automatische Dauer</strong><p class="muted" data-duration-info>Info- und Lesezeiten werden geladen …</p><a href="/${automaticWeather(row)?'weather':'bitcoin'}">${automaticWeather(row)?'Wetter':'Bitcoin'}-Stage einstellen</a><input type="hidden" name="duration_seconds" value="${escape(row.duration_seconds)}"></div>` : input('Dauer (Sekunden)', 'duration_seconds', row.duration_seconds, 'number', 'min="1" max="300" required'))
       + select('Übergang', 'transition_effect', s.transition_effect || 'fade', [['fade','Sanfter Fade'],['dissolve','Pixel-Dissolve'],['slide','Slide'],['none','Ohne']])
       + input('Übergang (ms)', 'transition_ms', s.transition_ms ?? 450, 'number', 'min="0" max="2000"')
       + input('Priorität alle … Sekunden (0 = aus)', 'priority_every', s.priority_every ?? (kind === 'clock' ? 45 : 0), 'number', 'min="0" max="3600"')
@@ -80,10 +81,12 @@
         + input('Intensität', 'intensity', s.intensity || .8, 'number', 'min="0.1" max="1" step="0.1"');
     } else if (kind === 'asset') {
       html += select('Asset', 'asset_id', s.asset_id, assets.map(asset => [asset.id, asset.name]))
+        + select('Wiedergabemodus','playback_mode',s.playback_mode||'limit',[['limit','Maximale Dauer'],['once','Ein vollständiger Durchlauf'],['finish_loop','Zeitlimit + Loop beenden']])
         + input('Geschwindigkeit', 'speed', s.speed || 1, 'number', 'min="0.1" max="4" step="0.1"')
-        + '<p class="wide muted">Die Slot-Dauer wird bis zum Ende des begonnenen Animationsloops verlängert.</p>';
+        + '<p class="wide muted" data-asset-timing></p>';
     } else if (kind === 'weather') {
-      html += input('Werte wechseln alle … Sekunden', 'screen_seconds', s.screen_seconds || 4, 'number', 'min="1" max="60"')
+      html += '<p class="wide muted">Vier gemeinsame Szenenstile für Außen, Innen, Feuchtigkeit und aktuelles Wetter. <a href="/weather">Wetter-Stage einstellen und live prüfen</a>.</p>';
+      if (!automaticWeather(row)) html += input('Werte wechseln alle … Sekunden', 'screen_seconds', s.screen_seconds || 4, 'number', 'min="1" max="60"')
         + checkbox('Außentemperatur', 'show_outdoor', s.show_outdoor ?? true)
         + checkbox('Raumtemperatur', 'show_indoor', s.show_indoor ?? true)
         + checkbox('Luftfeuchtigkeit', 'show_humidity', s.show_humidity ?? true)
@@ -108,6 +111,16 @@
     $('moduleList').querySelectorAll('.module-card').forEach(card => {
       const row = modules.find(item => item.id === Number(card.dataset.id)), form = card.querySelector('form');
       renderBitcoinTiming(row, card);
+      function assetTiming() {
+        if(row.key.split('-')[0]!=='asset')return;
+        const asset=assets.find(a=>a.id===form.elements.asset_id.value),mode=form.elements.playback_mode.value;
+        const duration=form.elements.duration_seconds,speed=Number(form.elements.speed.value)||1;
+        duration.closest('label').hidden=mode==='once';duration.required=mode!=='once';
+        const cycle=asset?asset.cycle_seconds/speed:0,limit=Number(duration.value)||row.duration_seconds;
+        const actual=mode==='once'?cycle:mode==='finish_loop'&&cycle?Math.ceil(limit/cycle)*cycle:limit;
+        card.querySelector('[data-asset-timing]').textContent=asset?`${asset.frame_count} Frames · ${asset.cycle_seconds.toLocaleString('de-DE')} s Quelle · ${cycle.toLocaleString('de-DE')} s pro Loop bei ${speed}× · Wiedergabe: ${actual.toLocaleString('de-DE')} s. ${mode==='limit'?'Harte Zeitgrenze; kurze Loops wiederholen sich.':mode==='once'?'Genau einmal, Dauer automatisch.':'Begonnenen Loop nach dem Zeitlimit beenden.'}`:'Asset auswählen.';
+      }
+      assetTiming();form.addEventListener('input',assetTiming);form.addEventListener('change',assetTiming);
       form.oninput = () => { card.classList.add('dirty'); card.querySelector('.save-state').textContent = 'Ungespeichert'; dirty = true; };
       form.onsubmit = guarded(async event => {
         event.preventDefault(); const data = new FormData(form);
@@ -167,16 +180,24 @@
   }
 
   if (document.body.dataset.screen !== 'studio') return;
+  function trimControls(node, durations, onChange) {
+    node.innerHTML='<div class="field-grid">'+select('Auswahl','range_kind','frames',[['frames','Frames entfernen'],['time','Zeitbereich behalten']])+input('Frames am Anfang entfernen','trim_start',0,'number','min="0" step="1"')+input('Frames am Ende entfernen','trim_end',0,'number','min="0" step="1"')+input('Startzeit (Sekunden)','start_seconds',0,'number','min="0" step="0.001"')+input('Endzeit (Sekunden; leer = Ende)','end_seconds','','number','min="0.001" step="0.001"')+input('Jeden … Frame behalten','step',1,'number','min="1" max="64" step="1"')+'</div><p data-trim-summary role="status"></p><div class="editor-toolbar"><div>Erster Frame<canvas data-first width="256" height="64" class="matrix-canvas"></canvas></div><div>Letzter Frame<canvas data-last width="256" height="64" class="matrix-canvas"></canvas></div></div>';
+    const options=()=>Object.fromEntries([...node.querySelectorAll('input,select')].map(el=>[el.name,el.name==='range_kind'?el.value:el.name==='end_seconds'&&el.value===''?null:Number(el.value)]));
+    function update(){const o=options();for(const el of node.querySelectorAll('input')){if(['trim_start','trim_end'].includes(el.name))el.closest('label').hidden=o.range_kind==='time';if(['start_seconds','end_seconds'].includes(el.name))el.closest('label').hidden=o.range_kind!=='time';}try{const p=AssetEditing.plan(durations(),o);node.querySelector('[data-trim-summary]').textContent=`${p.frame_count} Frames · ${(p.cycle_ms/1000).toLocaleString('de-DE')} s · entfernt: Anfang ${p.removed_start_ms/1000} s / Ende ${p.removed_end_ms/1000} s · Bereich ${p.start_ms/1000}–${p.end_ms/1000} s${p.frame_count>512?' · Zu viele Frames: kürzen oder ausdünnen!':''}`;onChange?.(p,o);}catch(e){node.querySelector('[data-trim-summary]').textContent=e.message;onChange?.(null,o);}}
+    node.addEventListener('input',update);node.addEventListener('change',update);
+    return {options,update,plan:()=>AssetEditing.plan(durations(),options()),reset:()=>{node.querySelectorAll('input').forEach(el=>el.value=el.name==='step'?1:el.name==='end_seconds'?'':0);node.querySelector('select').value='frames';update();}};
+  }
   let frames = [{ pixels:Array(256).fill(0), duration_ms:100 }], current = 0, erasing = false, playing = false, painting = false, undo = [], previewTimer;
   const copy = () => JSON.parse(JSON.stringify(frames));
   function checkpoint() { undo.push({ frames:copy(), current }); if (undo.length > 30) undo.shift(); dirty = true; }
-  function stopPreview() { playing = false; clearTimeout(previewTimer); $('previewSprite').textContent = '▶ Vorschau'; }
+  function stopPreview() { playing = false; clearTimeout(previewTimer); $('previewSprite').textContent = '▶ Vorschau'; $('previewTrim').textContent='▶ Nur Auswahl abspielen'; }
   function drawEditor() {
     matrix($('spriteCanvas'), frames[current].pixels, true, $('onionSkin').checked && current > 0 ? frames[current-1].pixels : null);
     $('frameDuration').value = frames[current].duration_ms;
     $('editorState').textContent = `${frames.length} Frame${frames.length === 1 ? '' : 's'} · ${frames.reduce((n, f) => n + f.duration_ms, 0)} ms pro Loop${dirty ? ' · ungespeicherter Entwurf' : ''}`;
     $('frameStrip').innerHTML = frames.map((_,i) => `<button type="button" class="frame-thumb ${i === current ? 'selected' : ''}" data-frame="${i}" aria-label="Frame ${i+1}" aria-pressed="${i === current}"><canvas width="128" height="32"></canvas>${i+1} · ${frames[i].duration_ms}ms</button>`).join('');
     $('frameStrip').querySelectorAll('button').forEach((button,i) => { matrix(button.querySelector('canvas'), frames[i].pixels); button.onclick = () => { stopPreview(); current = i; drawEditor(); }; });
+    editorTrim.update();
   }
   function pointerPixel(event) {
     const bounds = $('spriteCanvas').getBoundingClientRect();
@@ -205,7 +226,7 @@
     playing = true; $('previewSprite').textContent = '■ Stop'; let index = 0;
     function tick() { if (!playing) return; matrix($('spriteCanvas'),frames[index].pixels,true); const delay = frames[index].duration_ms; index = (index+1)%frames.length; previewTimer = setTimeout(tick,delay); } tick();
   };
-  $('newSprite').onclick = () => { if (dirty && !confirm('Aktuellen Entwurf verwerfen?')) return; stopPreview(); frames = [{pixels:Array(256).fill(0),duration_ms:100}]; current = 0; undo = []; dirty = false; $('spriteName').value = 'Mein Sprite'; drawEditor(); };
+  $('newSprite').onclick = () => { if (dirty && !confirm('Aktuellen Entwurf verwerfen?')) return; stopPreview(); frames = [{pixels:Array(256).fill(0),duration_ms:100}]; current = 0; undo = []; dirty = false; $('spriteName').value = 'Mein Sprite'; editorTrim.reset();drawEditor(); };
   $('spriteName').oninput = () => { dirty = true; };
   $('saveSprite').onclick = guarded(async () => {
     stopPreview(); const button = $('saveSprite'); button.disabled = true;
@@ -223,11 +244,29 @@
     }
     if (!showImported.started) { showImported.started = true; tick(); }
   }
+  const editorTrim=trimControls($('editorTrimControls'),()=>frames.map(f=>f.duration_ms),(p)=>{if(!p)return;matrix($('editorTrimControls').querySelector('[data-first]'),frames[p.groups[0].index].pixels);matrix($('editorTrimControls').querySelector('[data-last]'),frames[p.groups.at(-1).index].pixels);});
+  $('editorTrimControls').addEventListener('input',stopPreview);
+  $('previewTrim').onclick=guarded(()=>{if(playing){stopPreview();drawEditor();return;}const p=editorTrim.plan();stopPreview();playing=true;$('previewTrim').textContent='■ Stopp';let index=0;function tick(){if(!playing)return;const group=p.groups[index];matrix($('spriteCanvas'),frames[group.index].pixels,true);index=(index+1)%p.groups.length;previewTimer=setTimeout(tick,group.duration_ms);}tick();});
+  $('editorTrim').addEventListener('toggle',()=>{if(!$('editorTrim').open){stopPreview();drawEditor();}});
+  $('applyTrim').onclick=guarded(()=>{const p=editorTrim.plan();if(p.frame_count>512)throw Error('Maximal 512 Frames');stopPreview();checkpoint();frames=p.groups.map(g=>({pixels:[...frames[g.index].pixels],duration_ms:g.duration_ms}));current=0;editorTrim.reset();drawEditor();toast('Bereich auf Entwurf angewendet. Original bleibt erhalten.');});
+  const importForm=$('importAsset'),prepare=document.createElement('details');prepare.id='importPreparation';prepare.innerHTML='<summary>Import vorbereiten: kürzen / ausdünnen</summary><p id="importAnalysis">Datei wählen.</p><div id="importTrimControls"></div><button id="previewImportRange" type="button">Auswahl als Animation prüfen</button><button id="playImportRange" type="button" disabled>▶ Auswahl abspielen</button><p id="importRangeState" role="status"></p>';
+  importForm.after(prepare);
+  let analysis=null,analyzedFile=null,analysisRevision=0,importFrames=null,importPlaying=false,importTimer=null,importIndex=0,importRevision=0;
+  function stopImport(){importPlaying=false;clearTimeout(importTimer);$('playImportRange').textContent='▶ Auswahl abspielen';}
+  function invalidateImport(){importRevision++;stopImport();importFrames=null;$('playImportRange').disabled=true;$('importRangeState').textContent='Vorschau nach Änderungen neu laden.';}
+  const importTrim=trimControls($('importTrimControls'),()=>analysis?.durations_ms||[],invalidateImport);
+  importForm.elements.fit.onchange=invalidateImport;
+  async function analyzeFile(file){const revision=++analysisRevision;analysis=null;analyzedFile=null;stopImport();$('importAnalysis').textContent='Datei wird analysiert …';if(file.size>4*1024*1024)throw Error('Maximal 4 MB');const result=await api('/api/assets/analyze',{method:'POST',body:file,headers:{'Content-Type':file.type||'application/octet-stream'}});if(revision!==analysisRevision)return;analysis=result;analyzedFile=file;importTrim.reset();$('importAnalysis').textContent=`${result.width} × ${result.height} · ${result.frame_count} Quellframes · ${result.cycle_seconds.toLocaleString('de-DE')} s. Fertiges Asset: maximal 512 Frames. Zeitbereiche werden auf vollständige Frames erweitert.`;if(result.frame_count>512)prepare.open=true;}
+  importForm.elements.image.onchange=()=>{const file=importForm.elements.image.files[0];if(file)analyzeFile(file).catch(e=>toast(e.message,true));};
+  async function importSelection(preview=false){const values=new FormData(importForm),file=importForm.elements.image.files[0];if(!file?.size)throw Error('Datei wählen');if(analyzedFile!==file){await analyzeFile(file);if(analyzedFile!==file)throw Error('Bitte Analyse abwarten');}const p=importTrim.plan();if(p.frame_count>512)throw Error('Auswahl hat mehr als 512 Frames; kürzen oder ausdünnen.');const params=new URLSearchParams({name:values.get('name')||'Import',fit:values.get('fit'),preview:String(preview),...Object.fromEntries(Object.entries(importTrim.options()).filter(([,v])=>v!==null))});return api(`/api/assets/import?${params}`,{method:'POST',body:file,headers:{'Content-Type':file.type||'application/octet-stream'}});}
+  $('previewImportRange').onclick=guarded(async()=>{stopImport();const revision=importRevision,button=$('previewImportRange');button.disabled=true;try{const data=await importSelection(true);if(revision!==importRevision)return;importFrames=data.frames;importIndex=0;matrix($('importTrimControls').querySelector('[data-first]'),importFrames[0].pixels);matrix($('importTrimControls').querySelector('[data-last]'),importFrames.at(-1).pixels);$('playImportRange').disabled=false;$('importRangeState').textContent=`Browser-Vorschau · ${importFrames.length} Frames · ${data.cycle_seconds} s · noch nicht gespeichert`;}finally{button.disabled=false;}});
+  $('playImportRange').onclick=()=>{if(importPlaying){stopImport();return;}if(!importFrames)return;importPlaying=true;$('playImportRange').textContent='■ Stopp';function tick(){if(!importPlaying)return;matrix($('importTrimControls').querySelector('[data-first]'),importFrames[importIndex].pixels);const delay=importFrames[importIndex].duration_ms;importIndex=(importIndex+1)%importFrames.length;importTimer=setTimeout(tick,delay);}tick();};
+  prepare.addEventListener('toggle',()=>{if(!prepare.open)stopImport();});document.addEventListener('visibilitychange',()=>{if(document.hidden){stopImport();stopPreview();}});
   $('importAsset').onsubmit = guarded(async event => {
     event.preventDefault(); const form = event.target, values = new FormData(form), file = values.get('image'), button = form.querySelector('button');
     if (file.size > 4*1024*1024) throw new Error('Maximal 4 MB');
     button.disabled = true;
-    try { const data = await api(`/api/assets/import?name=${encodeURIComponent(values.get('name'))}&fit=${values.get('fit')}`, { method:'POST', body:file, headers:{ 'Content-Type':file.type || 'application/octet-stream' } }); showImported(data); await loadAssets(); toast('Importiert. Prüfe die Vorschau und füge das Asset hinzu.'); } finally { button.disabled = false; }
+    try { const data = await importSelection(); showImported(data); await loadAssets(); toast('Importiert. Prüfe die Vorschau und füge das Asset hinzu.'); } finally { button.disabled = false; }
   });
   async function loadAssets() {
     assets = await api('/api/assets');
@@ -249,7 +288,7 @@
           }
           if (action === 'edit') {
             if (dirty && !confirm('Aktuellen Entwurf verwerfen?')) return;
-            const data = await api(`/api/assets/${asset.id}`); stopPreview(); frames = data.frames; current = 0; undo = []; dirty = false; $('spriteName').value = data.name; drawEditor(); document.querySelector('.editor-panel').scrollIntoView({block:'start'});
+            const data = await api(`/api/assets/${asset.id}`); stopPreview(); frames = data.frames; current = 0; undo = []; dirty = false; $('spriteName').value = data.name; editorTrim.reset();drawEditor(); document.querySelector('.editor-panel').scrollIntoView({block:'start'});
           }
           if (action === 'delete' && confirm(`„${asset.name}“ löschen?`)) { await api(`/api/assets/${asset.id}`,{method:'DELETE'}); await loadAssets(); }
         } finally { button.disabled = false; }

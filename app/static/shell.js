@@ -42,7 +42,17 @@
     const seconds = Number(timing.duration_seconds ?? timing.duration);
     return Number.isFinite(seconds) ? `Automatisch · ca. ${seconds.toLocaleString('de-DE', {maximumFractionDigits:1})} s` : 'Automatische Dauer';
   }
-  window.PixelDock = { api, toast, matrix, bitcoinDuration, bitcoinDurationText };
+  const weatherTimings = new Map();
+  function weatherDuration(row) {
+    const key=JSON.stringify([row.id,row.settings||{}]);
+    if(!weatherTimings.has(key)) {
+      const request=api('/api/weather/duration',{method:'POST',body:JSON.stringify({module_id:row.id,settings:row.settings||{}})});
+      weatherTimings.set(key,request);
+      request.catch(()=>{if(weatherTimings.get(key)===request)weatherTimings.delete(key);});
+    }
+    return weatherTimings.get(key);
+  }
+  window.PixelDock = { api, toast, matrix, bitcoinDuration, bitcoinDurationText, weatherDuration };
   document.querySelector('.top-nav')?.remove();
   const header = document.createElement('header'); header.className = 'live-header';
   header.innerHTML = `<div class="live-header-inner"><div class="live-top"><a class="pixel-brand" href="/">PIXEL<span>DOCK</span><small> /32</small></a><span class="live-label"><i class="live-dot" aria-hidden="true"></i><span id="previewConnection">VERBINDE …</span></span><strong id="onAir" class="live-on-air">—</strong><button id="headerMatrixToggle" type="button" aria-controls="headerMatrixPanel" aria-expanded="true" aria-label="Live-Matrix einklappen"><span aria-hidden="true">▴</span></button></div><div class="live-matrix" id="headerMatrixPanel"><canvas id="headerMatrix" width="512" height="128" aria-label="Live-Vorschau der gerenderten LED-Anzeige"></canvas><div class="live-caption">GERENDERTES BILD<br>32 × 8 · 256 Pixel</div></div><nav class="retro-nav" aria-label="Hauptnavigation"><a href="/">Dashboard</a><a href="/modules">Playlist</a><a href="/studio">Pixel-Studio</a><a href="/advanced">Erweitert</a><button id="shellLogout" type="button">Abmelden</button></nav></div>`;
@@ -66,6 +76,8 @@
   header.querySelector('.retro-nav').insertBefore(stageNav, header.querySelector('[href="/studio"]'));
   const bitcoinNav = document.createElement('a'); bitcoinNav.href='/bitcoin'; bitcoinNav.textContent='Bitcoin';
   header.querySelector('.retro-nav').insertBefore(bitcoinNav,header.querySelector('[href="/studio"]'));
+  const weatherNav=document.createElement('a');weatherNav.href='/weather';weatherNav.textContent='Wetter';
+  header.querySelector('.retro-nav').insertBefore(weatherNav,header.querySelector('[href="/studio"]'));
   window.PixelDockBrightness?.mount({api,toast,header});
   const sleepButton = document.createElement('button'); sleepButton.type = 'button'; sleepButton.id = 'shellSleep';
   sleepButton.textContent = '☾'; sleepButton.disabled = true; sleepButton.setAttribute('aria-label','Schlafmodus umschalten');
@@ -109,7 +121,7 @@
             sleepButton.setAttribute('aria-pressed',String(sleepActive));
             sleepButton.title = `${sleepActive?'Schlafmodus':'Wach'} · ${stage.sleep.mode==='auto'?'Automatik':'Manuell'}${stage.sleep.until?' bis '+new Date(stage.sleep.until).toLocaleTimeString('de',{hour:'2-digit',minute:'2-digit'}):''}`;
           }
-          document.getElementById('onAir').textContent = status.display.last_source === 'module' ? moduleNames[status.display.last_module] || 'Playlist' : status.display.last_source === 'manual' ? 'Nachricht / Zeichnung' : status.display.last_source === 'bitcoin-preview' ? 'Bitcoin · LED-Vorschau' : status.display.last_source === 'time-stage-preview' ? 'Time-Stage · LED-Vorschau' : status.display.last_source === 'sleep' ? 'Time-Stage · Schlafmodus' : status.display.last_source.startsWith('time-stage') ? 'Time-Stage' : status.display.last_source === 'idle' ? 'Pause' : 'Testmuster';
+          document.getElementById('onAir').textContent = status.display.last_source === 'module' ? moduleNames[status.display.last_module] || 'Playlist' : status.display.last_source === 'manual' ? 'Nachricht / Zeichnung' : status.display.last_source === 'bitcoin-preview' ? 'Bitcoin · LED-Vorschau' : status.display.last_source === 'weather-preview' ? 'Wetter · LED-Vorschau' : status.display.last_source === 'time-stage-preview' ? 'Time-Stage · LED-Vorschau' : status.display.last_source === 'sleep' ? 'Time-Stage · Schlafmodus' : status.display.last_source.startsWith('time-stage') ? 'Time-Stage' : status.display.last_source === 'idle' ? 'Pause' : 'Testmuster';
           window.dispatchEvent(new CustomEvent('pixeldock-status', { detail: status }));
         }
       } catch (_) { document.querySelector('.live-dot').classList.remove('online'); document.getElementById('previewConnection').textContent = 'VERBINDUNG UNTERBROCHEN'; }

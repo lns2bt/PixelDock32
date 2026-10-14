@@ -250,6 +250,9 @@ def sanitize_settings(module_key: str, settings: dict) -> dict:
     merged["shuffle"] = bool(merged.get("shuffle", False))
     merged["priority_every"] = _clamp_int(merged.get("priority_every", 45 if module_key == "clock" else 0), 0, 3600, 0)
     merged["speed"] = _clamp_float(merged.get("speed", 1), 0.1, 4, 1)
+    if module_key == 'asset':
+        if merged.get('playback_mode') not in ('limit','once','finish_loop'):
+            merged['playback_mode']='limit'
     if module_key == "clock":
         variants = merged.get("variants", DEFAULT_CLOCK_VARIANTS)
         allowed = CLOCK_VARIANTS
@@ -260,6 +263,8 @@ def sanitize_settings(module_key: str, settings: dict) -> dict:
     if module_key == "weather":
         for key in ("show_outdoor", "show_indoor", "show_humidity"):
             merged[key] = bool(merged.get(key, True))
+        from app.services.weather_stage import normalize as normalize_weather
+        merged = normalize_weather(merged)
     return merged
 
 

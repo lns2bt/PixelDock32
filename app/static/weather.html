@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PixelDock · Wetter</title><link rel="stylesheet" href="/static/retro.css"><link rel="stylesheet" href="/static/weather.css"><script defer src="/static/brightness.js"></script><script defer src="/static/shell.js"></script><script defer src="/static/weather.js"></script></head>
+<body data-screen="weather"><main class="retro-main">
+<div class="page-heading"><div><p class="kicker">DEIN WETTER IN PIXELN</p><h1>Wetter</h1><p class="muted">Pixel-Zuhause · Wetterstation · Naturwelt · Neon-Labor</p></div><a class="button" href="/modules">Zur Playlist</a></div>
+<p id="weatherFeedback" role="status" aria-live="polite">Wird geladen …</p>
+<section class="panel"><label>Wetter-Modul<select id="weatherModule"></select></label><p class="muted">Gilt nur für das ausgewählte Playlist-Modul.</p></section>
+<form id="weatherForm"><fieldset id="weatherFields" disabled>
+<section class="panel"><h2>Vorstellung</h2><div class="field-grid">
+<label class="check"><input id="weather_stage" type="checkbox" checked>Wetter-Stage aktiv</label>
+<label>Maximale Infos pro Vorstellung<input id="weather_max_infos" type="number" min="1" max="4" value="2" required></label>
+<label>Lesezeit pro Info (Sekunden)<input id="weather_read_seconds" type="number" min="2" max="10" value="4" required></label>
+<label>Info-Rotation<select id="weather_info_order"><option value="ordered">Der Reihe nach</option><option value="shuffle">Zufall – alle kommen dran</option></select></label>
+<label>Stil-Rotation<select id="weather_style_order"><option value="ordered">Der Reihe nach</option><option value="shuffle">Zufall ohne Wiederholung</option></select></label>
+<label>Effektstärke<select id="weather_intensity"><option value="calm">Ruhig</option><option value="normal">Normal</option><option value="lively">Lebhaft</option></select></label>
+</div><p id="weatherDuration" class="muted" role="status"></p><p class="muted">Die Stage berechnet ihre Dauer automatisch. Im klassischen Modus ist die Dauer in der Playlist editierbar. Schlafmodus hat Vorrang.</p></section>
+<details class="panel weather-accordion"><summary><span>Infos</span><small id="weatherInfosSummary">Auswahl</small></summary><p class="muted">Außen · Innen · Innenfeuchtigkeit · Aktuelles Wetter. Reihenfolge mit ↑ / ↓; alle ausgewählten Infos kommen dran.</p><div id="weatherInfos"></div><div class="field-grid"><label>Komforttemperatur ab (°C)<input id="weather_comfort_min" type="number" step="0.1" value="19" required></label><label>Komforttemperatur bis (°C)<input id="weather_comfort_max" type="number" step="0.1" value="25" required></label></div><p class="muted">Die Auswahl steuert auch Außen, Innen und Feuchtigkeit im klassischen Modus.</p></details>
+<details class="panel weather-accordion"><summary><span>Stile</span><small id="weatherStylesSummary">Auswahl</small></summary><p class="muted">Jeder Stil zeigt jede Info. LED-Vorschau nutzt die aktuelle, auch ungespeicherte Auswahl mit echten Daten.</p><div id="weatherStyles"></div><p id="weatherLedStatus" class="muted" role="status" aria-live="polite"></p></details>
+<div id="weatherSavebar" class="form-actions" hidden><button id="saveWeather" class="primary" type="submit">Wetter speichern</button><span id="weatherDirty" role="status"></span><small>Gilt ab der nächsten Vorstellung.</small></div>
+</fieldset></form>
+<details class="panel weather-accordion"><summary><span>Aktuelle Daten</span><small id="weatherDataSummary">Wird geladen …</small></summary><p id="weatherSource" class="muted"></p><div id="weatherData"></div><p class="muted">Außen und Wetterlage: konfigurierte Wetterquelle. Innen und Innenfeuchtigkeit: Raum-Sensor. Fehlende Werte bleiben „—“; veraltete Daten werden gekennzeichnet. Ohne echte Wetterlage wird auf LEDs kein Wetter erfunden.</p></details>
+<details id="weatherBrowserPreview" class="panel weather-accordion"><summary><span>Browser-Vorschau</span><small id="weatherBrowserSummary">Live · nur Browser</small></summary><div class="field-grid">
+<label>Stil<select id="weatherPreviewStyle"></select></label><label>Info<select id="weatherPreviewInfo"><option value="">Vorstellung (aktuelle Auswahl)</option></select></label>
+<label class="check"><input id="weatherDemo" type="checkbox">Beispieldaten (nur Browser)</label>
+<label>Demo-Wetter<select id="weatherCondition" disabled><option value="0">Sonne</option><option value="3">Wolken</option><option value="45">Nebel</option><option value="61">Regen</option><option value="71">Schnee</option><option value="95">Gewitter</option></select></label>
+<label class="check"><input id="weatherIsDay" type="checkbox" checked disabled>Tag (aus = Nacht, nur Demo)</label>
+<label>Animationszeit<input id="weatherElapsed" type="number" min="0" max="300" step="0.1" value="0"></label>
+</div><canvas id="weatherCanvas" width="640" height="160" aria-label="Wetter Browser-Vorschau"></canvas><div class="form-actions"><button id="weatherPreviewPlay" type="button" disabled>▶ Browser-Vorschau</button><button id="weatherSnapshot" type="button" disabled>Einzelbild</button><button id="weatherPhysical" type="button" disabled>LED-Vorschau · Live</button></div><p id="weatherPreviewStatus" class="muted" role="status" aria-live="polite"></p><div id="weatherFrameData" class="muted"></div><p class="muted">Ohne Speichern. Demo-Wetter und Tag/Nacht bleiben ausschließlich im Browser. LEDs zeigen immer echte Daten; im Schlafmodus bitte zuerst „Wach“ wählen.</p></details>
+</main></body></html>
