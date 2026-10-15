@@ -2,6 +2,27 @@
 
 Alle nennenswerten Änderungen an PixelDock32 werden in dieser Datei dokumentiert.
 
+## [0.2.1] - 2026-10-15
+
+### Neu
+
+- Fünf normale Time-Stage-Ansichten: Orbitalstation, Pixel-Gewächshaus,
+  Neon-U-Bahn, Leuchtturm und Uhrwerk-Manufaktur.
+- Sekundenanimationen folgen der tatsächlichen Uhrzeit statt der Einblendungsdauer;
+  alle 60 Sekundenstände sind unterscheidbar. Lokale Akzente zum Minutenwechsel.
+- Festes, kontrastreiches HH:MM-Ziffernfeld ohne Überdeckung oder Blinken.
+- Time-Stage mit insgesamt 25 normalen Ansichten, Browser-/LED-Vorschauen und
+  aktualisierter statischer Galerie mit 35 Beispielen.
+
+### Erhaltung und Prüfung
+
+- Bestehende Szenenauswahl, Profile, Ereignisse, Schlafmodus, Module und Assets
+  bleiben unverändert. Neue Ansichten können gezielt zur Rotation hinzugefügt werden.
+- 243 lokale Tests (optionaler Wetter-Metriktest übersprungen), 242 Pi-Tests sowie
+  mobile Browser- und Galerie-Prüfungen erfolgreich.
+- Aktueller Pi-Stand als dauerhafter systemd-Autostart eingerichtet; kein
+  Firmwarewechsel und kein Reboot zur Veröffentlichung erforderlich.
+
 ## [0.2.0] - 2026-10-14
 
 ### Neu

@@ -2,9 +2,9 @@
 
 import math
 
-from . import chromatic, craft, cyber, events_arcade, events_art, retro
+from . import chromatic, craft, cyber, events_arcade, events_art, retro, worlds
 
-NORMAL_SCENES = tuple(retro.SCENES + chromatic.SCENES + cyber.SCENES + craft.SCENES)
+NORMAL_SCENES = tuple(retro.SCENES + chromatic.SCENES + cyber.SCENES + craft.SCENES) + worlds.SCENES
 EVENT_SCENES = tuple(events_arcade.SCENES + events_art.SCENES)
 SCENES = {scene.key: scene for scene in NORMAL_SCENES + EVENT_SCENES}
 

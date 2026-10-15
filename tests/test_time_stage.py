@@ -7,10 +7,10 @@ from app.services.time_stage.core import Canvas
 
 
 class TimeStageTests(unittest.TestCase):
-    def test_catalog_has_twenty_normal_and_ten_special_scenes(self):
-        self.assertEqual(len(NORMAL_SCENES), 20)
+    def test_catalog_has_twenty_five_normal_and_ten_special_scenes(self):
+        self.assertEqual(len(NORMAL_SCENES), 25)
         self.assertEqual(len(EVENT_SCENES), 10)
-        self.assertEqual(len(SCENES), 30)
+        self.assertEqual(len(SCENES), 35)
         for scene in NORMAL_SCENES + EVENT_SCENES:
             self.assertTrue(scene.title and scene.description and scene.seconds)
             self.assertGreaterEqual(scene.duration, 6)
@@ -18,7 +18,7 @@ class TimeStageTests(unittest.TestCase):
             self.assertTrue(set(scene.events) <= {'hour','half','quarter'})
         self.assertTrue(all(not s.events for s in NORMAL_SCENES))
         self.assertTrue(all(s.events for s in EVENT_SCENES))
-        self.assertEqual(len(catalog()), 30)
+        self.assertEqual(len(catalog()), 35)
 
     def test_all_frames_are_deterministic_valid_rgb_and_actual_time(self):
         for now in (datetime(2026,10,13,0,0,0), datetime(2026,10,13,12,34,29,500000), datetime(2026,10,13,23,59,59,999999)):
@@ -47,7 +47,7 @@ class TimeStageTests(unittest.TestCase):
     def test_designs_are_not_duplicate_frames_and_rollover_uses_new_time(self):
         now = datetime(2026,10,13,23,59,59)
         designs = [repr(render_scene(scene.key,now,3).color_frame) for scene in NORMAL_SCENES]
-        self.assertEqual(len(set(designs)), 20)
+        self.assertEqual(len(set(designs)), 25)
         for scene in NORMAL_SCENES + EVENT_SCENES:
             result = render_scene(scene.key,now + timedelta(seconds=1),scene.duration)
             self.assertEqual(result.text, '00:00')

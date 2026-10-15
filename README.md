@@ -1,6 +1,6 @@
 # PixelDock32
 
-![Version](https://img.shields.io/badge/version-0.2.0-blue)
+![Version](https://img.shields.io/badge/version-0.2.1-blue)
 ![Status](https://img.shields.io/badge/status-release-brightgreen)
 
 
@@ -10,7 +10,7 @@ Das README ist bewusst kurz gehalten. Die ausführliche, aufgeteilte Projektdoku
 
 ## Aktueller Standard: Datenweg, Dashboard und Pixel-Studio
 
-**Time-Stage**: 20 Uhransichten, 10 magische Ereignisanimationen,
+**Time-Stage**: 25 Uhransichten, 10 magische Ereignisanimationen,
 eigenständige Uhr-Regie, Schlafmodus und lokale Sonnen-/Mondzeremonien.
 Details: [Time-Stage](docs/time-stage.md).
 
@@ -41,14 +41,16 @@ Autostart eingerichtet. `main` enthält diesen Standardstand; die früheren Pi-S
 und Sicherungen bleiben für einen Rückwechsel erhalten. Umfang und Testanleitung:
 [Pixel-Studio-Rework](docs/pixel-studio-rework.md).
 
-## Version 0.2.0 — Pixel-Studio und Szenen-Stages
+## Version 0.2.1 — Fünf neue Uhrzeitwelten
 
 Dieser auf dem Pi geprüfte Stand umfasst GIF-Bearbeitung, Time-Stage,
 Bitcoin-Stage und Wetter-Stage mit kompakter Oberfläche und direkten Vorschauen.
+Time-Stage bietet jetzt zusätzlich Orbitalstation, Pixel-Gewächshaus, Neon-U-Bahn,
+Leuchtturm und Uhrwerk-Manufaktur mit echten Sekundenanimationen und fester HH:MM-Anzeige.
 
-- Aktuelle Version: [`0.2.0`](VERSION)
+- Aktuelle Version: [`0.2.1`](VERSION)
 - Release-Notizen: [`CHANGELOG.md`](CHANGELOG.md)
-- Release-Tag: `v0.2.0` auf `main`
+- Release-Tag: `v0.2.1` auf `main`
 
 ## Schnellstart
 

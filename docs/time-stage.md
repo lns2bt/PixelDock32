@@ -1,5 +1,24 @@
 # Time-Stage – Szenenatelier und eigenständige Uhr-Regie
 
+## Fünf zusätzliche Sekundenwelten
+
+Jetzt 25 normale Uhransichten: **Orbitalstation**, **Pixel-Gewächshaus**,
+**Neon-U-Bahn**, **Leuchtturm** und **Uhrwerk-Manufaktur** ergänzen die bisherigen
+20 Szenen. Satellitenumlauf, Pflanzenwachstum, Zugfahrt, Küstenlicht und Zahnräder
+folgen der tatsächlichen Sekunde inklusive Sekundenbruchteilen, nicht der Dauer
+der Einblendung. Minutenwechsel lösen kleine lokale Akzente aus, keine Vollbildblitze.
+
+HH:MM bleibt kontrastreich, ohne Blinken, Überdecken oder Verschieben. Das gesamte
+19×5-Ziffernrechteck einschließlich der Leerstellen ist für die Uhr reserviert;
+Animationen verwenden die Seiten, obere Randreihe und die zwei unteren Reihen.
+Alle 60 Sekundenstände sind pro Szene unterscheidbar. Schlafmodus, Ereignisse,
+Zeitplanung und vorhandene Profile ändern sich nicht.
+
+Bestehende gespeicherte Szenenauswahlen werden **nicht automatisch erweitert**.
+Neue Szenen in der Time-Stage auswählen und speichern oder direkt mit Browser-/
+LED-Vorschau prüfen. Neue Konfigurationen bieten standardmäßig alle 25 normalen
+Ansichten. Die statische Galerie enthält 35 Beispiele (25 Uhren und 10 Ereignisse).
+
 ## Umfang und Grenze dieses Schritts
 
 Schritt 1 lieferte 20 normale Uhransichten und 10 besondere Ereignisanimationen als

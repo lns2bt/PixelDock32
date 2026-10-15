@@ -114,8 +114,8 @@ const fs = require('node:fs');
     assert.equal(rows.filter(row=>row.key.split('-')[0]==='clock').length,0);
     await page.goto(base + '/time-stage');
     await page.locator('#timeStageFields:not([disabled])').waitFor();
-    assert.equal(await page.locator('[data-scene-key]').count(),20);
-    assert.equal(await page.locator('#previewScene option').count(),40);
+    assert.equal(await page.locator('[data-scene-key]').count(),25);
+    assert.equal(await page.locator('#previewScene option').count(),45);
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Time-Stage mobile overflow');
     await page.locator('#advancedSettings summary').first().click();
     await page.locator('#after_entries').fill('3');
@@ -145,6 +145,15 @@ const fs = require('node:fs');
     await page.locator('#wakeNow').click();
     await page.locator('#timeStageFeedback').filter({hasText:'Schlafsteuerung aktualisiert.'}).waitFor();
     stage=await(await context.request.get(base+'/api/time-stage',{headers})).json();assert.equal(stage.status.sleep.active,false);
+    for(const key of ['world_orbital_station','world_greenhouse','world_neon_subway','world_lighthouse','world_clockwork_factory']) {
+      await page.locator('#previewScene').selectOption(key);
+      const browserResponse=page.waitForResponse(response=>response.url().endsWith('/api/time-stage/preview')&&response.request().postDataJSON()?.key===key&&!response.request().postDataJSON()?.physical);
+      await page.locator('#previewSnapshot').click();
+      const preview=await browserResponse;assert.equal(preview.status(),200);assert.equal((await preview.json()).pixels.length,256);
+      const ledResponse=page.waitForResponse(response=>response.url().endsWith('/api/time-stage/preview')&&response.request().postDataJSON()?.key===key&&response.request().postDataJSON()?.physical);
+      await page.locator(`[data-scene-key="${key}"] [data-preview-key]`).click();assert.equal((await ledResponse).status(),200);
+    }
+    assert.deepEqual((await(await context.request.get(base+'/api/time-stage',{headers})).json()).config,stage.config,'New previews must not save preferences');
     await page.locator('#sleepAuto').click();
     await page.locator('#timeStageFeedback').filter({hasText:'Schlafsteuerung aktualisiert.'}).waitFor();
     await screenshot('time-stage-mobile');
@@ -152,6 +161,6 @@ const fs = require('node:fs');
       await page.goto(base + route); await page.locator('.live-header').waitFor();
     }
     assert.deepEqual(errors,[]);
-    console.log('UI smoke passed: Time-Stage settings/profiles, 40 previews, midnight choices, sleep/wake safety, export, login/brightness, mobile, playlist, GIF/editor and diagnostics.');
+    console.log('UI smoke passed: Time-Stage settings/profiles, 45 previews, midnight choices, sleep/wake safety, export, login/brightness, mobile, playlist, GIF/editor and diagnostics.');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
