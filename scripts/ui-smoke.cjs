@@ -138,11 +138,13 @@ const fs = require('node:fs');
     const downloadPromise=page.waitForEvent('download');await page.locator('#exportTimeStage').click();
     const download=await downloadPromise, exported=JSON.parse(fs.readFileSync(await download.path(),'utf8'));
     assert.equal(exported.config.sleep.mode,'auto');assert.ok(exported.config.profiles['UI Abendprofil']);
-    await page.locator('#sleepNow').click();
+    const sleepResponse=page.waitForResponse(response=>response.url().endsWith('/api/time-stage/sleep')&&response.request().method()==='POST'&&response.request().postDataJSON()?.mode==='sleep');
+    await page.locator('#sleepNow').click();assert.equal((await sleepResponse).status(),200);
     await page.locator('#timeStageFeedback').filter({hasText:'Schlafsteuerung aktualisiert.'}).waitFor();
     stage=await(await context.request.get(base+'/api/time-stage',{headers})).json();assert.equal(stage.status.sleep.active,true);
     assert.equal((await context.request.post(base+'/api/time-stage/preview',{headers,data:{key:'retro_cartridge',physical:true}})).status(),409);
-    await page.locator('#wakeNow').click();
+    const wakeResponse=page.waitForResponse(response=>response.url().endsWith('/api/time-stage/sleep')&&response.request().method()==='POST'&&response.request().postDataJSON()?.mode==='wake');
+    await page.locator('#wakeNow').click();assert.equal((await wakeResponse).status(),200);
     await page.locator('#timeStageFeedback').filter({hasText:'Schlafsteuerung aktualisiert.'}).waitFor();
     stage=await(await context.request.get(base+'/api/time-stage',{headers})).json();assert.equal(stage.status.sleep.active,false);
     for(const key of ['world_orbital_station','world_greenhouse','world_neon_subway','world_lighthouse','world_clockwork_factory']) {
@@ -154,7 +156,8 @@ const fs = require('node:fs');
       await page.locator(`[data-scene-key="${key}"] [data-preview-key]`).click();assert.equal((await ledResponse).status(),200);
     }
     assert.deepEqual((await(await context.request.get(base+'/api/time-stage',{headers})).json()).config,stage.config,'New previews must not save preferences');
-    await page.locator('#sleepAuto').click();
+    const autoResponse=page.waitForResponse(response=>response.url().endsWith('/api/time-stage/sleep')&&response.request().method()==='POST'&&response.request().postDataJSON()?.mode==='auto');
+    await page.locator('#sleepAuto').click();assert.equal((await autoResponse).status(),200);
     await page.locator('#timeStageFeedback').filter({hasText:'Schlafsteuerung aktualisiert.'}).waitFor();
     await screenshot('time-stage-mobile');
     for (const route of ['/advanced','/debug','/mapping','/tools']) {
