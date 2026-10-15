@@ -116,7 +116,11 @@ const fs = require('node:fs');
     await page.locator('#timeStageFields:not([disabled])').waitFor();
     assert.equal(await page.locator('[data-scene-key]').count(),25);
     assert.equal(await page.locator('#previewScene option').count(),45);
+    // A long scene key can arrive at any point in the running clock rotation.
+    const statusText=await page.locator('#timeStageStatus strong').first().textContent();
+    await page.locator('#timeStageStatus strong').first().evaluate(node=>node.textContent='world_clockwork_factory');
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Time-Stage mobile overflow');
+    await page.locator('#timeStageStatus strong').first().evaluate((node,text)=>node.textContent=text,statusText);
     await page.locator('#advancedSettings summary').first().click();
     await page.locator('#after_entries').fill('3');
     await page.locator('#interval_seconds').fill('55');
