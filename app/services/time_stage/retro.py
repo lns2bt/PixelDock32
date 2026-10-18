@@ -163,33 +163,33 @@ def _cartridge(now: datetime, elapsed: float) -> Canvas:
 
 SCENES = [
     Scene(
-        key='retro_platformer', title='Münzsprung', style='Arcade-Plattformer',
-        description='Warme Punkteuhr über Backsteinen, mit laufendem Helden und goldener Münze.',
-        seconds='Die Münze dreht sich jede Sekunde; die goldene Spur füllt sich pro Minute.',
+        key='retro_platformer', title='Coin Jump', style='Arcade platformer',
+        description='Warm score clock over bricks, with running hero and golden coin.',
+        seconds='The coin spins every second; the golden trail fills up every minute.',
         render=_platformer,
     ),
     Scene(
-        key='retro_tetris', title='Bausteinzeit', style='Tetris-Mosaik',
-        description='Vier farbige Ziffern zwischen zwei kleinen, sich füllenden Bausteinschächten.',
-        seconds='Steine fallen nach der Wanduhr; alle zehn Sekunden beginnt der Aufbau neu.',
+        key='retro_tetris', title='Block Time', style='Tetris Mosaic',
+        description='Four colored numbers between two small, filling brick shafts.',
+        seconds='Stones fall towards the wall clock; The setup starts again every ten seconds.',
         render=_tetris,
     ),
     Scene(
-        key='retro_invaders', title='Sternenabwehr', style='Weltraum-Arcade',
-        description='Leuchtende Alienwachen flankieren die Uhr über einer patrouillierenden Kanone.',
-        seconds='Aliens wechseln sekündlich ihre Beine; Kanone und Lichtpunkt folgen der Minute.',
+        key='retro_invaders', title='Star Defense', style='Space Arcade',
+        description='Glowing alien guards flank the clock above a patrolling cannon.',
+        seconds='Aliens change their legs every second; Cannon and point of light follow the minute.',
         render=_invaders,
     ),
     Scene(
-        key='retro_pac_maze', title='Punktejäger', style='Labyrinth-Arcade',
-        description='Ein gelber Läufer jagt Randpunkte um eine helle Uhr, Geist und Bonusfrucht.',
-        seconds='Der Läufer umrundet das Labyrinth in einer echten Minute und öffnet sein Maul.',
+        key='retro_pac_maze', title='Point hunter', style='Maze Arcade',
+        description='A yellow runner chases edge points around a bright clock, ghost and bonus fruit.',
+        seconds='The runner goes around the maze in a real minute and opens his mouth.',
         render=_pac_maze,
     ),
     Scene(
-        key='retro_cartridge', title='Modulchronometer', style='Retro-Digitalmodul',
-        description='Mintfarbene Stunden und Minuten mit bernsteinfarbenen Sekunden und Modulkontakten.',
-        seconds='HH:MM:SS zeigt echte Sekunden; sechs Kontaktpaare bilden zusätzlich deren Binärwert.',
+        key='retro_cartridge', title='Cartridge Chronometer', style='Retro Digital',
+        description='Mint colored hours and minutes with amber seconds and module contacts.',
+        seconds='HH:MM:SS shows real seconds; six pairs of contacts also form their binary value.',
         render=_cartridge,
     ),
 ]

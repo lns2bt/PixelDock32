@@ -1,105 +1,109 @@
-# Pixel-Studio und Dashboard-Rework
+# Pixel Studio and Dashboard Rework
 
-## Stand und Umfang
+> Historical implementation notes. The deployment paths and test counts below
+> describe this development stage, not the latest release. See README and CHANGELOG
+> for the current version; see Time-Stage and GIF editing for current sleep/playback policy.
 
-Der geprüfte Stand wurde von `rework/smooth-led-pipeline` nach `main` übernommen.
-Der Softwarestand `1227bfa` läuft auf dem Pi in
-`/home/david/PixelDock32-controls-1227bfa`, einschließlich Helligkeit, verbessertem
-Login-Kontrast und neuen Uhr-/Bitcoin-Darstellungen. Firmware v3 bleibt unverändert.
-Frühere Projektverzeichnisse und Sicherungen bleiben erhalten. Kein Langzeit-Hardwaretest.
+## Status and scope
 
-`pixeldock32.service` und `pixeldock32-healthcheck.timer` sind für den Systemstart
-aktiviert. Der dauerhafte Drop-in
-`/etc/systemd/system/pixeldock32.service.d/90-rework-test.conf` zeigt auf das aktuelle
-Projekt und dessen eigene venv/`.env`. Trotz des historischen Dateinamens ist dies
-eine persistente Konfiguration, keine temporäre Test-Unit. Kein Neustart des Pi war
-für diese Bestätigung nötig; ein erneuter Boot-Test wurde nicht durchgeführt.
+The tested status was transferred from `rework/smooth-led-pipeline` to `main`.
+The software version `1227bfa` runs on the Pi
+`/home/david/PixelDock32-controls-1227bfa`, including brightness, improved
+Login contrast and new clock/Bitcoin representations. Firmware v3 remains unchanged.
+Previous project directories and backups are retained. No long-term hardware test.
 
-Neue Hauptseiten:
+`pixeldock32.service` and `pixeldock32-healthcheck.timer` are for system boot
+activated. The permanent drop-in
+`/etc/systemd/system/pixeldock32.service.d/90-rework-test.conf` points to the current one
+Project and its own venv/`.env`. Despite the historical file name, this is
+a persistent configuration, not a temporary test unit. There was no reboot of the Pi
+necessary for this confirmation; a new boot test was not carried out.
 
-- `/`: dunkles Dashboard mit Live-Daten, Playlist und schneller Textnachricht.
-- `/modules`: mehrere Instanzen bestehender Module, Duplizieren, Aktivieren,
-  Einstellungen, Drag-and-drop und Hoch-/Runter-Tasten. Reihenfolge wird in einer
-  Transaktion gespeichert. Ungespeicherte Formularänderungen werden angekündigt.
-- `/studio`: GIF/PNG-Import, 32×8-Pixel-Editor mit mehreren Frames, Farbe/Radierer,
-  Undo, Duplizieren, Sortieren, Frame-Timing und vorherigem Frame als Zeichenhilfe.
-- `/advanced`: bestehende Diagnose, Mapping und weitere Werkzeuge. Diese Seiten
-  sind erhalten, nicht gelöscht. Die ursprünglichen statischen Dashboard- und
-  Moduldateien bleiben ebenfalls erhalten, werden aber nicht mehr als Hauptseiten
-  ausgeliefert.
+New main pages:
 
-Eine sticky Kopfzeile zeigt auf allen angemeldeten Seiten die gerenderte Matrix.
-Die Vorschau ist **kein physisches Kamerabild und keine Bestätigung eines Frames**.
-Sie wird höchstens ungefähr fünfmal pro Sekunde passiv abgerufen; Status etwa alle
-fünf Sekunden. Keine parallelen Polls und Pause bei verborgenem Tab. Keine zusätzlichen
-Serial-Probes, keine externen Fonts, CDN-Skripte oder Grafikdienste.
+- `/`: dark dashboard with live data, playlist and quick text message.
+- `/modules`: multiple instances of existing modules, duplicate, activate,
+  Settings, drag and drop and up/down buttons. Order will be in one
+  Transaction saved. Unsaved form changes are announced.
+- `/studio`: GIF/PNG import, 32×8 pixel multi-frame editor, color/eraser,
+  Undo, duplicate, sort, frame timing and previous frame as a drawing aid.
+- `/advanced`: existing diagnostics, mapping and other tools. These pages
+  are preserved, not deleted. The original static dashboard and
+  Module files are also retained, but are no longer considered main pages
+  delivered.
 
-## Assets und Grenzen
+A sticky header shows the rendered matrix on all logged in pages.
+The preview is **not a physical camera image and not a confirmation of a frame**.
+It is passively accessed at most about five times per second; Status about everyone
+five seconds. No parallel polls and hidden tab pausing. No additional ones
+Serial probes, no external fonts, CDN scripts or graphics services.
 
-`ASSET_DIRECTORY=data/assets` (relativ zum Arbeitsverzeichnis) ist ein eigener
-privater Datenspeicher, nicht das öffentlich ausgelieferte Static-Verzeichnis.
-Dieses Verzeichnis künftig zusammen mit Datenbank, Mapping und `.env` sichern.
-Es ist in `.gitignore` ausgeschlossen.
+## Assets and Limits
 
-- Pillow **12.3.0**, auch als ARM64-Wheel für Python 3.13 verfügbar.
-- GIF und PNG; Nearest-Neighbor, mittiges Einpassen/Zuschneiden oder Strecken.
-- Transparenz wird auf Schwarz zusammengesetzt. GIF-Frames werden von Pillow
-  inklusive Compositing/Disposal verarbeitet und anschließend vorab dekodiert.
-- Maximal 4 MB Upload, 1024 Pixel je Seite, 262144 Pixel pro Quellframe,
-  8 Millionen dekodierte Quellpixel und 512 Frames. Frame-Timing: 33–2000 ms.
-- Sprite-JSON und gespeicherte Assets: maximal 2 MB, 1–512 Frames, exakt 256 RGB-Integer je Frame.
-  Diese erweiterten Grenzen sind ein lokal getesteter GIF-Import-Fix, noch nicht
-  Bestandteil des oben genannten Pi-Stands `1227bfa`. Zuvor galten 120 Frames und
-  512 KB für Sprite-JSON; GIFs mit mehr Frames wurden irreführend als zu groß gemeldet.
-- Bibliothek maximal 128 Assets einschließlich der drei Beispiele.
-- RAM-Cache maximal acht Assets; der laufende Slot hält zusätzlich seine aktuelle
-  Referenz. Rendering braucht keine wiederholten Dateizugriffe oder Bilddekodierung.
-- Asset-IDs werden validiert; Import, Bibliothek und Änderungen erfordern Anmeldung.
-  Asset-Löschen wird verhindert, solange ein Modul darauf verweist.
-- Editor-Speichern erzeugt eine **neue Kopie**, keine stille Änderung der laufenden
-  Module. Die Kopie kann als Modul hinzugefügt oder einem bestehenden Asset-Modul
-  zugeordnet werden.
+`ASSET_DIRECTORY=data/assets` (relative to the working directory) is its own
+private data storage, not the publicly delivered static directory.
+Back up this directory together with the database, mapping and `.env` in the future.
+It is excluded in `.gitignore`.
 
-Die eigenen Beispiele **Rooftop Runner**, **Coin Quest** und **Starship Patrol**
-werden einmalig mit stabilen IDs angelegt. Keine fremden Spielgrafiken enthalten.
+- Pillow **12.3.0**, also available as an ARM64 wheel for Python 3.13.
+- GIF and PNG; Nearest neighbor, center fit/crop or stretch.
+- Transparency is composited on black. GIF frames are created by Pillow
+  including compositing/disposal and then decoded in advance.
+- Maximum 4 MB upload, 1024 pixels per page, 262144 pixels per source frame,
+  8 million decoded source pixels and 512 frames. Frame timing: 33-2000ms
+- Sprite JSON and saved assets: maximum 2 MB, 1-512 frames, exactly 256 RGB integers per frame.
+  These extended limits are a locally tested GIF import fix, not yet
+  Part of the above mentioned Pi stand `1227bfa`. Previously there were 120 frames and
+  512 KB for Sprite JSON; GIFs with more frames were misleadingly reported as too large.
+- Library maximum 128 assets including the three examples.
+- RAM cache maximum eight assets; the current slot also keeps its current one
+  Reference. Rendering does not require repeated file accesses or image decoding.
+- Asset IDs are validated; Import, library and changes require login.
+  Asset deletion is prevented as long as a module references it.
+- Editor saving creates a **new copy**, not a silent change to the current one
+  Modules. The copy can be added as a module or an existing asset module
+  be assigned.
 
-## Playlist und LED-Darstellungen
+Our own examples **Rooftop Runner**, **Coin Quest** and **Starship Patrol**
+are created once with stable IDs. No third-party game graphics included.
 
-Bestehende DB-Struktur bleibt erhalten; neue Instanzen haben eindeutige Keys wie
-`asset-<id>` oder `clock-<id>`. Einstellungen bleiben im vorhandenen JSON-Feld.
-Keine Migration oder automatische Umschreibung vorhandener Nutzerkonfigurationen.
+## Playlist and LED displays
 
-- Normale Module: feste Reihenfolge.
-- `shuffle=true`: zufälliger Einwurf nach drei normalen Slots, nicht zufällige
-  Veränderung der normalen Reihenfolge. Bei ausschließlich Shuffle-Modulen werden
-  diese nacheinander zufällig ausgewählt; unmittelbare Wiederholung wird vermieden,
-  soweit es mehr als ein Modul gibt.
-- `priority_every`: frühestens nach diesem Intervall an einer Slot-Grenze erneut
-  einblenden. Standard für Uhr: **45 Sekunden**, Dauer standardmäßig **8 Sekunden**.
-  Ein normaler Uhr-Auftritt setzt das Intervall ebenfalls zurück. Die tatsächliche
-  Einblendung kann später erfolgen, wenn noch Inhalt läuft.
-- GIF-/Sprite-Loops und vollständige Text-Scrollsequenzen laufen zu Ende. Die
-  eingestellte Slot-Dauer wird auf eine vollständige Loop-Länge aufgerundet.
-  Bei langen Assets oder stark verlangsamter Wiedergabe wartet auch die Uhr länger.
-- „Jetzt“ spielt ein Modul einmalig und kehrt danach mit einem neuen Slot zur
-  Playlist zurück. Aus der Bibliothek wird nötigenfalls ein deaktiviertes Modul
-  angelegt; die normale Playlist wird dadurch nicht automatisch erweitert.
-- Bestehende Standardmodule bitte deaktivieren; ihre zusätzlichen Instanzen können
-  gelöscht werden. Maximal 128 Module.
-- Übergänge: sanfter Crossfade, Pixel-Dissolve, vertikaler Slide oder keine.
-  Übergänge werden nur bei Modul-/Ansichtswechseln ausgelöst, niemals pro
-  Animationsframe neu gestartet. API/UI erlauben 0–2000 ms.
+Existing DB structure remains intact; new instances have unique keys like
+`asset-<id>` or `clock-<id>`. Settings remain in the existing JSON field.
+No migration or automatic rewriting of existing user configurations.
 
-Uhransichten: klassische Ziffern, Arcade-Figur mit Sekunden-Coin, Sekundenbalken,
-Binärakzente, Neon-Orbit, Neon-Ziffern/Sternenflug und Pixel-Flip. **Genau eine Ansicht
-pro Uhr-Auftritt**; die aktivierten Ansichten rotieren erst beim nächsten Auftritt
-(regulär, priorisiert oder „Jetzt“). Das frühere `variant_seconds` wird nicht mehr
-verwendet. Die Animation innerhalb der ausgewählten Ansicht läuft weiter. Wetter/Raumklima
-haben Sonne, Haus und Tropfen als temperatur-/feuchtigkeitsbezogene Symbole – die Sonne
-ist **keine Wetterzustandsprognose**. Bitcoin hat ein pulsierendes Coin-Symbol und
-Trendfarben. `visual_style=legacy` erhält bei Bedarf die früheren Textdarstellungen.
+- Normal modules: fixed order.
+- `shuffle=true`: random insertion after three normal slots, not random
+  Changing the normal order. For shuffle modules only
+  these randomly selected one after the other; immediate repetition is avoided,
+  as long as there is more than one module.
+- `priority_every`: again at a slot boundary after this interval at the earliest
+  show. Clock default: **45 seconds**, default duration **8 seconds**.
+  A normal clock appearance also resets the interval. The actual one
+  Display can occur later when content is still running.
+- GIF/Sprite loops and full text scrolling sequences finish running. The
+  The set slot duration is rounded up to a full loop length.
+  If the assets are long or the playback is very slow, the clock will also wait longer.
+- “Now” plays a module once and then returns with a new slot
+  Playlist back. If necessary, the library becomes a deactivated module
+  created; This does not automatically expand the normal playlist.
+- Please deactivate existing standard modules; their additional instances can
+  be deleted. Maximum 128 modules.
+- Transitions: smooth crossfade, pixel dissolve, vertical slide or none.
+  Transitions are only triggered on module/view changes, never per
+  Animation frame restarted. API/UI allow 0-2000ms.
 
-## Prüfung
+Clock views: classic numbers, arcade figure with second coin, seconds bar,
+Binary Accents, Neon Orbit, Neon Digits/Star Flight and Pixel Flip. **Exactly one view
+per clock appearance**; the activated views only rotate the next time they appear
+(regular, prioritized or “Now”). The former `variant_seconds` is no longer available
+used. The animation within the selected view continues. Weather/room climate
+have sun, house and drops as temperature/humidity related symbols – the sun
+is **not a weather forecast**. Bitcoin has a vibrant coin symbol and
+Trend colors. `visual_style=legacy` receives the previous text representations if necessary.
+
+## Validation
 
 ```sh
 .venv/bin/python -m pip install -r requirements-test.txt
@@ -108,57 +112,57 @@ node --check app/static/shell.js
 node --check app/static/arcade.js
 ```
 
-Hardwarefreie Tests decken Import, RGB/Timing, Grenzen, Pfadsicherheit, Authentifizierung,
-CRUD, Reihenfolge, Shuffle, Priorität, vollständige Loops, einmalige Wiedergabe,
-Uhrvarianten und Übergänge ab. Zusätzlich lokaler Chromium-Browsertest auf Desktop
-und 390-Pixel-Mobilansicht: sticky Vorschau, Formulare, Reihenfolge, Zeichnen,
-Frame-Duplizieren, Bibliothek und einmalige Wiedergabe. Keine echte Hardware bei
-diesen Tests angesprochen.
+Hardware-free testing covers import, RGB/timing, limits, path security, authentication,
+CRUD, order, shuffle, priority, full loops, play once,
+Clock variants and transitions. Additionally local Chromium browser test on desktop
+and 390 pixel mobile view: sticky preview, forms, order, draw,
+Frame duplication, library and one-time playback. No real hardware included
+addressed in these tests.
 
-Aktueller lokaler Stand: **100 Tests erfolgreich**, Browser-Smoke ebenfalls erfolgreich.
-Zusätzlich wurde `ITEM0024_32x8.gif` (267 Frames, 18,72 s) lokal in allen drei
-Skalierungsmodi sowie über den mobilen Browser importiert, geladen und als Editor-Kopie
-gespeichert. Die Originaldatei ist kein Bestandteil des Repositories.
+Current local status: **100 tests successful**, browser smoke also successful.
+Additionally, `ITEM0024_32x8.gif` (267 frames, 18.72 s) was local in all three
+Scaling modes as well as imported, loaded and as an editor copy via the mobile browser
+saved. The original file is not part of the repository.
 
-## Helligkeit und Kontrast
+## Brightness and contrast
 
-- Sonnensymbol im Header aller angemeldeten Seiten, ohne Suche in Diagnosewerkzeugen.
-- Exponentielle Reglerkennlinie `round(exp(log(256) * position / 1000) - 1)`.
-  Die niedrigen Werte 0–10 belegen rund 43 % des Wegs; Ganzzahl, ±1-Tasten und
-  Schnellwerte 0/1/3/6/12 ermöglichen exaktes Einstellen. Draggen verändert zunächst
-  den UI-Wert; angewendet wird beim Loslassen. Zahl und Tasten wirken sofort.
-- Helligkeit wird in der zusätzlichen Tabelle `display_preferences` gespeichert;
-  vorhandene Tabellen/Module werden nicht umgeschrieben. Fehlt ein gespeicherter Wert,
-  gilt weiterhin `LED_BRIGHTNESS` aus `.env`. Auch **0** wird korrekt wiederhergestellt.
-- Hardwarezugriffe bleiben off-thread und serialisiert. Bei nicht erreichbarem Uno
-  bleibt der Zielwert gespeichert und wird bei Wiederverbindung angewendet.
-- Der Login hat jetzt explizit dunkle Hintergründe, helle Beschriftungen/Platzhalter
-  und sichtbare Fokusrahmen. Browser-Smoke prüft mindestens **4,5:1** Textkontrast.
-- Bitcoin: besser erkennbares ₿ mit B-Schleifen und Doppelstrichen, eigener pulsierender
-  Symbolfarbe, getrennten Trendfarben und Richtungspfeil. Preise ab einer Million Euro
-  verwenden `M` statt einer abgeschnittenen Darstellung mit `k`.
+- Sun symbol in the header of all logged in pages, without searching in diagnostic tools.
+- Exponential controller characteristic `round(exp(log(256) * position / 1000) - 1)`.
+  The low values 0-10 occupy around 43% of the path; Integer, ±1 keys and
+  Quick values 0/1/3/6/12 enable exact settings. Draggen changes first
+  the UI value; is applied when letting go. Numbers and keys work immediately.
+- Brightness is stored in the additional table `display_preferences`;
+  Existing tables/modules are not rewritten. If a stored value is missing,
+  `LED_BRIGHTNESS` from `.env` still applies. **0** is also restored correctly.
+- Hardware access remains off-thread and serialized. If the Uno is not reachable,
+  The target value remains saved and is applied upon reconnection.
+- The login now explicitly has dark backgrounds, light labels/placeholders
+  and visible focus frames. Browser smoke checks at least **4.5:1** text contrast.
+- Bitcoin: more recognizable ₿ with B loops and double dashes, own pulsating
+  Icon color, separated trend colors and directional arrow. Prices from one million euros
+  use `M` instead of a truncated representation with `k`.
 
-Reproduzierbarer Browser-Smoke-Test (lokal, niemals gegen den laufenden Pi):
+Reproducible browser smoke test (locally, never against the running Pi):
 
 ```sh
-# Terminal 1: eigene temporäre Daten und ausschließlich Mock-Hardware
+# Terminal 1: own temporary data and mock hardware only
 TMPDIR=/tmp/opencode .venv/bin/python scripts/ui-test-server.py
-# Terminal 2: Playwright außerhalb des Projektverzeichnisses installieren
+# Terminal 2: Install Playwright outside the project directory
 npm install --prefix /tmp/opencode/pixeldock-browser playwright@1.64.0
 NODE_PATH=/tmp/opencode/pixeldock-browser/node_modules node scripts/ui-smoke.cjs
 ```
 
-Der Test nutzt `/usr/bin/chromium`, falls vorhanden, sonst den Playwright-Browser;
-bei Bedarf `CHROMIUM_PATH` setzen.
-`PIXELDOCK_UI_ARTIFACTS` aktiviert optionale Screenshots. Vor Änderungen prüft
-der Test, dass die Anwendung wirklich das Mock-Backend benutzt.
+The test uses `/usr/bin/chromium` if available, otherwise the Playwright browser;
+if necessary set `CHROMIUM_PATH`.
+`PIXELDOCK_UI_ARTIFACTS` enables optional screenshots. Check before making changes
+the test that the application really uses the mock backend.
 
-## Spätere Pi-Installation
+## Later Pi installation
 
-Erst nach Freigabe einen **weiteren separaten Teststand** anlegen; aktuelle Rework-DB,
-`.env`, Mapping und Assets unmittelbar vorher sichern/kopieren. Die aktuelle Anwendung
-nicht in-place überschreiben. Neue Abhängigkeit nur in der neuen venv installieren.
-Den bestehenden Dienst-Drop-in gezielt umstellen, Healthcheck kurz pausieren und
-vorherigen Stand für Rückwechsel behalten. Für dieses Rework ist **kein Firmware-Flash**
-nötig. Bestehende Uhr-/Animations-Einstellungen (z.B. `transition_ms=0`) bleiben
-wirksam und können im neuen Formular angepasst werden.
+Only create another separate test bench after approval; current rework DB,
+`.env`, backup/copy mapping and assets immediately beforehand. The current application
+do not overwrite in place. Install new dependency only in the new venv.
+Change the existing service drop-in in a targeted manner, pause Healthcheck briefly and
+keep previous status for change back. There is **no firmware flash** for this rework
+necessary. Existing clock/animation settings (e.g. `transition_ms=0`) remain
+effective and can be adjusted in the new form.

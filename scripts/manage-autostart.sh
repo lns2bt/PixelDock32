@@ -12,17 +12,17 @@ HEALTHCHECK_TIMER_FILE="/etc/systemd/system/${SERVICE_NAME}-healthcheck.timer"
 
 usage() {
   cat <<USAGE
-Verwendung:
-  sudo ./scripts/manage-autostart.sh enable [--repo-dir /pfad/zu/PixelDock32] [--user pi] [--group pi]
+Usage:
+  sudo ./scripts/manage-autostart.sh enable [--repo-dir /path/to/PixelDock32] [--user pi] [--group pi]
   sudo ./scripts/manage-autostart.sh disable
   ./scripts/manage-autostart.sh status
   ./scripts/manage-autostart.sh logs
 
-Aktionen:
-  enable   Installiert/aktualisiert den systemd-Service und aktiviert den Autostart.
-  disable  Deaktiviert den Autostart und stoppt den Service.
-  status   Zeigt den aktuellen Service-Status.
-  logs     Zeigt die letzten 100 Journal-Logs des Services.
+Actions:
+  enable   Install/update the systemd service and enable autostart.
+  disable  Disable autostart and stop the service.
+  status   Show the current service status.
+  logs     Show the last 100 service journal entries.
 USAGE
 }
 
@@ -30,7 +30,7 @@ require_root_for_mutation() {
   local action="$1"
   if [[ "${action}" == "enable" || "${action}" == "disable" ]]; then
     if [[ "${EUID}" -ne 0 ]]; then
-      echo "Fehler: '${action}' muss mit sudo ausgeführt werden." >&2
+      echo "Error: '${action}' must be run with sudo." >&2
       exit 1
     fi
   fi
@@ -43,7 +43,7 @@ make_service_file() {
 
   local source_template="${repo_dir}/${SERVICE_TEMPLATE_REL}"
   if [[ ! -f "${source_template}" ]]; then
-    echo "Fehler: Service-Template nicht gefunden: ${source_template}" >&2
+    echo "Error: service template not found: ${source_template}" >&2
     exit 1
   fi
 
@@ -64,7 +64,7 @@ make_healthcheck_files() {
   local health_timer_template="${repo_dir}/${HEALTHCHECK_TIMER_TEMPLATE_REL}"
 
   if [[ ! -f "${health_service_template}" || ! -f "${health_timer_template}" ]]; then
-    echo "Fehler: Healthcheck-Templates fehlen im Repo." >&2
+    echo "Error: healthcheck templates are missing from the repository." >&2
     exit 1
   fi
 
@@ -81,7 +81,7 @@ enable_autostart() {
   local group="$3"
 
   if [[ ! -d "${repo_dir}" ]]; then
-    echo "Fehler: Repo-Verzeichnis existiert nicht: ${repo_dir}" >&2
+    echo "Error: repository directory does not exist: ${repo_dir}" >&2
     exit 1
   fi
 
@@ -93,14 +93,14 @@ enable_autostart() {
   systemctl restart "${SERVICE_NAME}"
   systemctl enable --now "${SERVICE_NAME}-healthcheck.timer"
 
-  echo "Autostart wurde aktiviert, Service neu gestartet und Healthcheck-Timer aktiviert."
+  echo "Autostart enabled, service restarted and healthcheck timer enabled."
   systemctl --no-pager --full status "${SERVICE_NAME}" || true
 }
 
 disable_autostart() {
   systemctl disable --now "${SERVICE_NAME}-healthcheck.timer" || true
   systemctl disable --now "${SERVICE_NAME}"
-  echo "Autostart wurde deaktiviert, Timer beendet und Service gestoppt."
+  echo "Autostart disabled, timer stopped and service stopped."
 }
 
 show_status() {
@@ -137,7 +137,7 @@ while [[ $# -gt 0 ]]; do
       exit 0
       ;;
     *)
-      echo "Unbekannte Option: $1" >&2
+      echo "Unknown option: $1" >&2
       usage
       exit 1
       ;;
@@ -163,7 +163,7 @@ case "${ACTION}" in
     usage
     ;;
   *)
-    echo "Unbekannte Aktion: ${ACTION}" >&2
+    echo "Unknown action: ${ACTION}" >&2
     usage
     exit 1
     ;;

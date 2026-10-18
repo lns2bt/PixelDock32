@@ -12,10 +12,10 @@ SCENES = {scene.key: scene for scene in NORMAL_SCENES + EVENT_SCENES}
 def render_scene(key, now, elapsed=0.0):
     """Render one stateless scene, never touching hardware, storage or scheduling."""
     if key not in SCENES:
-        raise ValueError('Unbekannte Time-Stage-Szene')
+        raise ValueError('Unknown time stage scene')
     elapsed = float(elapsed)
     if not math.isfinite(elapsed):
-        raise ValueError('Ungültige Animationszeit')
+        raise ValueError('Invalid animation time')
     scene = SCENES[key]
     return scene.render(now, max(0.0, elapsed)).payload(now, key)
 

@@ -38,7 +38,7 @@ class ClockWorldsTests(unittest.TestCase):
             self.assertEqual(render_scene(scene.key,now,0),render_scene(scene.key,now,1000))
             before=render_scene(scene.key,now,3)
             after=render_scene(scene.key,now+timedelta(milliseconds=400),3)
-            # Gears/train are deliberately discrete; other worlds interpolate.
+            # Gears/trains are deliberately discrete; other worlds interpolate.
             if scene.key not in ('world_neon_subway',):
                 self.assertNotEqual(before.color_frame,after.color_frame,scene.key)
 

@@ -1,26 +1,26 @@
 # Roadmap
 
-## Nächste sinnvolle Schritte
+## Next sensible steps
 
-1. **Panel-Kalibrierungstest**: kleines Testscript für Pixel-Walk + Mapping-Verifikation je Panel.
-2. **Mapping-Wizard**: geführte Kalibrierung für Panel-Reihenfolge, Serpentine und Offset.
-3. **Bessere Text-Engine**: Scrolling + größere Font-Auswahl + UTF-8 Glyphen.
-4. **API-Resilience**: Retry/Backoff + sichtbarer Status in UI (letztes Update, Fehlerzustand).
-5. **Sicherheits-Hardening**: HTTPS via Reverse Proxy, rate limit, Passwort-Hash verpflichtend.
+1. **Panel calibration test**: small test script for pixel walk + mapping verification per panel.
+2. **Mapping Wizard**: guided calibration for panel order, serpentine and offset.
+3. **Better text engine**: Scrolling + larger font selection + UTF-8 glyphs.
+4. **API Resilience**: Retry/Backoff + visible status in UI (last update, error state).
+5. **Security hardening**: HTTPS via reverse proxy, rate limit, password hash mandatory.
 
-## UI/UX Verbesserungen (Sprint A)
+## UI/UX improvements (Sprint A)
 
-- Globales **System-Status Panel** in der Web-UI (API online, Quelle, Modul, FPS, Debug-Status, Daten-Updates).
-- **Toast-Feedback** bei allen UI-Aktionen inklusive Fehlern/Netzwerkproblemen.
-- **Quick Presets** für Debug-Pattern (Wiring/Serpentine/Noise Check).
-- Neues Backend-Status-API: `GET /api/debug/status`.
+- Global **System Status Panel** in the web UI (API online, source, module, FPS, debug status, data updates).
+- **Toast feedback** on all UI actions including errors/network issues.
+- **Quick Presets** for debug patterns (Wiring/Serpentine/Noise Check).
+- New backend status API: `GET /api/debug/status`.
 
-## GIF-Support (Roadmap)
+## GIF Support (Roadmap)
 
-Aktuell rendert das Bitmap-Modul statische Dateien mit vertikalem Scrolling. Für kleine GIF-Animationen sind als nächster Schritt nötig:
+Currently the bitmap module renders static files with vertical scrolling. For small GIF animations the next step is:
 
-- Frame-Decoder (z. B. `Pillow`) zum Extrahieren einzelner GIF-Frames inkl. Frame-Dauer.
-- In-Memory-Framecache (pro Datei + `mtime`) analog zum Bitmap-Cache.
-- Zeitbasierte Frame-Auswahl im Renderloop (`now -> frame_index`) mit sauberem Looping.
-- Optionales Dithering/Farbreduktion für bessere Lesbarkeit auf 32x8.
-- Einheitliche Einstellungen im Modul (`playback_speed`, `loop_mode`, optional `fit/crop`).
+- Frame decoder (e.g. `Pillow`) for extracting individual GIF frames including frame duration.
+- In-memory frame cache (per file + `mtime`) analogous to the bitmap cache.
+- Time-based frame selection in the render loop (`now -> frame_index`) with clean looping.
+- Optional dithering/color reduction for better readability to 32x8.
+- Uniform settings in the module (`playback_speed`, `loop_mode`, optional `fit/crop`).

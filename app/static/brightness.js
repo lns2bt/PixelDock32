@@ -11,17 +11,17 @@
   window.PixelDockBrightness = { ...scale, mount({api,toast,header}) {
     const trigger = document.createElement('button');
     trigger.className = 'brightness-trigger'; trigger.type = 'button'; trigger.textContent = '☀';
-    trigger.setAttribute('aria-label','LED-Helligkeit einstellen'); trigger.setAttribute('aria-expanded','false'); trigger.setAttribute('aria-controls','brightnessPanel');
+    trigger.setAttribute('aria-label','Adjust LED brightness'); trigger.setAttribute('aria-expanded','false'); trigger.setAttribute('aria-controls','brightnessPanel');
     header.querySelector('.live-top').append(trigger);
     const panel = document.createElement('section'); panel.id = 'brightnessPanel'; panel.className = 'panel brightness-panel'; panel.hidden = true;
-    panel.setAttribute('aria-label','LED-Helligkeit');
-    panel.innerHTML = `<div class="section-heading"><h2>LED-Helligkeit</h2><button type="button" class="brightness-close" aria-label="Helligkeit schließen">✕</button></div><label for="brightnessRange">Fein unten, grob oben<input id="brightnessRange" type="range" min="0" max="1000" step="1" value="0" disabled></label><div class="brightness-scale"><span>0 · Aus</span><span>Fein: 1–10</span><span>255</span></div><div class="brightness-exact"><button type="button" id="brightnessMinus" aria-label="Helligkeit um eins verringern" disabled>−1</button><label for="brightnessNumber">Exakter Wert (0–255)<input id="brightnessNumber" type="number" min="0" max="255" step="1" inputmode="numeric" value="0" disabled></label><button type="button" id="brightnessPlus" aria-label="Helligkeit um eins erhöhen" disabled>+1</button></div><div class="brightness-presets" aria-label="Niedrige Helligkeitswerte">${[0,1,3,6,12].map(value=>`<button type="button" data-brightness="${value}" disabled>${value === 0 ? 'Aus' : value}</button>`).join('')}</div><p id="brightnessState" class="muted" role="status">Lade aktuellen Wert …</p><p class="muted">Der Wert bleibt nach Neustarts erhalten. Der Regler wird beim Loslassen angewendet.</p>`;
+    panel.setAttribute('aria-label','LED brightness');
+    panel.innerHTML = `<div class="section-heading"><h2>LED brightness</h2><button type="button" class="brightness-close" aria-label="Close brightness">✕</button></div><label for="brightnessRange">Fine at low values, coarse at high values<input id="brightnessRange" type="range" min="0" max="1000" step="1" value="0" disabled></label><div class="brightness-scale"><span>0 · Off</span><span>Fine: 1–10</span><span>255</span></div><div class="brightness-exact"><button type="button" id="brightnessMinus" aria-label="Decrease brightness by one" disabled>−1</button><label for="brightnessNumber">Exact value (0-255)<input id="brightnessNumber" type="number" min="0" max="255" step="1" inputmode="numeric" value="0" disabled></label><button type="button" id="brightnessPlus" aria-label="Increase brightness by one" disabled>+1</button></div><div class="brightness-presets" aria-label="Low brightness values">${[0,1,3,6,12].map(value=>`<button type="button" data-brightness="${value}" disabled>${value === 0 ? 'Off' : value}</button>`).join('')}</div><p id="brightnessState" class="muted" role="status">Load current value…</p><p class="muted">The value is retained after restarts. The control is applied when released.</p>`;
     header.append(panel);
     const range = panel.querySelector('#brightnessRange'), number = panel.querySelector('#brightnessNumber'), state = panel.querySelector('#brightnessState');
     let value = 0, loaded = false, dirty = false, busy = false, pending = null, revision = 0;
     function show(next, keepThumb = false) {
       value = next; if (!keepThumb) range.value = scale.toPosition(value); number.value = value;
-      range.setAttribute('aria-valuetext',value === 0 ? 'Aus, 0 von 255' : `${value} von 255`);
+      range.setAttribute('aria-valuetext',value === 0 ? 'Off, 0 of 255' : `${value} of 255`);
       trigger.textContent = `☀ ${value}`;
       panel.querySelectorAll('[data-brightness]').forEach(button=>button.setAttribute('aria-pressed',String(Number(button.dataset.brightness)===value)));
       panel.querySelector('#brightnessMinus').disabled = !loaded || value === 0;
@@ -31,7 +31,7 @@
       const data = await api('/api/display/brightness');
       if (!dirty && !busy) {
         loaded = true; panel.querySelectorAll('input,button').forEach(node=>node.disabled=false); show(data.brightness);
-        state.textContent = data.connected ? 'Aktueller Wert geladen.' : 'Gespeicherter Wert · Uno offline.';
+        state.textContent = data.connected ? 'Current value loaded.' : 'Saved value · Uno offline.';
       }
     }
     async function save(next) {
@@ -39,10 +39,10 @@
       if (busy) return;
       busy = true;
       while (pending !== null) {
-        const requested = pending; pending = null; state.textContent = 'Wird gespeichert …';
+        const requested = pending; pending = null; state.textContent = 'Saved...';
         try {
           await api('/api/display/brightness',{method:'POST',body:JSON.stringify({brightness:requested.value})});
-          if (requested.revision === revision && pending === null) { dirty = false; state.textContent = 'Gespeichert.'; }
+          if (requested.revision === revision && pending === null) { dirty = false; state.textContent = 'Saved.'; }
         } catch (error) {
           state.textContent = error.message;
           toast(error.message,true);
@@ -54,15 +54,15 @@
     }
     function choose(next, apply, keepThumb = false) {
       if (!loaded) return;
-      dirty = true; revision++; show(next,keepThumb); state.textContent = apply ? 'Wird gespeichert …' : 'Loslassen zum Anwenden.';
+      dirty = true; revision++; show(next,keepThumb); state.textContent = apply ? 'Saved...' : 'Let go to apply.';
       if (apply) save(value);
     }
     range.oninput = () => choose(scale.toValue(range.value),false,true);
     range.onchange = () => choose(value,true,true);
-    number.oninput = () => { dirty = true; revision++; state.textContent = 'Zum Anwenden das Feld verlassen.'; };
+    number.oninput = () => { dirty = true; revision++; state.textContent = 'Leave the field to apply.'; };
     number.onchange = () => {
       const next = Number(number.value);
-      if (number.value === '' || !Number.isInteger(next) || next < 0 || next > 255) { toast('Bitte eine ganze Zahl von 0 bis 255 eingeben.',true); show(value); return; }
+      if (number.value === '' || !Number.isInteger(next) || next < 0 || next > 255) { toast('Please enter an integer from 0 to 255.',true); show(value); return; }
       choose(next,true);
     };
     panel.querySelector('#brightnessMinus').onclick = () => choose(Math.max(0,value-1),true);

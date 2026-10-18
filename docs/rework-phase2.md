@@ -1,96 +1,99 @@
-# Phase 2: stabilisierter Uno-Datenweg
+# Phase 2: stabilized Uno data path
 
-## Was sich ändert
+> Historical phase-2 implementation notes. Later releases build on this work;
+> the local-only deployment statements and test counts below apply to that phase.
 
-- Standard jetzt **30 FPS**; eine vorhandene `.env` mit `RENDER_FPS=20` bleibt
-  unverändert wirksam. Das ist ein Zielwert, noch kein Hardware-Messnachweis.
-- Renderloop verwendet fortlaufende monotone Deadlines und überspringt verpasste
-  Termine, statt nach einem Aussetzer alte Frames als Burst nachzuliefern.
-- Ablaufzeiten, Modulrotation, Scrollen und Übergangsfortschritt verwenden monotone
-  Zeit. Uhrzeit, Wetter-/BTC-Zeitstempel und UI-Endzeitstempel bleiben Kalenderzeit.
-- Initiales schwarzes Bild und Änderungen am Mapping werden tatsächlich gesendet.
-- Modulübergänge behalten ihre Zeitachse, auch wenn das eingehende Bild animiert
-  ist. Animationen, Bitmaps und Laufschrift lösen nicht bei jedem Frame einen
-  neuen Inhaltsübergang aus.
-- Web-Endpunkte für LED-Diagnose, Ping, Helligkeit und Sensor-/GPIO-Operationen
-  führen blockierende Arbeit in Workerthreads aus. Hardwarezugriffe auf die
-  serielle Verbindung bleiben durch denselben I/O-Lock exklusiv serialisiert.
-  Es gibt weiterhin einen Frame-Senderthread, **keinen vollständig neuen
-  Kommando-Dispatcher**. DHT-Einzelreads und Poller teilen einen Sensor-Lock.
-- Normales Status-Polling löst keine neue serielle Geräteabfrage mehr aus.
-- Fehlendes USB-Gerät bleibt ein sichtbar getrenntes Serial-Backend mit Reconnect,
-  statt dauerhaft auf Mock auszuweichen. `auto` bevorzugt nun Serial unabhängig
-  von installierten GPIO-Paketen. Für Entwicklung explizit `LED_TRANSPORT=mock`.
-- Fehlgeschlagene statische Frames werden ohne neue Browser-/Renderaktion erneut
-  versucht. Neue wartende Frames haben weiterhin Vorrang; Retry/Reconnect haben
-  einen konfigurierbaren Abstand (`LED_SERIAL_RECONNECT_DELAY`, Standard 1 s).
-- Während einer statischen Anzeige prüft der Sender nach ungefähr 2 s ohne
-  Verkehr den Firmwarestatus. USB-Ausfall, leerer Frame-Zähler nach Reset und
-  abweichende Helligkeit lösen den Wiederabgleich aus. Während laufender
-  Animation gibt es keine zusätzlichen periodischen Statuspakete.
-- Transport-Shutdown stoppt Retry-Wartezeiten, beendet den Sender und schließt
-  erst danach den Port. FastAPI räumt auch nach Initialisierungsfehlern auf.
-- Kurze Serial-Writes und widersprüchliche Antwortlängen werden abgewiesen.
-- Serial/auto validieren die feste Uno-Geometrie: 256 LEDs / 32×8.
+## What changes
 
-## Firmware-Protokoll v3
+- Default now **30 FPS**; an existing `.env` with `RENDER_FPS=20` remains
+  remains effective. This is a target value, not yet proof of hardware measurement.
+- Renderloop uses continuous monotonous deadlines and skips missed ones
+  appointments, instead of delivering old frames as a burst after a dropout.
+- Expiry times, module rotation, scrolling and transition progress use monotone
+  time. Time, weather/BTC timestamp and UI end timestamp remain calendar time.
+- Initial black image and mapping changes are actually sent.
+- Module transitions retain their timeline even when the incoming image animates
+  is. Animations, bitmaps and marquee do not solve one every frame
+  new content transition.
+- Web endpoints for LED diagnostics, ping, brightness and sensor/GPIO operations
+  perform blocking work in worker threads. Hardware access to the
+  serial connections remain exclusively serialized through the same I/O lock.
+  There is still a frame sender thread, **not a completely new one
+  Command dispatcher**. DHT single reads and pollers share a sensor lock.
+- Normal status polling no longer triggers a new serial device query.
+- If a USB device is missing, a visibly separated serial backend remains with reconnect,
+  instead of permanently switching to mock. `auto` now prefers serial independent
+  of installed GPIO packages. For development explicitly `LED_TRANSPORT=mock`.
+- Failed static frames are redone without new browser/render action
+  tried. New waiting frames still have priority; Have retry/reconnect
+  a configurable distance (`LED_SERIAL_RECONNECT_DELAY`, default 1 s).
+- During a static display, the transmitter checks after approximately 2 s without
+  Traffic the firmware status. USB failure, empty frame counter after reset and
+  Differing brightness triggers recalibration. While ongoing
+  Animation there are no additional periodic status packages.
+- Transport shutdown stops retry wait times, terminates the transmitter and closes
+  only then the port. FastAPI also cleans up after initialization errors.
+- Short serial writes and contradictory response lengths are rejected.
+- Serial/auto validate the fixed Uno geometry: 256 LEDs / 32×8.
 
-RGB-Vollbilder und Frame-ACK bleiben unverändert gegenüber v2.
+## Firmware protocol v3
 
-| Kommando | Payload | Antwort |
+RGB full frames and frame ACK remain unchanged from v2.
+
+| Command | Payload | Answer |
 | --- | --- | --- |
-| `0x06` Helligkeit v3 | 1 Byte, 0..255 | `0x86`, 1 Byte angewendete Helligkeit |
+| `0x06` Brightness v3 | 1 byte, 0..255 | `0x86`, 1 byte applied brightness |
 
-Der Uno antwortet erst nach der Helligkeitsverarbeitung und einer gegebenenfalls
-ausgeführten LED-Ausgabe. Der Pi hält den I/O-Lock bis zur Antwort; in dieser Zeit
-beginnt kein weiteres Kommando oder Frame. Anschließend erzwingt der Renderloop
-ein vollständiges Bild, um die verlustbehaftete interne NeoPixel-Helligkeitsskalierung
-aus den ursprünglichen RGB-Werten zu rekonstruieren.
+The Uno only responds after brightness processing and if necessary
+executed LED output. The Pi holds the I/O lock until the response; at this time
+no further command or frame begins. The render loop is then forced
+a complete image to the lossy internal NeoPixel brightness scaling
+to reconstruct from the original RGB values.
 
-Während ein Frame empfangen wird, gilt sein LED-Puffer als ungültig. Nur ein komplett
-empfangenes Frame mit gültiger Checksumme macht ihn wieder gültig. Helligkeitskommandos
-dürfen einen ungültigen Puffer **nicht anzeigen**. Ein solches Kommando setzt weiterhin
-die Helligkeit und bestätigt sie; das nächste gültige Vollbild stellt die Ausgabe her.
-Das benötigt keinen zweiten 768-Byte-Puffer auf dem Uno.
+While a frame is being received, its LED buffer is considered invalid. Just a complete
+A received frame with a valid checksum makes it valid again. Brightness commands
+are not allowed to **display** an invalid buffer. Such a command continues to set
+the brightness and confirms it; the next valid full image produces the output.
+This doesn't require a second 768 byte buffer on the Uno.
 
-### Kompatibilität
+### Compatibility
 
-- **v3 empfohlen:** Frame- und Helligkeitskommandos sind bestätigt; Schutz vor
-  sichtbaren Teil-/Fehlerframes bei Helligkeitsänderung.
-- **v2 Übergangsbetrieb:** Frame-ACK vorhanden; vor Folgekommandos nach Helligkeit
-  wartet der Pi auf abgearbeitete Host-TX-Daten und zusätzlich ca. 27,7 ms
-  (LED-Ausgabezeit + 20 ms Reserve). Das ist eine konservative Schutzzeit,
-  **keine vom Uno bestätigte Bereitschaft und keine Garantie gegen beliebig
-  verzögerte USB-Brücken**. Der alte Sketch hat keinen Ungültig-Puffer-Schutz.
-- **v1 oder fehlgeschlagene Protokollprobe:** keine unbestätigten Frames mehr;
-  Verbindung bleibt im sichtbaren Fehler-/Reconnect-Zustand. Firmware aktualisieren.
-- Ältere Pi-Anwendung kann die v3-Firmware weiterhin über die erhaltenen
-  v2-Kommandos bedienen. Für einen sauberen Rollback trotzdem zusammengehörige
-  Pi-/Firmwarestände verwenden.
+- **v3 recommended:** Frame and brightness commands are confirmed; Protection from
+  visible partial/error frames when brightness changes.
+- **v2 Transitional operation:** Frame ACK present; before follow-up commands according to brightness
+  The Pi waits for processed host TX data and an additional approx. 27.7 ms
+  (LED output time + 20 ms reserve). This is a conservative protection time,
+  **no willingness confirmed by the UN and no guarantee against any
+  delayed USB bridges**. The old sketch has no invalid buffer protection.
+- **v1 or failed protocol probe:** no more unacknowledged frames;
+  Connection remains in visible error/reconnect state. Update firmware.
+- Older Pi application can still use the v3 firmware via the received
+  Operate v2 commands. For a clean rollback, they still belong together
+  Use Pi/firmware versions.
 
-## Lokale Validierung
+## Local validation
 
-- **64 lokale Tests erfolgreich** (Python 3.14); zusätzlich erfolgreicher AVR-Build.
-- Hardwarefreie Python-Tests: Protokoll, v2/v3-Helligkeit, kurze Writes, statische
-  Wiederholung, Reset, Shutdown, Frame-Pacing und Mapping-Neuausgabe.
-- ASGI-Konkurrenztest: Während einer blockierten Hardwareoperation bleibt die
-  passive Messroute erreichbar. Voller App-Lifespan mit temporärer SQLite-Datenbank
-  und expliziter Mock-Ausgabe wird ebenfalls getestet.
-- Native C++-Tests kompilieren den **tatsächlichen Sketch** mit Host-Stubs und
-  prüfen ACK-Reihenfolge, defekte Frames und Timeout-/Helligkeits-Verhalten.
-  Dafür wird `g++` benötigt; ohne Compiler wird dieser Test als übersprungen markiert.
-- Echter Uno-Build mit Arduino CLI **1.2.2**, AVR-Core **1.8.6**, Adafruit NeoPixel
-  **1.12.3** erfolgreich: 5276 Byte Flash, 270 Byte statische globale Daten.
-  Zusätzlich werden die **768 Byte LED-Puffer dynamisch allokiert**; diese sind
-  in der 270-Byte-Zeile des Compilers nicht enthalten. Hinzu kommen Stack/Heap-Verwaltung.
-- GitHub Actions enthält jetzt auch diesen gepinnten Firmware-Build.
+- **64 local tests successful** (Python 3.14); additionally successful AVR build.
+- Hardware-free Python tests: protocol, v2/v3 brightness, short writes, static
+  Repeat, reset, shutdown, frame pacing and mapping reissue.
+- ASGI contention test: During a blocked hardware operation, the
+  passive measurement route accessible. Full app lifespan with SQLite temporary database
+  and explicit mock output is also tested.
+- Native C++ tests compile the **actual sketch** with host stubs and
+  check ACK order, broken frames and timeout/brightness behavior.
+  `g++` is required for this; without a compiler, this test is marked as skipped.
+- Real Uno build with Arduino CLI **1.2.2**, AVR Core **1.8.6**, Adafruit NeoPixel
+  **1.12.3** successful: 5276 bytes flash, 270 bytes static global data.
+  In addition, the **768 byte LED buffers are dynamically allocated**; these are
+  not included in the 270-byte line of the compiler. There is also stack/heap management.
+- GitHub Actions now also includes this pinned firmware build.
 
-Keine dieser Prüfungen ersetzt den USB-/LED-Test auf dem echten Pi 3 + Uno.
-Es wurde nichts auf den Pi kopiert und kein Arduino geflasht.
+None of these tests replace the USB/LED test on the real Pi 3 + Uno.
+Nothing was copied to the Pi and no Arduino was flashed.
 
-## Reproduzierbarer Firmware-Build (ohne Flashen)
+## Reproducible firmware build (without flashing)
 
-Mit installierter Arduino CLI 1.2.2:
+With Arduino CLI 1.2.2 installed:
 
 ```bash
 arduino-cli core update-index
@@ -99,17 +102,17 @@ arduino-cli lib install "Adafruit NeoPixel@1.12.3"
 arduino-cli compile --fqbn arduino:avr:uno arduino/PixelDockUnoR3
 ```
 
-Das erzeugt nur ein Build; es enthält bewusst keinen Upload-Befehl.
+This just creates one build; it deliberately does not contain an upload command.
 
-## Vor dem nächsten Hardware-Schritt
+## Before the next hardware step
 
-1. Vorhandene Pi-Konfiguration, Datenbank, Mapping und Assets sichern.
-2. Tatsächliche OS-/Python-Version, Uno-Modell und momentanen Firmwarestand erfassen.
-3. Baseline bzw. separaten Teststand auf dem Pi vorbereiten und Flashen ausdrücklich
-   freigeben. Boot-/Reset-/USB- und Sensor-Einflüsse auf der echten Hardware testen.
-4. Danach mit [passiver Messung](tests-und-messungen.md) 30-FPS-Dauerlauf prüfen.
+1. Back up existing Pi configuration, database, mapping and assets.
+2. Record the actual OS/Python version, Uno model and current firmware version.
+3. Prepare a baseline or separate test stand on the Pi and flash it explicitly
+   release. Test boot/reset/USB and sensor influences on the real hardware.
+4. Check a sustained 30 FPS run with [passive measurements](tests-and-measurements.md).
 
-Offen bleiben optische Messung/Logikanalysator, CRC statt XOR, priorisierte
-Kommandowarteschlange und Pixel-Art-Assetplayer. Auch Sender-Reconnect kann für
-die Arduino-Bootzeit mehrere Sekunden dauern; in dieser Zeit rendert der Pi weiter
-und bewahrt nur das neueste wartende Bild auf.
+Optical measurement/logic analyzer, CRC instead of XOR, prioritized remain open
+Command queue and pixel art asset player. Sender reconnect can also be used for
+Arduino boot time may take several seconds; During this time the Pi continues to render
+and only keeps the latest waiting image.

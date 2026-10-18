@@ -276,15 +276,15 @@ async def get_modules(_: str = Depends(get_current_user), db: AsyncSession = Dep
 @router.post("", response_model=ModuleConfigResponse, status_code=201)
 async def create_module(payload: ModuleCreate, request: Request, _: str = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     if payload.kind == "clock":
-        raise HTTPException(409, "Uhrzeit wird jetzt separat unter Time-Stage eingestellt.")
+        raise HTTPException(409, "The time is now set separately under Time Stage.")
     if (await db.scalar(select(func.count()).select_from(ModuleConfig))) >= 128:
-        raise HTTPException(409, "Maximal 128 Module")
+        raise HTTPException(409, "Maximum 128 Module")
     settings = sanitize_settings(payload.kind, payload.settings)
     if payload.kind == "asset":
         try:
             await asyncio.to_thread(request.app.state.asset_store.load, settings.get("asset_id"))
         except (ValueError, OSError) as error:
-            raise HTTPException(422, "Asset nicht gefunden") from error
+            raise HTTPException(422, "Asset not found") from error
     order = (await db.scalar(select(func.max(ModuleConfig.sort_order)))) or 0
     module = ModuleConfig(key=payload.kind + "-" + uuid.uuid4().hex[:12], name=payload.name.strip() or payload.kind,
                           enabled=payload.enabled, duration_seconds=payload.duration_seconds, sort_order=order + 1, settings=settings)
@@ -298,7 +298,7 @@ async def create_module(payload: ModuleCreate, request: Request, _: str = Depend
 async def reorder_modules(payload: ModuleOrder, _: str = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     rows = [row for row in await list_modules(db) if row.key.split('-')[0] != 'clock']
     if len(set(payload.ids)) != len(payload.ids) or set(payload.ids) != {row.id for row in rows}:
-        raise HTTPException(409, "Modulliste geändert – bitte neu laden")
+        raise HTTPException(409, "Module list changed – please reload")
     order = {module_id: index for index, module_id in enumerate(payload.ids)}
     for row in rows:
         row.sort_order = order[row.id]
@@ -310,12 +310,12 @@ async def reorder_modules(payload: ModuleOrder, _: str = Depends(get_current_use
 async def play_module(module_id: int, request: Request, _: str = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     module = await db.get(ModuleConfig, module_id)
     if not module:
-        raise HTTPException(404, "Modul nicht gefunden")
+        raise HTTPException(404, "Module not found")
     if module.key.split('-')[0] == 'clock':
-        raise HTTPException(409, "Uhrzeit wird jetzt separat unter Time-Stage eingestellt.")
+        raise HTTPException(409, "The time is now set separately under Time Stage.")
     service = request.app.state.display_service
     if isinstance(getattr(service, "time_stage_config", None), dict) and service.time_stage.sleep_state(service._stage_now())["active"]:
-        raise HTTPException(409, "Schlafmodus aktiv. Bitte zuerst ausdrücklich auf Wach umschalten.")
+        raise HTTPException(409, "Sleep mode active. Please first explicitly switch to awake.")
     request.app.state.display_service.play_once(module)
     return {"ok": True}
 
@@ -324,9 +324,9 @@ async def play_module(module_id: int, request: Request, _: str = Depends(get_cur
 async def delete_module(module_id: int, _: str = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     module = await db.get(ModuleConfig, module_id)
     if not module:
-        raise HTTPException(404, "Modul nicht gefunden")
+        raise HTTPException(404, "Module not found")
     if "-" not in module.key:
-        raise HTTPException(409, "Standardmodule bitte deaktivieren statt löschen")
+        raise HTTPException(409, "Please deactivate standard modules instead of deleting them")
     await db.delete(module)
     await db.commit()
     return {"ok": True}
@@ -344,7 +344,7 @@ async def update_module(
     if not module:
         raise HTTPException(status_code=404, detail="module not found")
     if module.key.split('-')[0] == 'clock':
-        raise HTTPException(409, "Archivierte Uhr-Einträge werden durch Time-Stage ersetzt.")
+        raise HTTPException(409, "Archived clock entries are replaced by Time Stage.")
 
     module.enabled = payload.enabled
     module.duration_seconds = payload.duration_seconds
@@ -354,7 +354,7 @@ async def update_module(
         try:
             await asyncio.to_thread(request.app.state.asset_store.load, module.settings.get("asset_id"))
         except (ValueError, OSError) as error:
-            raise HTTPException(422, "Asset nicht gefunden") from error
+            raise HTTPException(422, "Asset not found") from error
     if payload.name is not None:
         module.name = payload.name.strip() or module.name
 

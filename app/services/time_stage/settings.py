@@ -1,7 +1,9 @@
 """Validated Time-Stage preferences and non-destructive legacy migration."""
 
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timezone
+import hashlib
+import json
 from typing import Annotated, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -93,6 +95,9 @@ class Sleep(StrictModel):
             raise ValueError("Sleep start and end must differ")
         if self.until is not None and (self.until.tzinfo is None or self.until.utcoffset() is None):
             raise ValueError("Sleep override expiry must have a timezone")
+        # Legacy unbounded exceptions must never restart on every reload.
+        if self.mode == "auto" or self.until is None:
+            self.mode, self.until = "auto", None
         return self
 
 
@@ -189,6 +194,29 @@ class Config(StrictModel):
 TimeStageConfig = Config
 
 
+def config_revision(config):
+    """Hash persistent settings only; temporary exceptions have their own storage."""
+    value = deepcopy(config)
+    value["sleep"].update(mode="auto", until=None)
+    return hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()
+
+
+def effective_override(value, now=None):
+    now = now or datetime.now(timezone.utc)
+    until = value.get("until")
+    if value.get("mode") in {"sleep", "wake"} and until and datetime.fromisoformat(until.replace("Z", "+00:00")) > now:
+        return {"mode": value["mode"], "until": until}
+    return {"mode": "auto", "until": None}
+
+
+async def read_config(db, fallback=None):
+    preference = await db.get(TimeStagePreference, "config")
+    value = Config.model_validate(preference.value if preference else fallback or {}).model_dump(mode="json")
+    override = await db.get(TimeStagePreference, "sleep_override")
+    value["sleep"].update(effective_override(override.value if override else value["sleep"]))
+    return value
+
+
 async def save_config(db, config):
     """Stage a preference update; the caller owns the transaction and lock."""
     value = Config.model_validate(config).model_dump(mode="json")
@@ -211,7 +239,13 @@ async def load_or_migrate(db, system_settings) -> dict:
     preference = await db.get(TimeStagePreference, "config")
     if preference is not None:
         # Invalid/newer versions must be surfaced, never replaced with defaults.
-        return Config.model_validate(preference.value).model_dump(mode="json")
+        config = await read_config(db)
+        if await db.get(TimeStagePreference, "sleep_override") is None:
+            db.add(TimeStagePreference(key="sleep_override", value=effective_override(config["sleep"])))
+            config["sleep"].update(mode="auto", until=None)
+            await save_config(db, config)
+            await db.commit()
+        return await read_config(db)
 
     rows = list((await db.scalars(select(ModuleConfig).order_by(ModuleConfig.sort_order, ModuleConfig.id))).all())
     clocks = [row for row in rows if row.key.split("-", 1)[0].split(":", 1)[0] == "clock" or (row.settings or {}).get("kind") == "clock"]

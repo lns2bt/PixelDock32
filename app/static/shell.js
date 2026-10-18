@@ -5,9 +5,9 @@
   if (!token && location.pathname !== '/login') { location.replace('/login'); return; }
   const api = async (path, options = {}) => {
     const response = await fetch(path, { ...options, headers: { Authorization: `Bearer ${token}`, ...(options.body && typeof options.body === 'string' ? { 'Content-Type': 'application/json' } : {}), ...options.headers }, signal: options.signal || AbortSignal.timeout(10000) });
-    if (response.status === 401) { localStorage.removeItem('token'); location.replace('/login'); throw new Error('Bitte neu anmelden'); }
+    if (response.status === 401) { localStorage.removeItem('token'); location.replace('/login'); throw new Error('Please register again'); }
     const data = await response.json();
-    if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : `Anfrage fehlgeschlagen (${response.status})`);
+    if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : `Request failed (${response.status})`);
     return data;
   };
   let toastTimer;
@@ -40,7 +40,7 @@
   }
   function bitcoinDurationText(timing) {
     const seconds = Number(timing.duration_seconds ?? timing.duration);
-    return Number.isFinite(seconds) ? `Automatisch · ca. ${seconds.toLocaleString('de-DE', {maximumFractionDigits:1})} s` : 'Automatische Dauer';
+    return Number.isFinite(seconds) ? `Automatic · approx. ${seconds.toLocaleString('en-GB', {maximumFractionDigits:1})} s` : 'Automatic duration';
   }
   const weatherTimings = new Map();
   function weatherDuration(row) {
@@ -55,8 +55,17 @@
   window.PixelDock = { api, toast, matrix, bitcoinDuration, bitcoinDurationText, weatherDuration };
   document.querySelector('.top-nav')?.remove();
   const header = document.createElement('header'); header.className = 'live-header';
-  header.innerHTML = `<div class="live-header-inner"><div class="live-top"><a class="pixel-brand" href="/">PIXEL<span>DOCK</span><small> /32</small></a><span class="live-label"><i class="live-dot" aria-hidden="true"></i><span id="previewConnection">VERBINDE …</span></span><strong id="onAir" class="live-on-air">—</strong><button id="headerMatrixToggle" type="button" aria-controls="headerMatrixPanel" aria-expanded="true" aria-label="Live-Matrix einklappen"><span aria-hidden="true">▴</span></button></div><div class="live-matrix" id="headerMatrixPanel"><canvas id="headerMatrix" width="512" height="128" aria-label="Live-Vorschau der gerenderten LED-Anzeige"></canvas><div class="live-caption">GERENDERTES BILD<br>32 × 8 · 256 Pixel</div></div><nav class="retro-nav" aria-label="Hauptnavigation"><a href="/">Dashboard</a><a href="/modules">Playlist</a><a href="/studio">Pixel-Studio</a><a href="/advanced">Erweitert</a><button id="shellLogout" type="button">Abmelden</button></nav></div>`;
+  header.innerHTML = `<div class="live-header-inner"><div class="live-top"><a class="pixel-brand" href="/">PIXEL<span>DOCK</span><small> /32</small></a><span class="live-label"><i class="live-dot" aria-hidden="true"></i><span id="previewConnection">CONNECTING …</span></span><strong id="onAir" class="live-on-air">—</strong><button id="headerMatrixToggle" type="button" aria-controls="headerMatrixPanel" aria-expanded="true" aria-label="Collapse live matrix"><span aria-hidden="true">▴</span></button></div><div class="live-matrix" id="headerMatrixPanel"><canvas id="headerMatrix" width="512" height="128" aria-label="Live preview of the rendered LED display"></canvas><div class="live-caption">RENDERED FRAME<br>32 × 8 · 256 pixels</div></div><nav class="retro-nav" aria-label="Main navigation"><a href="/">Dashboard</a><a href="/modules">Playlist</a><a href="/studio">Pixel-Studio</a><a href="/advanced">Advanced</a><button id="shellLogout" type="button">Log out</button></nav></div>`;
   document.body.prepend(header);
+  const versionHint = document.createElement('small');
+  versionHint.id = 'activeVersion'; versionHint.className = 'muted';
+  versionHint.textContent = 'Version …';
+  header.querySelector('.retro-nav').append(versionHint);
+  fetch('/api/version', {cache:'no-store'}).then(response => {
+    if (!response.ok) throw new Error('Version unavailable');
+    return response.json();
+  }).then(data => { versionHint.textContent = `v${data.version}`; versionHint.title = 'Running server version'; })
+    .catch(() => { versionHint.textContent = 'Version unavailable'; });
   const matrixToggle = document.getElementById('headerMatrixToggle');
   let matrixExpanded = true;
   try { matrixExpanded = localStorage.getItem('pixeldock.matrixExpanded') !== 'false'; } catch (_) {}
@@ -64,7 +73,7 @@
     document.getElementById('headerMatrixPanel').hidden = !matrixExpanded;
     header.classList.toggle('matrix-collapsed', !matrixExpanded);
     matrixToggle.setAttribute('aria-expanded', String(matrixExpanded));
-    matrixToggle.setAttribute('aria-label', `Live-Matrix ${matrixExpanded ? 'einklappen' : 'ausklappen'}`);
+    matrixToggle.setAttribute('aria-label', `Live matrix ${matrixExpanded ? 'collapse' : 'expand'}`);
     matrixToggle.firstElementChild.textContent = matrixExpanded ? '▴' : '▾';
   }
   syncMatrixVisibility();
@@ -76,19 +85,21 @@
   header.querySelector('.retro-nav').insertBefore(stageNav, header.querySelector('[href="/studio"]'));
   const bitcoinNav = document.createElement('a'); bitcoinNav.href='/bitcoin'; bitcoinNav.textContent='Bitcoin';
   header.querySelector('.retro-nav').insertBefore(bitcoinNav,header.querySelector('[href="/studio"]'));
-  const weatherNav=document.createElement('a');weatherNav.href='/weather';weatherNav.textContent='Wetter';
+  const weatherNav=document.createElement('a');weatherNav.href='/weather';weatherNav.textContent='Weather';
   header.querySelector('.retro-nav').insertBefore(weatherNav,header.querySelector('[href="/studio"]'));
   window.PixelDockBrightness?.mount({api,toast,header});
   const sleepButton = document.createElement('button'); sleepButton.type = 'button'; sleepButton.id = 'shellSleep';
-  sleepButton.textContent = '☾'; sleepButton.disabled = true; sleepButton.setAttribute('aria-label','Schlafmodus umschalten');
+  sleepButton.textContent = '☾'; sleepButton.disabled = true; sleepButton.setAttribute('aria-label','Toggle sleep mode');
   sleepButton.setAttribute('aria-pressed','false'); header.querySelector('.live-top').append(sleepButton);
   let sleepActive = false;
   sleepButton.onclick = async () => {
-    if (sleepActive && !confirm('Schlafmodus jetzt ausschalten? Die normale Helligkeit und Playlist werden wieder aktiv.')) return;
+    if (sleepActive && !confirm('Turn off sleep mode now? The normal brightness and playlist become active again.')) return;
     sleepButton.disabled = true;
     try {
-      await api('/api/time-stage/sleep',{method:'POST',body:JSON.stringify({mode:sleepActive?'wake':'sleep'})});
-      toast(sleepActive?'Manuell wach bis zum nächsten Schlafzeit-Umschaltpunkt.':'Schlafmodus bis zum nächsten Schlafzeit-Umschaltpunkt.');
+      const result = await api('/api/time-stage/sleep',{method:'POST',body:JSON.stringify({mode:sleepActive?'wake':'sleep'})});
+      const until = result.sleep?.until;
+      const zone = result.timezone || 'UTC';
+      toast(`${result.sleep?.active ? 'Sleep' : 'Awake'} override${until ? ' until '+new Date(until).toLocaleString('en-GB',{timeZone:zone})+' · '+zone : ''}. Then automatic mode.`);
       lastStatus = 0;
     } catch (error) {toast(error.message,true);} finally {sleepButton.disabled=false;}
   };
@@ -111,7 +122,7 @@
           const status = await api('/api/debug/status'); lastStatus = Date.now();
           hardwareOnline = status.led_transport?.transport !== 'serial' || !!status.led_transport?.serial?.connected;
           document.querySelector('.live-dot').classList.toggle('online', hardwareOnline);
-          document.getElementById('previewConnection').textContent = hardwareOnline ? 'LIVE · VORSCHAU' : 'VORSCHAU · UNO OFFLINE';
+          document.getElementById('previewConnection').textContent = hardwareOnline ? 'LIVE · PREVIEW' : 'PREVIEW · UNO OFFLINE';
           if (Date.now() - namesUpdated > 30000) {
             const rows = await api('/api/modules'); moduleNames = Object.fromEntries(rows.map(row => [row.key,row.name])); namesUpdated = Date.now();
           }
@@ -119,12 +130,12 @@
           if (stage?.sleep) {
             sleepActive = stage.sleep.active; sleepButton.disabled = false;
             sleepButton.setAttribute('aria-pressed',String(sleepActive));
-            sleepButton.title = `${sleepActive?'Schlafmodus':'Wach'} · ${stage.sleep.mode==='auto'?'Automatik':'Manuell'}${stage.sleep.until?' bis '+new Date(stage.sleep.until).toLocaleTimeString('de',{hour:'2-digit',minute:'2-digit'}):''}`;
+            sleepButton.title = `${sleepActive?'Sleep mode':'Awake'} · ${stage.sleep.mode==='auto'?'Automatic':'Manual'}${stage.sleep.until?' until '+new Date(stage.sleep.until).toLocaleString('en-GB',{timeZone:stage.timezone || 'UTC'}):''} · ${stage.timezone || 'UTC'}`;
           }
-          document.getElementById('onAir').textContent = status.display.last_source === 'module' ? moduleNames[status.display.last_module] || 'Playlist' : status.display.last_source === 'manual' ? 'Nachricht / Zeichnung' : status.display.last_source === 'bitcoin-preview' ? 'Bitcoin · LED-Vorschau' : status.display.last_source === 'weather-preview' ? 'Wetter · LED-Vorschau' : status.display.last_source === 'time-stage-preview' ? 'Time-Stage · LED-Vorschau' : status.display.last_source === 'sleep' ? 'Time-Stage · Schlafmodus' : status.display.last_source.startsWith('time-stage') ? 'Time-Stage' : status.display.last_source === 'idle' ? 'Pause' : 'Testmuster';
+          document.getElementById('onAir').textContent = status.display.last_source === 'module' ? moduleNames[status.display.last_module] || 'Playlist' : status.display.last_source === 'manual' ? 'Message/drawing' : status.display.last_source === 'bitcoin-preview' ? 'Bitcoin · LED Preview' : status.display.last_source === 'weather-preview' ? 'Weather · LED preview' : status.display.last_source === 'time-stage-preview' ? 'Time Stage · LED preview' : status.display.last_source === 'sleep' ? 'Time-Stage · Sleep mode' : status.display.last_source.startsWith('time-stage') ? 'Time-Stage' : status.display.last_source === 'idle' ? 'Pause' : 'Test pattern';
           window.dispatchEvent(new CustomEvent('pixeldock-status', { detail: status }));
         }
-      } catch (_) { document.querySelector('.live-dot').classList.remove('online'); document.getElementById('previewConnection').textContent = 'VERBINDUNG UNTERBROCHEN'; }
+      } catch (_) { document.querySelector('.live-dot').classList.remove('online'); document.getElementById('previewConnection').textContent = 'CONNECTION INTERRUPTED'; }
     }
     setTimeout(poll, matrixExpanded && !document.hidden ? 200 : 1000); // No pixel polling for a collapsed matrix.
   }

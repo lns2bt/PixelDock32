@@ -32,7 +32,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
   const liveRequest=page.waitForRequest(request=>request.url().endsWith('/api/bitcoin/preview')&&request.postDataJSON()?.physical);
   await page.locator('#bitcoinPhysical').click();
   const livePayload=(await liveRequest).postDataJSON();assert.equal(livePayload.demo,false);assert.equal(livePayload.event,null);
-  await page.locator('#bitcoinPreviewStatus').filter({hasText:'LED-Vorschau gestartet'}).waitFor();
+  await page.locator('#bitcoinPreviewStatus').filter({hasText:'LED preview started'}).waitFor();
   await page.locator('#bitcoinPreviewEvent').selectOption('');
   await page.locator('#bitcoinInfos').locator('..').locator('summary').click();
   await page.locator('[data-info="fees"] [data-move="-1"]').click();
@@ -44,7 +44,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
   await page.locator('[data-led-style="train"]').click();
   const unsaved=(await unsavedRequest).postDataJSON();assert.equal(unsaved.settings.bitcoin_read_seconds,5);assert.equal(unsaved.settings.bitcoin_max_infos,3);assert.equal(unsaved.info,null);
   assert.deepEqual((await(await context.request.get(base+'/api/modules',{headers})).json()).find(v=>v.id===before.id),before);
-  await page.locator('#saveBitcoin').click();await page.locator('#bitcoinFeedback').filter({hasText:'Gespeichert. Änderungen gelten ab der nächsten Vorstellung.'}).waitFor();
+  await page.locator('#saveBitcoin').click();await page.locator('#bitcoinFeedback').filter({hasText:'Saved. Changes apply from the next performance.'}).waitFor();
   assert.equal(await page.locator('#bitcoinSavebar').isVisible(),false);
   const saved=(await(await context.request.get(base+'/api/modules',{headers})).json()).find(v=>v.id===before.id);
   assert.equal(saved.settings.bitcoin_max_infos,3);assert.equal(saved.settings.bitcoin_info_order,'random');
@@ -56,13 +56,13 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
   const cfg=(await(await context.request.get(base+'/api/time-stage',{headers})).json()).config;
   await context.request.post(base+'/api/time-stage/sleep',{headers,data:{mode:'sleep'}});
   assert.equal((await context.request.post(base+'/api/bitcoin/preview',{headers,data:{module_id:before.id,physical:true}})).status(),409);
-  await context.request.put(base+'/api/time-stage',{headers,data:cfg});
+   await context.request.post(base+'/api/time-stage/sleep',{headers,data:{mode:'auto'}});
   await page.reload();await page.locator('#bitcoinFields:not([disabled])').waitFor();assert.equal(await page.locator('#bitcoin_max_infos').inputValue(),'3');
   assert.equal(await page.locator('#headerMatrixToggle').getAttribute('aria-expanded'),'false');
   await page.goto(base+'/modules');await page.locator('.module-card').first().waitFor();
   const btcCard=page.locator('.module-card').filter({has:page.getByRole('heading',{name:before.name,exact:true})});
   assert.equal(await btcCard.locator('input[name="duration_seconds"]').getAttribute('type'),'hidden');
-  await btcCard.locator('.module-head [data-duration]').filter({hasText:'28,4'}).waitFor();
+  await btcCard.locator('.module-head [data-duration]').filter({hasText:'28.4'}).waitFor();
   assert.equal(await page.locator('#headerMatrixToggle').getAttribute('aria-expanded'),'false');
   await page.goto(base+'/time-stage');await page.locator('#timeStageFields:not([disabled])').waitFor();
   await page.locator('#advancedSettings summary').first().click();await page.locator('#color').fill('#ff0011');

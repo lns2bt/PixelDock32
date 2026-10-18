@@ -11,16 +11,16 @@ from app.services.time_stage.core import Canvas, shade
 
 
 STYLES = {
-    'home': ('Pixel-Zuhause', 'Vom Wetter vor dem Haus ins warme Zimmer'),
-    'station': ('Wetterstation', 'Ruhige Instrumente und Messskalen'),
-    'nature': ('Naturwelt', 'Himmel, Wald und Wasser ohne Gesundheitsversprechen'),
-    'neon': ('Neon-Labor', 'Leuchtende Messkammern und klare Daten'),
+    'home': ('Pixel Home', 'From the weather outside the house to the warm room'),
+    'station': ('Weather Station', 'Quiet instruments and measuring scales'),
+    'nature': ('Nature World', 'Sky, forest and water without promises of health'),
+    'neon': ('Neon Lab', 'Luminous measuring chambers and clear data'),
 }
 INFOS = {
-    'outside': ('Außentemperatur', 'AUSSEN'),
-    'inside': ('Innentemperatur', 'INNEN'),
-    'humidity': ('Luftfeuchtigkeit innen', 'FEUCHTE'),
-    'conditions': ('Wetter draußen', 'WETTER'),
+    'outside': ('Outside temperature', 'OUTSIDE'),
+    'inside': ('Indoor temperature', 'INSIDE'),
+    'humidity': ('Humidity inside', 'HUMIDITY'),
+    'conditions': ('Weather outside', 'WEATHER'),
 }
 DEFAULTS = dict(weather_stage=True, weather_styles=list(STYLES), weather_infos=list(INFOS),
                 weather_max_infos=2, weather_read_seconds=4, weather_info_order='ordered',
@@ -102,9 +102,9 @@ def info_value(key, cache, settings, now=None):
         if numeric is not None: value = f'{numeric:.1f}'.rstrip('0').rstrip('.') + '%'
     elif key == 'conditions' and category != 'unknown':
         # A clear sky with unknown day/night is not evidence of sunshine.
-        value = {'clear': 'SONNE' if is_day is True else 'MOND' if is_day is False else 'KLAR',
-                 'cloudy': 'WOLKEN', 'fog': 'NEBEL', 'rain': 'REGEN',
-                 'snow': 'SCHNEE', 'storm': 'GEWITTER'}[category]
+        value = {'clear': 'SUN' if is_day is True else 'MOON' if is_day is False else 'CLEAR',
+                 'cloudy': 'CLOUDS', 'fog': 'FOG', 'rain': 'RAIN',
+                 'snow': 'SNOW', 'storm': 'STORM'}[category]
     stale = value is not None and (bool(error) or age is None or
                                   age > (900 if outdoor else 300) or timestamp > now + 60)
     trend_key = {'outside': 'weather_outdoor_temp_trend', 'inside': 'weather_indoor_temp_trend',

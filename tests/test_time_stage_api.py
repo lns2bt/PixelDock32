@@ -1,6 +1,6 @@
 import asyncio
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock
@@ -58,10 +58,10 @@ class TimeStageApiTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_named_profiles_roundtrip_and_reject_unsafe_or_wrong_categories(self):
         cfg=Config().model_dump(mode='json')
-        cfg['profiles']={'Abend':{'scenes':['retro_cartridge'],'selection':'random'}}
+        cfg['profiles']={'evening':{'scenes':['retro_cartridge'],'selection':'random'}}
         response=await self.client.put('/api/time-stage',json=cfg)
         self.assertEqual(response.status_code,200)
-        self.assertEqual(response.json()['config']['profiles']['Abend']['scenes'],['retro_cartridge'])
+        self.assertEqual(response.json()['config']['profiles']['evening']['scenes'],['retro_cartridge'])
         cfg['profiles']={'__proto__':{'scenes':['retro_cartridge']}}
         self.assertEqual((await self.client.put('/api/time-stage',json=cfg)).status_code,422)
         cfg=Config().model_dump(mode='json');cfg['events']['hour']['scenes']=['sunrise']
@@ -91,18 +91,19 @@ class TimeStageApiTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_put_import_export_and_manual_override_is_not_exported(self):
         config = Config().model_dump(mode="json")
-        config["sleep"].update(mode="wake", until="2026-10-13T23:00:00+02:00")
         config["location"] = {"source": "custom", "latitude": 48.2, "longitude": 16.3}
         response = await self.client.put("/api/time-stage", json=config)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(await self.persisted(), config)
         self.display.configure_time_stage.assert_called_once_with(config)
         self.assertEqual(response.json()["location"], config["location"])
+        await self.client.post('/api/time-stage/sleep', json={'mode':'wake', 'minutes':10})
         exported = (await self.client.get("/api/time-stage/export")).json()
         self.assertEqual(exported["version"], 1)
         self.assertEqual(exported["config"]["sleep"]["mode"], "auto")
         self.assertIsNone(exported["config"]["sleep"]["until"])
-        self.assertEqual((await self.persisted())["sleep"]["mode"], "wake")
+        self.assertEqual((await self.persisted())["sleep"]["mode"], "auto")
+        self.assertEqual((await self.client.get('/api/time-stage')).json()['config']['sleep']['mode'], 'wake')
         exported["config"]["enabled"] = False
         self.assertEqual((await self.client.post("/api/time-stage/import", json=exported)).status_code, 200)
         self.assertFalse((await self.persisted())["enabled"])
@@ -136,15 +137,44 @@ class TimeStageApiTests(unittest.IsolatedAsyncioTestCase):
         before = datetime.now().timestamp()
         response = await self.client.post("/api/time-stage/sleep", json={"mode": "wake", "minutes": 10})
         self.assertEqual(response.status_code, 200)
-        sleep = (await self.persisted())["sleep"]
+        sleep = (await self.client.get('/api/time-stage')).json()['config']['sleep']
         self.assertEqual(sleep["mode"], "wake")
         until = datetime.fromisoformat(sleep["until"])
         self.assertIsNotNone(until.utcoffset())
         self.assertAlmostEqual(until.timestamp() - before, 600, delta=5)
         self.assertEqual((await self.client.post("/api/time-stage/sleep", json={"mode": "sleep"})).status_code, 200)
-        self.assertIsNotNone((await self.persisted())["sleep"]["until"])
+        self.assertIsNotNone((await self.client.get('/api/time-stage')).json()['config']['sleep']['until'])
         self.assertEqual((await self.client.post("/api/time-stage/sleep", json={"mode": "auto"})).status_code, 200)
         self.assertIsNone((await self.persisted())["sleep"]["until"])
+
+    async def test_stale_tab_rejected_and_override_is_independent(self):
+        snapshot = (await self.client.get('/api/time-stage')).json()
+        config = snapshot['config']
+        await self.client.post('/api/time-stage/sleep', json={'mode':'wake','minutes':120})
+        config['sleep'].update(start='23:05', end='07:35', mode='sleep', until='2099-01-01T00:00:00Z')
+        response = await self.client.put('/api/time-stage', json=config, headers={'If-Match':snapshot['revision']})
+        self.assertEqual(response.status_code, 200)
+        saved = response.json()
+        self.assertEqual(saved['config']['sleep']['start'], '23:05')
+        self.assertEqual(saved['config']['sleep']['end'], '07:35')
+        self.assertEqual(saved['config']['sleep']['mode'], 'wake')
+        self.assertEqual((await self.persisted())['sleep']['mode'], 'auto')
+        self.assertEqual((await self.client.put('/api/time-stage', json=config, headers={'If-Match':snapshot['revision']})).status_code, 409)
+        self.assertEqual((await self.client.get('/api/time-stage')).json()['revision'], saved['revision'])
+
+    async def test_expired_override_and_unbounded_legacy_cannot_revive(self):
+        config = Config().model_dump(mode='json')
+        config['sleep'].update(mode='sleep', until=None)
+        async with self.sessions() as db:
+            db.add(TimeStagePreference(key='config', value=config))
+            await db.commit()
+            migrated = await load_or_migrate(db, SimpleNamespace(tz='Europe/Vienna'))
+            self.assertEqual(migrated['sleep']['mode'], 'auto')
+            override = await db.get(TimeStagePreference, 'sleep_override')
+            override.value = {'mode':'sleep', 'until':(datetime.now(timezone.utc)-timedelta(seconds=1)).isoformat()}
+            await db.commit()
+        for _ in range(2):
+            self.assertEqual((await self.client.get('/api/time-stage')).json()['config']['sleep']['mode'], 'auto')
 
     async def test_physical_preview_requires_actual_wake_and_ignores_at(self):
         self.display.time_stage_status.return_value = {"sleep": {"active": True}}

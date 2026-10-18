@@ -25,20 +25,20 @@
     return result;
   }
   function summaries(s) {
-    $('weatherInfosSummary').textContent = `${s.weather_infos.length} ausgewählt · max. ${s.weather_max_infos}`;
-    $('weatherStylesSummary').textContent = `${s.weather_styles.length} von ${catalog.styles.length} ausgewählt`;
+    $('weatherInfosSummary').textContent = `${s.weather_infos.length} selected · max. ${s.weather_max_infos}`;
+    $('weatherStylesSummary').textContent = `${s.weather_styles.length} of ${catalog.styles.length} selected`;
   }
   function mark() {
     if (!row) return;
     const s = collect(); dirty = JSON.stringify(s) !== baseline;
-    $('weatherSavebar').hidden = !dirty; $('weatherDirty').textContent = dirty ? 'Ungespeichert' : '';
+    $('weatherSavebar').hidden = !dirty; $('weatherDirty').textContent = dirty ? 'Unsaved' : '';
     summaries(s); scheduleDuration(); revision++; clearFrame();
     if (playing) requestFrame();
   }
   function scheduleDuration() {
     durationRevision++; durationPending = false; clearTimeout(durationTimer);
     if (!row) return;
-    $('weatherDuration').textContent = 'Dauer wird berechnet …';
+    $('weatherDuration').textContent = 'Duration is calculated...';
     durationTimer = setTimeout(() => { durationPending = true; updateDuration(); }, 200);
   }
   async function updateDuration() {
@@ -50,17 +50,17 @@
       if (currentRevision === durationRevision && row.id === moduleId) {
         const seconds = Number(data.duration ?? data.duration_seconds);
         $('weatherDuration').textContent = data.automatic
-          ? `Automatisch · ca. ${Number.isFinite(seconds) ? seconds.toLocaleString('de-DE',{maximumFractionDigits:1}) : '—'} s · ${data.info_count} Infos · ${data.read_seconds} s Lesezeit.`
-          : `Klassisch · ${row.duration_seconds} s · Dauer in der Playlist editierbar.`;
+          ? `Automatic · approx. ${Number.isFinite(seconds) ? seconds.toLocaleString('en-GB',{maximumFractionDigits:1}) : '—'} s · ${data.info_count} Infos · ${data.read_seconds} s reading time.`
+          : `Classic · ${row.duration_seconds} s · Duration can be edited in the playlist.`;
       }
-    } catch (error) { if (currentRevision === durationRevision) $('weatherDuration').textContent = `Dauer nicht verfügbar: ${error.message}`; }
+    } catch (error) { if (currentRevision === durationRevision) $('weatherDuration').textContent = `Duration not available: ${error.message}`; }
     finally { durationBusy = false; if (durationPending) updateDuration(); }
   }
   function renderChoices(kind, order, selected) {
     const entries = kind === 'Infos' ? catalog.infos : catalog.styles;
     $(`weather${kind}`).innerHTML = order.map((key, i) => {
       const entry = entries.find(value => value.key === key), label = escape(title(entry));
-      return `<div class="weather-row" data-${kind === 'Infos' ? 'info' : 'style-row'}="${escape(key)}"><div class="row-top"><label class="check"><input type="checkbox" value="${escape(key)}" ${selected.includes(key) ? 'checked' : ''}>${label}</label><button type="button" data-move="-1" aria-label="${label} nach oben" ${i === 0 ? 'disabled' : ''}>↑</button><button type="button" data-move="1" aria-label="${label} nach unten" ${i === order.length - 1 ? 'disabled' : ''}>↓</button>${kind === 'Styles' ? `<button type="button" data-led-style="${escape(key)}" aria-label="${label} auf LEDs zeigen">LED-Vorschau</button><button type="button" data-style="${escape(key)}" aria-label="${label} im Browser zeigen">Browser</button>` : ''}</div>${entry.description ? `<details class="weather-description"><summary>Beschreibung</summary><p class="muted">${escape(entry.description)}</p></details>` : ''}</div>`;
+      return `<div class="weather-row" data-${kind === 'Infos' ? 'info' : 'style-row'}="${escape(key)}"><div class="row-top"><label class="check"><input type="checkbox" value="${escape(key)}" ${selected.includes(key) ? 'checked' : ''}>${label}</label><button type="button" data-move="-1" aria-label="${label} up" ${i === 0 ? 'disabled' : ''}>↑</button><button type="button" data-move="1" aria-label="${label} downward" ${i === order.length - 1 ? 'disabled' : ''}>↓</button>${kind === 'Styles' ? `<button type="button" data-led-style="${escape(key)}" aria-label="${label} point to LEDs">LED preview</button><button type="button" data-style="${escape(key)}" aria-label="${label} show in browser">Browser</button>` : ''}</div>${entry.description ? `<details class="weather-description"><summary>Description</summary><p class="muted">${escape(entry.description)}</p></details>` : ''}</div>`;
     }).join('');
     $(`weather${kind}`).querySelectorAll('[data-move]').forEach(button => button.onclick = () => {
       settings = collect(); const parent = button.closest('.weather-row'), index = order.indexOf(parent.dataset.info ?? parent.dataset.styleRow), target = index + Number(button.dataset.move);
@@ -83,7 +83,7 @@
     renderChoices('Infos',infoOrder,settings.weather_infos); renderChoices('Styles',styleOrder,settings.weather_styles);
     baseline = JSON.stringify(collect()); dirty = false; $('weatherSavebar').hidden = true; $('weatherDirty').textContent = ''; $('weatherFields').disabled = false;
     for (const id of ['weatherPreviewPlay','weatherSnapshot','weatherPhysical']) $(id).disabled = false;
-    $('weatherLedStatus').textContent = ''; summaries(collect()); scheduleDuration(); message('Wetter geladen.');
+    $('weatherLedStatus').textContent = ''; summaries(collect()); scheduleDuration(); message('Weather loaded.');
   }
   const display = value => value == null ? '—' : typeof value === 'object' ? JSON.stringify(value) : String(value);
   function dataEntries(data) {
@@ -93,43 +93,43 @@
   }
   function stateText(entry) {
     const state = entry.state ?? entry.status;
-    if (state === 'fresh' || state === 'ok') return 'Aktuell';
-    if (state === 'stale' || entry.stale) return 'Veraltet / Abruffehler';
-    if (state === 'missing' || state === 'unavailable' || entry.value == null) return 'Nicht verfügbar';
+    if (state === 'fresh' || state === 'ok') return 'Current';
+    if (state === 'stale' || entry.stale) return 'Obsolete / retrieval error';
+    if (state === 'missing' || state === 'unavailable' || entry.value == null) return 'Not available';
     return display(state);
   }
   function showData(data) {
     const entries = dataEntries(data.data);
-    $('weatherData').innerHTML = entries.map(entry => `<div><span>${escape(entry.title || catalog.infos.find(info => info.key === entry.key)?.title || entry.key)}</span><strong>${escape(display(entry.value))}${entry.unit ? ` ${escape(entry.unit)}` : ''}</strong><small>${escape(stateText(entry))}${entry.source ? ` · ${escape(display(entry.source))}` : ''}</small></div>`).join('') || '<p>Keine Daten verfügbar.</p>';
-    $('weatherDataSummary').textContent = `${entries.filter(entry => ['fresh','ok'].includes(entry.state ?? entry.status)).length} von ${entries.length} aktuell`;
-    const location=data.location?`${data.location.postcode || ''} ${data.location.country || ''} (${data.location.latitude}, ${data.location.longitude}) · Abruf alle ${data.location.poll_seconds} s`:'konfigurierter Standort';
-    $('weatherSource').textContent = `Quelle: ${display(data.source)} · Standort: ${location}${data.sleep?.active || data.sleep === true ? ' · Schlafmodus aktiv' : ''}`;
+    $('weatherData').innerHTML = entries.map(entry => `<div><span>${escape(entry.title || catalog.infos.find(info => info.key === entry.key)?.title || entry.key)}</span><strong>${escape(display(entry.value))}${entry.unit ? ` ${escape(entry.unit)}` : ''}</strong><small>${escape(stateText(entry))}${entry.source ? ` · ${escape(display(entry.source))}` : ''}</small></div>`).join('') || '<p>No data available.</p>';
+    $('weatherDataSummary').textContent = `${entries.filter(entry => ['fresh','ok'].includes(entry.state ?? entry.status)).length} of ${entries.length} current`;
+    const location=data.location?`${data.location.postcode || ''} ${data.location.country || ''} (${data.location.latitude}, ${data.location.longitude}) · Retrieve all ${data.location.poll_seconds} s`:'configured location';
+    $('weatherSource').textContent = `Source: ${display(data.source)} · Location: ${location}${data.sleep?.active || data.sleep === true ? ' · Sleep mode active' : ''}`;
   }
   $('weatherFields').oninput = mark;
   $('weatherFields').onchange = mark;
   $('weatherModule').onchange = () => {
-    if (dirty && !confirm('Ungespeicherte Wetter-Einstellungen verwerfen?')) { $('weatherModule').value = row.id; return; }
+    if (dirty && !confirm('Discard unsaved weather settings?')) { $('weatherModule').value = row.id; return; }
     const selected = rows.find(value => String(value.id) === $('weatherModule').value); if (selected) fill(selected);
   };
   $('weatherForm').onsubmit = async event => {
     event.preventDefault(); if (!row || !dirty) return;
     const s = collect();
-    if (!s.weather_infos.length || !s.weather_styles.length) { message('Bitte mindestens eine Info und einen Stil auswählen.',true); return; }
-    if (s.weather_comfort_min > s.weather_comfort_max) { message('Komforttemperatur: Minimum darf nicht über dem Maximum liegen.',true); return; }
+    if (!s.weather_infos.length || !s.weather_styles.length) { message('Please select at least one info and one style.',true); return; }
+    if (s.weather_comfort_min > s.weather_comfort_max) { message('Comfort temperature: Minimum must not be higher than maximum.',true); return; }
     const target = row; $('saveWeather').disabled = true;
     try {
       const saved = await api(`/api/modules/${target.id}`,{method:'PUT',body:JSON.stringify({...target,settings:s})});
       Object.assign(target,saved); target.settings = {...s,...saved.settings};
-      if (row === target) { settings = {...target.settings}; baseline = JSON.stringify(s); mark(); message('Gespeichert. Änderungen gelten ab der nächsten Vorstellung.'); }
-      toast('Wetter gespeichert.');
+      if (row === target) { settings = {...target.settings}; baseline = JSON.stringify(s); mark(); message('Saved. Changes apply from the next performance.'); }
+      toast('Weather saved.');
     } catch (error) { message(error.message,true); } finally { $('saveWeather').disabled = false; }
   };
-  function stop() { playing = false; pendingFrame = false; clearTimeout(timer); $('weatherPreviewPlay').textContent = '▶ Browser-Vorschau'; }
+  function stop() { playing = false; pendingFrame = false; clearTimeout(timer); $('weatherPreviewPlay').textContent = '▶ Browser preview'; }
   function clearFrame() { matrix($('weatherCanvas'),[]); $('weatherFrameData').textContent = ''; $('weatherPreviewStatus').textContent = ''; }
   function browserMode() {
     const demo = $('weatherDemo').checked;
     $('weatherCondition').disabled = !demo; $('weatherIsDay').disabled = !demo;
-    $('weatherBrowserSummary').textContent = `${demo ? 'Demo / Simulation' : 'Live'} · nur Browser`;
+    $('weatherBrowserSummary').textContent = `${demo ? 'Demo / Simulation' : 'Live'} · Browser only`;
   }
   // One shared queue serializes browser AND physical previews, with at most four requests per second.
   function sendPreview(payload, valid = () => true) {
@@ -155,10 +155,10 @@
       if (demo) { payload.condition = Number($('weatherCondition').value); payload.is_day = $('weatherIsDay').checked; }
       const data = await sendPreview(payload,valid); if (!data || !valid()) return;
       matrix($('weatherCanvas'),data.pixels || []);
-      $('weatherPreviewStatus').textContent = `${demo ? 'Demo / Simulation' : 'Live-Daten'} · nur Browser${demo && !payload.is_day ? ' · Nacht' : ''} · ${data.text || 'Szeneneinstieg'} · ${elapsed.toFixed(1)} s`;
+      $('weatherPreviewStatus').textContent = `${demo ? 'Demo / Simulation' : 'Live data'} · Browser only${demo && !payload.is_day ? ' · Night' : ''} · ${data.text || 'Scene intro'} · ${elapsed.toFixed(1)} s`;
       // Replace rather than append: an offline or changed frame must never retain old status.
       const frameStatus = data.data_status ?? (Array.isArray(data.info) ? data.info.map(entry => `${entry.title || entry.key}: ${stateText(entry)}`).join(' · ') : null);
-      $('weatherFrameData').textContent = frameStatus == null ? '' : `Datenstatus: ${display(frameStatus)}`;
+      $('weatherFrameData').textContent = frameStatus == null ? '' : `Data status: ${display(frameStatus)}`;
       if (playing && elapsed >= Number(data.duration ?? data.duration_seconds ?? 300)) { anchor = 0; start = performance.now(); }
     } catch (error) { if (valid()) { stop(); clearFrame(); $('weatherPreviewStatus').textContent = error.message; } }
     finally { browserBusy = false; if ((playing || pendingFrame) && !document.hidden && $('weatherBrowserPreview').open) timer = setTimeout(requestFrame,250); }
@@ -171,8 +171,8 @@
       // Explicit allowlist: no browser condition, day/night, elapsed or demo leakage.
       const result=await sendPreview({module_id:moduleId,style,info,elapsed:0,physical:true,demo:false,settings:collect()},()=>currentRevision===physicalRevision&&row.id===moduleId);
       if (!result || currentRevision!==physicalRevision) return;
-      status.textContent = 'LED-Vorschau gestartet · echte Daten · aktuelle Einstellungen.';
-    } catch (error) { status.textContent = `${error.message} · Bei Schlafmodus zuerst „Wach“ wählen, dann erneut versuchen.`; }
+      status.textContent = 'LED preview started · real data · current settings.';
+    } catch (error) { status.textContent = `${error.message} · For sleep mode, select “Wake” first, then try again.`; }
     finally { button.disabled = false; }
   }
   $('weatherSnapshot').onclick = () => { stop(); requestFrame(); };
@@ -192,8 +192,8 @@
     $('weatherModule').innerHTML = rows.map(value => `<option value="${escape(value.id)}">${escape(value.name)}</option>`).join('');
     $('weatherPreviewStyle').innerHTML = catalog.styles.map(entry => `<option value="${escape(entry.key)}">${escape(title(entry))}</option>`).join('');
     $('weatherPreviewInfo').innerHTML += catalog.infos.map(entry => `<option value="${escape(entry.key)}">${escape(title(entry))}</option>`).join('');
-    if (!catalog.styles.length || !catalog.infos.length) message('Wetter-Katalog noch nicht verfügbar. Bitte später neu laden.');
-    else if (rows.length) fill(rows[0]); else message('Kein Wetter-Modul vorhanden. Bitte in der Playlist hinzufügen.');
+    if (!catalog.styles.length || !catalog.infos.length) message('Weather catalog not yet available. Please reload later.');
+    else if (rows.length) fill(rows[0]); else message('No weather module available. Please add to playlist.');
   }).catch(error => message(error.message,true));
-  setInterval(async () => { if (document.hidden || !catalog) return; try { showData(await api('/api/weather')); } catch (_) { $('weatherDataSummary').textContent = 'Abruffehler / veraltet'; } },30000);
+  setInterval(async () => { if (document.hidden || !catalog) return; try { showData(await api('/api/weather')); } catch (_) { $('weatherDataSummary').textContent = 'Retrieval error / outdated'; } },30000);
 })();

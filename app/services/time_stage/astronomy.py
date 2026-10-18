@@ -149,19 +149,19 @@ def calculate(now: datetime, latitude: float, longitude: float) -> dict:
         following = _next(observer, sun, setting + timedelta(seconds=1), True)
         if following:
             result['night_length_minutes'] = (datetime.fromisoformat(following).astimezone(UTC) - setting.astimezone(UTC)).total_seconds() / 60
-    result['night_length_scope'] = 'Sonnenuntergang heute bis zum folgenden Sonnenaufgang; ohne Horizontwechsel dunkler Anteil des lokalen Tages'
+    result['night_length_scope'] = 'Sunset today until the following sunrise; without a change in the horizon, the dark part of the local day'
 
     moon.compute(_date(now))
     illumination = float(moon.moon_phase) * 100
     waxing = ephem.previous_new_moon(_date(now)) > ephem.previous_full_moon(_date(now))
     if illumination < 1:
-        phase = 'Neumond'
+        phase = 'new moon'
     elif illumination > 99:
-        phase = 'Vollmond'
+        phase = 'Full moon'
     elif 45 <= illumination <= 55:
-        phase = 'Erstes Viertel' if waxing else 'Letztes Viertel'
+        phase = 'First quarter' if waxing else 'Last quarter'
     else:
-        phase = 'Zunehmender Mond' if waxing else 'Abnehmender Mond'
+        phase = 'Waxing moon' if waxing else 'Waning moon'
     result.update(moon_illumination=illumination, moon_phase=phase, moon_waxing=bool(waxing))
     for kind, function in (('full_moon', ephem.next_full_moon), ('new_moon', ephem.next_new_moon),
                            ('equinox', ephem.next_equinox), ('solstice', ephem.next_solstice)):

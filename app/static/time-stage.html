@@ -1,85 +1,86 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>PixelDock · Time-Stage</title>
+  <title>PixelDock · Time Stage</title>
   <link rel="stylesheet" href="/static/retro.css"><link rel="stylesheet" href="/static/time-stage.css">
   <script defer src="/static/brightness.js"></script><script defer src="/static/shell.js"></script><script defer src="/static/time-stage.js"></script>
 </head>
 <body data-screen="time-stage">
 <main class="retro-main">
-  <div class="page-heading"><div><p class="kicker">ZEIT FÜR EINEN AUFTRITT</p><h1>Time-Stage</h1><p class="muted">Uhransichten, Himmelsereignisse und eine ruhige Nacht – unabhängig von der Playlist.</p></div><button id="reloadTimeStage" type="button">Neu laden</button></div>
-  <p id="timeStageFeedback" class="feedback" role="status" aria-live="polite">Einstellungen werden geladen …</p>
-  <section class="panel" aria-labelledby="statusHeading"><h2 id="statusHeading">Aktuell</h2><div id="timeStageStatus" class="status-grid"></div><details><summary>API-Status anzeigen</summary><pre id="timeStageRawStatus">—</pre></details></section>
+  <div class="page-heading"><div><p class="kicker">TIME FOR A PERFORMANCE</p><h1>Time-Stage</h1><p class="muted">Clock views, celestial events and a quiet night - regardless of the playlist.</p></div><button id="reloadTimeStage" type="button">Reload</button></div>
+  <p id="timeStageFeedback" class="feedback" role="status" aria-live="polite">Settings are loading...</p>
+  <section class="panel" aria-labelledby="statusHeading"><h2 id="statusHeading">Current</h2><div id="timeStageStatus" class="status-grid"></div><details><summary>View API status</summary><pre id="timeStageRawStatus">—</pre></details></section>
   <form id="timeStageForm">
     <fieldset id="timeStageFields" disabled>
       <section class="panel" aria-labelledby="basicHeading">
-        <h2 id="basicHeading">Grundeinstellungen</h2>
-        <label class="check"><input id="enabled" type="checkbox">Time-Stage aktivieren</label>
+        <h2 id="basicHeading">Basic settings</h2>
+        <label class="check"><input id="enabled" type="checkbox">Activate Time Stage</label>
         <div class="field-grid">
-          <label>Profil<select id="profile"><option value="all">Alle Stile</option><option value="retro">Retro</option><option value="calm">Ruhig</option><option value="favorites">Favoriten</option><option value="custom">Eigene Auswahl</option></select></label>
-          <label>Bewegung<select id="intensity"><option value="calm">Ruhig</option><option value="normal">Normal</option><option value="lively">Lebhaft</option></select></label>
-           <label>Uhrdauer (Sekunden)<input id="duration_seconds" type="number" min="1" max="120" step="1" value="8" required></label>
-           <label>Nach Playlist-Einträgen<input id="after_entries" type="number" min="0" max="100" step="1" value="2" required></label>
-           <label>Spätestens nach Sekunden<input id="interval_seconds" type="number" min="0" max="3600" step="1" value="50" required></label>
+          <label>Profile<select id="profile"><option value="all">All styles</option><option value="retro">Retro</option><option value="calm">Quiet</option><option value="favorites">Favorites</option><option value="custom">Own selection</option></select></label>
+          <label>movement<select id="intensity"><option value="calm">Quiet</option><option value="normal">Normal</option><option value="lively">Lively</option></select></label>
+           <label>Clock duration (seconds)<input id="duration_seconds" type="number" min="1" max="120" step="1" value="8" required></label>
+           <label>By playlist entries<input id="after_entries" type="number" min="0" max="100" step="1" value="2" required></label>
+           <label>After seconds at the latest<input id="interval_seconds" type="number" min="0" max="3600" step="1" value="50" required></label>
         </div>
-        <p class="muted">Pro Auftritt erscheint eine Uhransicht. Die Playlist bleibt erhalten. Details und eigene Szenen finden Sie weiter unten.</p>
+        <p class="muted">A clock view appears for each performance. The playlist remains. Details and your own scenes can be found below.</p>
       </section>
       <section class="panel" aria-labelledby="sleepHeading">
-        <h2 id="sleepHeading">Schlafzeit</h2><p class="muted">Nachts nur eine statische HH:MM-Uhr, ohne Sekunden oder Bewegung. Die Tageshelligkeit bleibt unverändert.</p>
-        <label class="check"><input id="sleep_enabled" type="checkbox">Tägliche Schlafzeit aktivieren</label>
+        <h2 id="sleepHeading">Sleep time</h2><p class="muted">At night just a static HH:MM clock, with no seconds or movement. The daytime brightness remains unchanged.</p>
+        <label class="check"><input id="sleep_enabled" type="checkbox">Enable daily sleep time</label>
         <div class="field-grid">
-          <label>Beginn<input id="sleep_start" type="time" value="02:00" required></label>
-          <label>Ende<input id="sleep_end" type="time" value="08:00" required></label>
-          <label>Nachthelligkeit (0–255)<input id="sleep_brightness" type="number" min="0" max="255" step="1" value="1" required></label>
-          <label>Nachtfarbe<input id="sleep_color" type="color" value="#ff500c"></label>
+          <label>beginning<input id="sleep_start" type="time" value="02:00" required></label>
+          <label>end<input id="sleep_end" type="time" value="08:00" required></label>
+          <label>Night brightness (0-255)<input id="sleep_brightness" type="number" min="0" max="255" step="1" value="1" required></label>
+          <label>Night color<input id="sleep_color" type="color" value="#ff500c"></label>
         </div>
-        <div class="sleep-timeline" aria-label="24-Stunden-Schlafplan"><div id="sleepStrip" class="sleep-strip"></div><div class="time-scale"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div></div>
-        <label>Beginn auf der Zeitleiste<input id="sleepStartRange" type="range" min="0" max="1439" step="1" value="120"></label>
-        <label>Ende auf der Zeitleiste<input id="sleepEndRange" type="range" min="0" max="1439" step="1" value="480"></label>
+        <div class="sleep-timeline" aria-label="24-hour sleep schedule"><div id="sleepStrip" class="sleep-strip"></div><div class="time-scale"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div></div>
+        <label>Start on timeline · <output id="sleepStartValue">02:00</output><input id="sleepStartRange" type="range" min="0" max="1435" step="5" value="120"></label>
+        <label>End on timeline · <output id="sleepEndValue">08:00</output><input id="sleepEndRange" type="range" min="0" max="1435" step="5" value="480"></label>
         <p id="sleepPlan" class="muted"></p>
-        <div class="form-actions sleep-actions"><button type="button" data-sleep-mode="sleep" id="sleepNow">Jetzt schlafen</button><button type="button" data-sleep-mode="wake" id="wakeNow">Wach</button><button type="button" data-sleep-mode="auto" id="sleepAuto">Automatik</button><button type="button" data-sleep-mode="sleep" data-minutes="120" id="sleepTwoHours">2h schlafen</button></div>
-        <p class="muted">Diese Schalter wirken sofort. Manuelle Ausnahmen enden am nächsten Planwechsel oder nach der gewählten Dauer. Der Zeitplan wird erst mit „Speichern“ geändert.</p>
+        <p id="sleepStatus" role="status" class="muted"></p>
+        <div class="form-actions sleep-actions"><button type="button" data-sleep-mode="sleep" id="sleepNow">Sleep now</button><button type="button" data-sleep-mode="wake" id="wakeNow">Awake</button><button type="button" data-sleep-mode="auto" id="sleepAuto">Automatic</button><button type="button" data-sleep-mode="sleep" data-minutes="120" id="sleepTwoHours">Sleep for 2 hours</button></div>
+        <p class="muted">These switches work immediately. Manual exceptions end on the next plan change or after the selected duration. The schedule is only changed with “Save”.</p>
       </section>
-      <details class="panel" id="advancedSettings"><summary>Erweiterte Einstellungen: Ablauf, Szenen, Ereignisse & Standort</summary>
-        <h2>Ablauf</h2>
+      <details class="panel" id="advancedSettings"><summary>Advanced Settings: Schedule, Scenes, Events & Location</summary>
+        <h2>Schedule</h2>
         <div class="field-grid">
-          <label>Auswahl<select id="selection"><option value="ordered">Der Reihe nach</option><option value="random">Zufällig (gewichtet)</option></select></label>
-          <label>Zeitzone<input id="timezone" type="text" placeholder="Europe/Berlin" required></label>
-          <label>Ereignis-Toleranz (Sekunden)<input id="event_grace_seconds" type="number" min="0" max="3600" step="1" value="120" required></label>
-          <label>Eigene Farbe (optional)<input id="color" type="text" pattern="#[0-9a-fA-F]{6}" placeholder="#47d7c4" maxlength="7"></label>
+          <label>Selection<select id="selection"><option value="ordered">One after the other</option><option value="random">Random (weighted)</option></select></label>
+          <label>Timezone<input id="timezone" type="text" placeholder="Europe/Berlin" required></label>
+          <label>Event tolerance (seconds)<input id="event_grace_seconds" type="number" min="0" max="3600" step="1" value="120" required></label>
+          <label>Custom color (optional)<input id="color" type="text" pattern="#[0-9a-fA-F]{6}" placeholder="#47d7c4" maxlength="7"></label>
         </div>
-        <label class="check"><input id="avoid_style_repeat" type="checkbox">Nicht zweimal denselben Stil hintereinander</label>
-        <label class="check"><input id="minute_transition" type="checkbox">Übergang beim Minutenwechsel</label>
-         <p class="muted">0 deaktiviert den jeweiligen Auslöser. Gezählt werden reguläre Playlist-Einträge, nicht Shuffle-Einwürfe oder „Jetzt“-Wiedergaben. Beide Auslöser können kombiniert werden. Die Zeitgrenze ist weich: laufende GIF-Schleifen und Lauftexte dürfen enden. Alte Ereignisse werden nach der Toleranz verworfen.</p>
-         <h2>Eigene Szenenprofile</h2><div class="field-grid"><label>Gespeichertes Profil<select id="savedProfile"></select></label><label>Name<input id="profileName" maxlength="40" placeholder="Mein Abendprofil"></label></div><div class="form-actions"><button id="loadProfile" type="button">Profil laden</button><button id="saveProfile" type="button">Auswahl als Profil merken</button><button id="deleteProfile" type="button">Profil entfernen</button></div><p class="muted">Bis zu acht eigene Profile. Enthält Szenen, Gewichte, Favoriten, Auswahl, Bewegung und Farbe – nicht den Schlafplan. Änderungen anschließend speichern.</p>
-        <h2>Uhransichten</h2><p class="muted">Auswahl und Reihenfolge gelten für das eigene Profil. Gewichte wirken bei Zufallsauswahl; Sterne markieren Favoriten.</p>
-        <div class="form-actions"><button id="selectAllScenes" type="button">Alle auswählen</button><button id="clearScenes" type="button">Auswahl leeren</button></div><div id="sceneList" class="scene-list"></div>
-         <h2>Ereignisse</h2><p class="muted">Jede Kategorie hat eine eigene Auswahl und Dauer: magische Momente 6–60 Sekunden, Himmelszeremonien 30–60 Sekunden. Zum Ausschalten die Kategorie deaktivieren; mindestens eine Szene bleibt ausgewählt.</p><div id="eventList" class="event-list"></div>
-        <h2>Standort</h2><div class="field-grid">
-          <label>Koordinatenquelle<select id="location_source"><option value="weather">Wetterstandort verwenden</option><option value="custom">Eigene Koordinaten</option></select></label>
-          <label>Breitengrad<input id="latitude" type="number" min="-90" max="90" step="any" placeholder="z. B. 52.52"></label>
-          <label>Längengrad<input id="longitude" type="number" min="-180" max="180" step="any" placeholder="z. B. 13.405"></label>
-        </div><p class="muted">Standard ist der Wetterstandort. Eigene Koordinaten sind optional; bei eigener Quelle werden beide benötigt.</p>
+        <label class="check"><input id="avoid_style_repeat" type="checkbox">Not the same style twice in a row</label>
+        <label class="check"><input id="minute_transition" type="checkbox">Transition at minute change</label>
+         <p class="muted">0 deactivates the respective trigger. Regular playlist entries are counted, not shuffle entries or “now” plays. Both triggers can be combined. The time limit is soft: running GIF loops and scrolling texts are allowed to end. Old events are discarded after tolerance.</p>
+         <h2>Own scene profiles</h2><div class="field-grid"><label>Saved profile<select id="savedProfile"></select></label><label>Name<input id="profileName" maxlength="40" placeholder="My evening profile"></label></div><div class="form-actions"><button id="loadProfile" type="button">Load profile</button><button id="saveProfile" type="button">Save selection as profile</button><button id="deleteProfile" type="button">Remove profile</button></div><p class="muted">Up to eight custom profiles. Includes scenes, weights, favorites, selection, movement and color - not the sleep schedule. Then save changes.</p>
+        <h2>Clock views</h2><p class="muted">The selection and order apply to your own profile. Weights work in random selection; Stars mark favorites.</p>
+        <div class="form-actions"><button id="selectAllScenes" type="button">Select all</button><button id="clearScenes" type="button">Clear selection</button></div><div id="sceneList" class="scene-list"></div>
+         <h2>Events</h2><p class="muted">Each category has its own selection and duration: magical moments 6-60 seconds, celestial ceremonies 30-60 seconds. To turn off, deactivate the category; at least one scene remains selected.</p><div id="eventList" class="event-list"></div>
+        <h2>Location</h2><div class="field-grid">
+          <label>Coordinate source<select id="location_source"><option value="weather">Use weather location</option><option value="custom">Own coordinates</option></select></label>
+          <label>Latitude<input id="latitude" type="number" min="-90" max="90" step="any" placeholder="z. B. 52.52"></label>
+          <label>Longitude<input id="longitude" type="number" min="-180" max="180" step="any" placeholder="z. B. 13.405"></label>
+        </div><p class="muted">The default is the weather location. Custom coordinates are optional; if you have your own source, both are required.</p>
       </details>
-      <div class="panel save-bar"><span id="dirtyState">Keine ungespeicherten Änderungen.</span><button id="saveTimeStage" class="primary" type="submit">Speichern</button></div>
+      <div class="panel save-bar"><span id="dirtyState">No unsaved changes.</span><button id="saveTimeStage" class="primary" type="submit">Save</button></div>
     </fieldset>
   </form>
   <section class="panel" aria-labelledby="previewHeading">
-    <h2 id="previewHeading">Browser-Vorschau</h2><p class="muted">Beide Vorschauen verwenden auch ungespeicherte Einstellungen. Datum, Uhrzeit und Tempo werden nur im Browser simuliert. LED-Vorschau zeigt die Szene sofort zur aktuellen Zeit, danach läuft die Playlist weiter. Im Schlafmodus bleibt sie gesperrt.</p>
-    <canvas id="timeStageCanvas" width="512" height="128" aria-label="Time-Stage-Vorschau, 32 mal 8 Pixel"></canvas>
+    <h2 id="previewHeading">Browser preview</h2><p class="muted">Both previews also use unsaved settings. Date, time and pace are only simulated in the browser. LED preview immediately shows the scene at the current time, then the playlist continues. It remains locked in sleep mode.</p>
+    <canvas id="timeStageCanvas" width="512" height="128" aria-label="Time stage preview, 32 by 8 pixels"></canvas>
     <div class="field-grid">
-      <label>Szene<select id="previewScene" disabled></select></label>
-      <label>Datum und Uhrzeit<input id="previewAt" type="datetime-local" step="1"></label>
+      <label>Scene<select id="previewScene" disabled></select></label>
+      <label>Date and time<input id="previewAt" type="datetime-local" step="1"></label>
       <label>HH:MM-Schnappschuss<input id="previewTime" type="time" step="60"></label>
-      <label>Tempo<select id="previewSpeed"><option value="1">Echtzeit</option><option value="6">6× Zeitraffer</option></select></label>
-      <label>Animationsfortschritt (Sekunden)<input id="previewElapsed" type="number" min="0" max="120" step="0.1" value="0"></label>
+      <label>Speed<select id="previewSpeed"><option value="1">Real time</option><option value="6">6× time lapse</option></select></label>
+      <label>Animation progress (seconds)<input id="previewElapsed" type="number" min="0" max="120" step="0.1" value="0"></label>
     </div>
-    <div class="form-actions"><button id="previewPlay" type="button" aria-pressed="false" disabled>Browser-Vorschau abspielen</button><button id="previewSnapshot" type="button" disabled>Browser-Vorschau</button><button id="previewNow" type="button">Aktuelle Zeit</button><button id="previewPhysical" type="button" disabled>LED-Vorschau</button></div>
-    <p id="previewFeedback" class="muted" role="status">Vorschau bereit, sobald die Szenen geladen sind.</p>
+    <div class="form-actions"><button id="previewPlay" type="button" aria-pressed="false" disabled>Play browser preview</button><button id="previewSnapshot" type="button" disabled>Browser preview</button><button id="previewNow" type="button">Current time</button><button id="previewPhysical" type="button" disabled>LED preview</button></div>
+    <p id="previewFeedback" class="muted" role="status">Preview ready once scenes are loaded.</p>
   </section>
-  <section class="panel"><h2>Himmel & Standort</h2><p class="muted">Berechnete und zwischengespeicherte Werte vom Gerät. Fehlende Ereignisse sind je nach Standort und Jahreszeit normal.</p><dl id="astronomyInfo" class="sky-info"></dl><details><summary>Berechnungsdaten anzeigen</summary><pre id="astronomyRaw">—</pre></details></section>
-  <section class="panel"><h2>Sichern & übertragen</h2><p class="muted">Exportiert ausschließlich die Time-Stage-Konfiguration, keine Zugangsdaten. Import: JSON-Datei bis 128 KiB. Vor dem Import die aktuelle Konfiguration sichern.</p><div class="form-actions"><button id="exportTimeStage" type="button" disabled>Konfiguration exportieren</button><label class="button" for="importTimeStage">JSON importieren</label><input id="importTimeStage" type="file" accept=".json,application/json" disabled></div></section>
+  <section class="panel"><h2>Sky & location</h2><p class="muted">Calculated and cached values from the device. Missing events are normal depending on location and time of year.</p><dl id="astronomyInfo" class="sky-info"></dl><details><summary>Show calculation data</summary><pre id="astronomyRaw">—</pre></details></section>
+  <section class="panel"><h2>Backup & transfer</h2><p class="muted">Only exports the time stage configuration, no access data. Import: JSON file up to 128 KiB. Save the current configuration before importing.</p><div class="form-actions"><button id="exportTimeStage" type="button" disabled>Export configuration</button><label class="button" for="importTimeStage">Import JSON</label><input id="importTimeStage" type="file" accept=".json,application/json" disabled></div></section>
 </main>
 </body>
 </html>

@@ -104,13 +104,9 @@ class TimeStageEngine:
                 scheduled |= begin <= instant < finish
         mode = sleep.get('mode', 'auto')
         until = sleep.get('until')
-        # Missing expiry is resolved once, not recomputed at each tick.
-        if mode != 'auto' and until is None:
-            until = next_sleep_boundary(now, self.config).isoformat()
-            sleep['until'] = until
-        if mode != 'auto' and until is not None and _aware(until) <= instant:
+        # Pure evaluation: an expired/missing deadline can never be resurrected.
+        if mode != 'auto' and (until is None or _aware(until) <= instant):
             mode, until = 'auto', None
-            sleep.update(mode='auto', until=None)
         return {'active': mode == 'sleep' if mode != 'auto' else scheduled,
                 'mode': mode, 'until': until if mode != 'auto' else None,
                 'scheduled': scheduled}

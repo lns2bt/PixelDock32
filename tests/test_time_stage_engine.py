@@ -159,13 +159,14 @@ class TimeStageEngineTests(unittest.TestCase):
         self.assertEqual(engine.sleep_state(first_fold)['mode'], 'sleep')
         self.assertEqual(engine.sleep_state(boundary)['mode'], 'auto')
 
-    def test_implicit_manual_expiry_is_fixed_at_next_boundary(self):
+    def test_unbounded_legacy_override_is_ignored_on_every_reload(self):
         cfg = config()
         cfg['sleep'].update(mode='sleep')
         engine = TimeStageEngine(cfg)
         state = engine.sleep_state(NOW)
-        self.assertEqual(state['until'], '2026-10-14T02:00:00+00:00')
-        self.assertEqual(engine.sleep_state(datetime.fromisoformat(state['until']))['mode'], 'auto')
+        self.assertIsNone(state['until'])
+        self.assertEqual(state['mode'], 'auto')
+        self.assertEqual(TimeStageEngine(cfg).sleep_state(NOW + timedelta(days=1))['mode'], 'auto')
 
     def test_celestial_injection_and_empty_profile_status(self):
         cfg = config(profile='favorites')

@@ -23,6 +23,7 @@
 .time-scale { display:flex; justify-content:space-between; font-size:.7rem; color:var(--muted); margin:.35rem 0; }
 input[type=range] { accent-color:var(--mint); padding:0 !important; border:0 !important; background:transparent !important; }
 .sleep-actions { margin-top:1rem; }
+#sleepStatus { border-left:3px solid var(--mint); padding:.5rem .75rem; overflow-wrap:anywhere; }
 .save-bar { display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; }
 .save-bar span { font-size:.85rem; color:var(--muted); }
 #timeStageCanvas { display:block; width:100%; max-width:768px; height:auto; image-rendering:pixelated; border:1px solid var(--border); border-radius:8px; background:#070a11; }

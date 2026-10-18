@@ -7,28 +7,28 @@ MAX_SOURCE_FRAMES = 4096
 def selection_plan(durations, trim_start=0, trim_end=0, step=1,
                    range_kind='frames', start_seconds=0, end_seconds=None):
     if not durations or len(durations) > MAX_SOURCE_FRAMES:
-        raise ValueError('1–4096 Quellframes erforderlich')
+        raise ValueError('1-4096 source frames required')
     for value in (trim_start, trim_end, step):
-        if type(value) is not int: raise ValueError('Framezahlen müssen ganze Zahlen sein')
+        if type(value) is not int: raise ValueError('Frame numbers must be integers')
     if trim_start < 0 or trim_end < 0 or not 1 <= step <= 64:
-        raise ValueError('Ungültige Kürzung oder Ausdünnung (1–64)')
-    if range_kind not in ('frames', 'time'): raise ValueError('Ungültiger Auswahlmodus')
+        raise ValueError('Invalid shortening or thinning (1-64)')
+    if range_kind not in ('frames', 'time'): raise ValueError('Invalid selection mode')
     total = sum(durations)
     start, end = trim_start, len(durations)-trim_end
     if range_kind == 'time':
         try:
             a = float(start_seconds)*1000
             b = total if end_seconds is None else float(end_seconds)*1000
-        except (ValueError, TypeError, OverflowError): raise ValueError('Ungültiger Zeitbereich')
+        except (ValueError, TypeError, OverflowError): raise ValueError('Invalid time range')
         if not math.isfinite(a) or not math.isfinite(b) or not 0 <= a < b <= total:
-            raise ValueError('Zeitbereich muss innerhalb der Animation liegen')
+            raise ValueError('Time range must be within the animation')
         position = 0; start = None; end = len(durations)
         for i, duration in enumerate(durations):
             if start is None and position+duration > a: start=i
             if position >= b: end=i; break
             position += duration
     if not 0 <= start < end <= len(durations):
-        raise ValueError('Mindestens ein Frame muss erhalten bleiben')
+        raise ValueError('At least one frame must be retained')
     groups = []
     for index in range(start,end,step):
         duration = sum(durations[index:min(index+step,end)])

@@ -26,27 +26,27 @@ def validate_asset(data):
         raise ValueError(f"1–{MAX_FRAMES} Frames erforderlich")
     for frame in frames:
         if not isinstance(frame, dict):
-            raise ValueError("Ungültiger Frame")
+            raise ValueError("Invalid frame")
         pixels = frame.get("pixels")
         if not isinstance(pixels, list) or len(pixels) != 256 or any(type(p) is not int or not 0 <= p <= 0xFFFFFF for p in pixels):
-            raise ValueError("Jeder Frame benötigt 256 RGB-Pixel")
+            raise ValueError("Each frame requires 256 RGB pixels")
         duration = frame.get("duration_ms")
         if type(duration) is not int or not 33 <= duration <= 2000:
-            raise ValueError("Frame-Dauer muss 33–2000 ms sein")
+            raise ValueError("Frame duration must be 33-2000 ms")
     name = data.get("name", "Pixel-Animation")
     if not isinstance(name, str) or not 1 <= len(name.strip()) <= 80:
-        raise ValueError("Name muss 1–80 Zeichen haben")
+        raise ValueError("Name must be 1-80 characters")
     return {"name": name.strip(), "frames": frames}
 
 
 def _open_image(raw):
     if len(raw) > MAX_UPLOAD:
-        raise ValueError("Maximal 4 MB pro Upload")
+        raise ValueError("Maximum 4 MB pro Upload")
     image = Image.open(BytesIO(raw))
     if image.format not in {'GIF','PNG'}:
-        image.close();raise ValueError('Nur GIF und PNG werden unterstützt')
+        image.close();raise ValueError('Only GIF and PNG are supported')
     if image.width > 1024 or image.height > 1024 or image.width * image.height > 262144:
-        image.close();raise ValueError('Bild zu groß: maximal 1024 je Seite und 262144 Pixel')
+        image.close();raise ValueError('Image too large: maximum 1024 per page and 262144 pixels')
     return image
 
 
@@ -62,20 +62,20 @@ def analyze_image(raw):
                 except EOFError:
                     break
                 if index == MAX_SOURCE_FRAMES:
-                    raise ValueError('Zu viele Quellframes: maximal 4096 für die Importvorbereitung')
+                    raise ValueError('Too many source frames: maximum 4096 for import preparation')
                 if image.width * image.height * (index + 1) > 8_000_000:
-                    raise ValueError("Animation-Auflösung zu groß: maximal 8 Millionen Quellpixel über alle Frames. Bitte vor dem Import auf 32 × 8 verkleinern.")
+                    raise ValueError("Animation resolution too large: maximum 8 million source pixels across all frames. Please reduce to 32 × 8 before importing.")
                 durations.append(max(33,min(655350,int(image.info.get('duration',100) or 100))))
             return {'frame_count':len(durations),'durations_ms':durations,'width':width,'height':height,
                     'cycle_seconds':sum(durations)/1000,'bytes':len(raw),'max_frames':MAX_FRAMES}
 
 
 def decode_image(raw, name, fit, **options):
-    if fit not in {'contain','cover','stretch'}: raise ValueError('Ungültige Skalierung')
+    if fit not in {'contain','cover','stretch'}: raise ValueError('Invalid scaling')
     analysis=analyze_image(raw)
     plan=selection_plan(analysis['durations_ms'],**options)
     if plan['frame_count']>MAX_FRAMES:
-        raise ValueError(f'Zu viele Frames: maximal {MAX_FRAMES} im fertigen Asset. Bitte Bereich kürzen oder Frames ausdünnen.')
+        raise ValueError(f'Too many frames: at most {MAX_FRAMES} in the finished asset. Trim the range or thin the frames.')
     frames=[]
     with warnings.catch_warnings():
         warnings.simplefilter('error',Image.DecompressionBombWarning)
@@ -113,14 +113,14 @@ class AssetStore:
 
     def path(self, asset_id):
         if not isinstance(asset_id, str) or not ID_PATTERN.fullmatch(asset_id):
-            raise ValueError("Ungültige Asset-ID")
+            raise ValueError("Invalid asset ID")
         return self.directory / (asset_id + ".json")
 
     def save(self, data):
         data = validate_asset(data)
         with self._lock:
             if len(list(self.directory.glob("*.json"))) >= MAX_ASSETS:
-                raise ValueError("Bibliothek voll (128 Assets)")
+                raise ValueError("Library full (128 assets)")
             asset_id = uuid.uuid4().hex
             path = self.path(asset_id)
             with path.open("x", encoding="utf-8") as handle:
@@ -132,7 +132,7 @@ class AssetStore:
             if asset_id not in self._cache:
                 path = self.path(asset_id)
                 if path.stat().st_size > MAX_ASSET_BYTES:
-                    raise ValueError("Asset-Datei zu groß")
+                    raise ValueError("Asset file too large")
                 data = validate_asset(json.loads(path.read_text()))
                 data["id"] = asset_id
                 data["cycle_seconds"] = sum(f["duration_ms"] for f in data["frames"]) / 1000

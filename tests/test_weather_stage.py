@@ -141,8 +141,8 @@ class WeatherStageTests(unittest.TestCase):
             for code in codes: self.assertEqual(condition_category(code), category)
         for bad in (None, True, -1, 4, 52, 72, 98, 100, 61.5, 'bad'):
             self.assertEqual(condition_category(bad), 'unknown')
-        for day, value in ((True, 'SONNE'), (1, 'SONNE'), (False, 'MOND'),
-                           (0, 'MOND'), (None, 'KLAR'), ('0', 'KLAR'), (2, 'KLAR')):
+        for day, value in ((True, 'SUN'), (1, 'SUN'), (False, 'MOON'),
+                           (0, 'MOON'), (None, 'CLEAR'), ('0', 'CLEAR'), (2, 'CLEAR')):
             data = cache(); data.update(weather_code=0, weather_is_day=day)
             self.assertEqual(info_value('conditions', data, {}, 1000)['value'], value)
         data = cache(); data['weather_code'] = None
@@ -203,7 +203,7 @@ class WeatherStageTests(unittest.TestCase):
         timing = presentation_timing({'weather_infos': ['conditions'], 'weather_stage': False})
         self.assertEqual(timing['info_count'], 1)
         self.assertFalse(timing['automatic'])
-        visit = Visit('home', [dict(key='conditions', label='WETTER', value='LANGER WETTERTEXT',
+        visit = Visit('home', [dict(key='conditions', label='WEATHER', value='LONG WEATHER TEXT',
                                    state='fresh', category='unknown', is_day=None)], normalize({'weather_read_seconds': 2}))
         self.assertGreater(visit.read_seconds, 7)
         self.assertAlmostEqual(visit.duration, .8 + 4 + visit.read_seconds + .6)

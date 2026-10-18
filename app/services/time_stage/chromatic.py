@@ -149,29 +149,29 @@ def _neon_pulse(now: datetime, elapsed: float) -> Canvas:
 
 
 SCENES = [
-    Scene(key="chroma_kaleidoscope", title="Kaleidoskop", style="Psychedelisch",
-          description="Spiegelnde Farbblüten um eine ruhige, helle Uhr.",
-          seconds="Die Randkette füllt sich im Uhrzeigersinn während der Minute; "
-                  "auch die Blütenphase folgt den echten Sekunden.",
+    Scene(key="chroma_kaleidoscope", title="Kaleidoscope", style="Psychedelic",
+          description="Reflective colored flowers around a calm, bright clock.",
+          seconds="The edge chain fills clockwise during the minute; "
+                  "the flowering phase also follows the real seconds.",
           render=_kaleidoscope),
-    Scene(key="chroma_lava", title="Lava-Lampe", style="Psychedelisch",
-          description="Violett-orange Lava fließt in zwei Kammern neben der Uhr.",
-          seconds="Der Lavapegel steigt mit den echten Sekunden von unten nach "
-                  "oben und beginnt bei jeder vollen Minute erneut.",
+    Scene(key="chroma_lava", title="Lava Lamp", style="Psychedelic",
+          description="Purple-orange lava flows into two chambers next to the clock.",
+          seconds="The lava level rises from the bottom with the real seconds "
+                  "above and starts again every full minute.",
           render=_lava),
-    Scene(key="chroma_pop_art", title="Sekunden-Comic", style="Pop-Art",
-          description="Sechs bunte Comicfelder, Rasterpunkte und eine gelbe Uhr.",
-          seconds="Jedes Feld steht für zehn Sekunden: erst links von oben nach "
-                  "unten, dann rechts. Das aktuelle Feld füllt sich pixelweise.",
+    Scene(key="chroma_pop_art", title="Seconds Comic", style="Pop-Art",
+          description="Six colorful comic fields, grid dots and a yellow clock.",
+          seconds="Each field stands for ten seconds: first to the left from top to bottom "
+                  "down, then right. The current field fills pixel by pixel.",
           render=_pop_art),
-    Scene(key="chroma_prism", title="Minutenprisma", style="Spektral",
-          description="Kantige Regenbogenstrahlen und spektral gefärbte Ziffern.",
-          seconds="Sechzig Lichtzellen zählen die echten Sekunden: oben nach "
-                  "rechts, anschließend unten nach links.",
+    Scene(key="chroma_prism", title="Minute Prism", style="Spectral",
+          description="Angular rainbow rays and spectrally colored numbers.",
+          seconds="Sixty light cells count the real seconds: up "
+                  "right, then down to the left.",
           render=_prism),
-    Scene(key="chroma_neon_pulse", title="Neonpuls", style="Neon",
-          description="Türkise und pinke Lichtspuren rahmen eine minthelle Uhr.",
-          seconds="Links steht die Sekunden-Zehnerziffer, rechts die Einerziffer; "
-                  "die Lichtspuren durchlaufen parallel eine Runde pro Minute.",
+    Scene(key="chroma_neon_pulse", title="Neon Pulse", style="Neon",
+          description="Turquoise and pink light trails frame a mint-colored clock.",
+          seconds="On the left is the second tens digit, on the right is the ones digit; "
+                  "the light trails run through one round per minute in parallel.",
           render=_neon_pulse),
 ]

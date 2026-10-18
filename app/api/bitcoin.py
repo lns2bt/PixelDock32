@@ -31,7 +31,7 @@ class TimingRequest(BaseModel):
 
 def _preview_options(settings):
     if 'bitcoin_infos' in settings and (not isinstance(settings['bitcoin_infos'],list) or not settings['bitcoin_infos']):
-        raise HTTPException(422, 'Bitte mindestens eine Bitcoin-Info auswählen.')
+        raise HTTPException(422, 'Please select at least one Bitcoin information.')
     return settings
 
 
@@ -42,7 +42,7 @@ async def duration(payload: TimingRequest, request: Request, db=Depends(get_db))
     if payload.module_id is not None:
         row = await db.get(ModuleConfig, payload.module_id)
         if row is None or row.key.split('-')[0] != 'btc':
-            raise HTTPException(404, 'Bitcoin-Modul nicht gefunden')
+            raise HTTPException(404, 'Bitcoin module not found')
         settings = row.settings or {}
     return presentation_timing(_preview_options({**settings, **payload.settings}))
 
@@ -53,25 +53,25 @@ async def get_bitcoin(request: Request):
     cache=dict(service.cache_provider() or {})
     settings=normalize({})
     return {**catalog(), 'data':[info_value(key,cache,settings) for key in INFOS],
-            'fee_source':'mempool.space (oder BTC_NETWORK_API_URL)',
-            'price_source':'Konfigurierte BTC_API_URL',
+            'fee_source':'mempool.space (or BTC_NETWORK_API_URL)',
+            'price_source':'Configured BTC_API_URL',
             'sleep':service.time_stage_status().get('sleep',{})}
 
 
 @router.post('/preview')
 async def preview(payload: Preview, request: Request, db=Depends(get_db)):
     if payload.style not in STYLES or payload.info is not None and payload.info not in INFOS or payload.event is not None and payload.event not in EVENTS:
-        raise HTTPException(422,'Unbekannte Bitcoin-Szene oder Information')
+        raise HTTPException(422,'Unknown Bitcoin scene or information')
     row=await db.get(ModuleConfig,payload.module_id)
-    if row is None or row.key.split('-')[0]!='btc': raise HTTPException(404,'Bitcoin-Modul nicht gefunden')
+    if row is None or row.key.split('-')[0]!='btc': raise HTTPException(404,'Bitcoin module not found')
     service=request.app.state.display_service
     settings=normalize(_preview_options({**(row.settings or {}), **(payload.settings or {})}))
     settings.update(bitcoin_stage=True,visual_style='retro',bitcoin_styles=[payload.style])
     if payload.info: settings.update(bitcoin_infos=[payload.info],bitcoin_max_infos=1)
     if payload.physical:
-        if payload.demo or payload.event: raise HTTPException(422,'Beispieldaten und simulierte Blockereignisse sind nur im Browser erlaubt')
+        if payload.demo or payload.event: raise HTTPException(422,'Sample data and simulated block events are only allowed in the browser')
         if service.time_stage and service.time_stage.sleep_state(service._stage_now())['active']:
-            raise HTTPException(409,'Schlafmodus aktiv. Bitte zuerst ausdrücklich auf Wach umschalten.')
+            raise HTTPException(409,'Sleep mode active. Please first explicitly switch to awake.')
         try:
             service.preview_bitcoin(settings)
         except ValueError as exc:

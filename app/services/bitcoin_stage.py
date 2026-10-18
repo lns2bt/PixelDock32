@@ -13,24 +13,24 @@ from app.services.time_stage.core import Canvas, shade
 
 
 INFOS = {
-    'price': ('Preis EUR', 'EUR'), 'height': ('Blockhöhe', 'BLOCK'),
-    'sats': ('Sats pro Euro', 'SAT/EUR'), 'age': ('Alter des letzten Blocks', 'ALTER'),
-    'fees': ('Gebührenempfehlung', 'SAT/VB'), 'halving': ('Blöcke bis zum Halving', 'HALVING'),
-    'change': ('Preisänderung 24h', '24H %'),
+    'price': ('Price EUR', 'EUR'), 'height': ('Block height', 'BLOCK'),
+    'sats': ('Sats per Euro', 'SAT/EUR'), 'age': ('Age of last block', 'AGE'),
+    'fees': ('Fee recommendation', 'SAT/VB'), 'halving': ('Blocks until halving', 'HALVING'),
+    'change': ('Price change 24h', '24H %'),
 }
 STYLES = {
-    'forge': ('Block-Schmiede', 'Glut, Hammer und goldene Funken'),
-    'train': ('Blockchain-Zug', 'Verkettete Wagen bringen die nächste Information'),
-    'mine': ('Mining-Schacht', 'Spitzhacke und Goldadern im dunklen Gestein'),
-    'nonce': ('Nonce-Suche', 'Künstlerischer Zahlensuchlauf, kein echtes Mining'),
-    'orbit': ('Bitcoin-Orbit', 'Satelliten umkreisen einen orangefarbenen Block'),
-    'rain': ('Transaktionsregen', 'Symbolische Transaktionen sammeln sich; keine Mempoolmessung'),
-    'terminal': ('Cyber-Terminal', 'Scanlinien und grün-orange Datentelegramme'),
-    'counter': ('Mechanischer Zähler', 'Zahnräder und präzise rollende Ziffern'),
-    'tetris': ('Block-Tetris', 'Fallende Steine setzen sich zu einem Block zusammen'),
-    'vein': ('Goldader', 'Licht wandert durch eine leuchtende Erzader'),
+    'forge': ('Block Forge', 'Embers, hammer and golden sparks'),
+    'train': ('Blockchain Train', 'Chained wagons bring the next piece of information'),
+    'mine': ('Mining Shaft', 'Pickaxe and gold veins in dark rock'),
+    'nonce': ('Nonce Search', 'Artistic number search, not real mining'),
+    'orbit': ('Bitcoin Orbit', 'Satellites orbit an orange block'),
+    'rain': ('Transaction Rain', 'Symbolic transactions accumulate; no mempool measurement'),
+    'terminal': ('Cyber-Terminal', 'Scan lines and green-orange data telegrams'),
+    'counter': ('Mechanical counter', 'Gears and precise rolling numbers'),
+    'tetris': ('Block-Tetris', 'Falling stones form a block'),
+    'vein': ('Gold Vein', 'Light travels through a glowing vein of ore'),
 }
-EVENTS = {'dock': 'Neuer Block dockt an', 'forge': 'Neuer Block wird geschmiedet', 'counter': 'Höhenzähler wechselt'}
+EVENTS = {'dock': 'New block docks', 'forge': 'New block is forged', 'counter': 'Height counter changes'}
 DEFAULTS = dict(bitcoin_stage=True, bitcoin_infos=list(INFOS), bitcoin_max_infos=2,
                 bitcoin_info_order='ordered', bitcoin_styles=list(STYLES),
                 bitcoin_style_order='ordered', bitcoin_read_seconds=4,
@@ -79,13 +79,13 @@ def info_value(key, cache, settings, now=None):
         sats = 100_000_000 / price
         value = str(round(sats)) if sats < 1_000_000 else f'{sats / 1_000_000:.1f}M'
     elif key == 'halving' and height is not None:
-        value = str((int(height) // 210_000 + 1) * 210_000 - int(height)) if height < 6_930_000 else 'ENDE'
+        value = str((int(height) // 210_000 + 1) * 210_000 - int(height)) if height < 6_930_000 else 'END'
     elif key == 'age':
         block_time = number(cache.get('btc_block_time'))
         stamp = cache.get('btc_block_details_updated_at'); error = cache.get('btc_block_details_error')
         if block_time is not None and block_time <= now and cache.get('btc_block_details_height', height) == height:
             minutes = int((now - block_time) / 60)
-            value = f'{minutes}MIN' if minutes < 1000 else f'{minutes // 60}STD'
+            value = f'{minutes}MIN' if minutes < 1000 else f'{minutes // 60}H'
     elif key == 'fees':
         fees = cache.get('btc_fees')
         fee = number(fees.get(settings['bitcoin_fee_level'])) if isinstance(fees,dict) else None
@@ -294,14 +294,14 @@ def render(visit, elapsed):
         event=visit.event
         if elapsed < 2:
             canvas=story('train' if event=='dock' else 'forge' if event=='forge' else 'counter',elapsed,'height',visit.settings['bitcoin_intensity'])
-        elif elapsed < 3: text(canvas,'NEU',elapsed,ORANGE)
+        elif elapsed < 3: text(canvas,'NEW',elapsed,ORANGE)
         else:
             message=str(visit.new_height)
             if event=='counter' and elapsed < 3.5:
                 text(canvas,str(visit.old_height),elapsed,GOLD,offset_y=-int((elapsed-3)*14))
                 text(canvas,message,elapsed,ORANGE,offset_y=7-int((elapsed-3)*14))
             else: text(canvas,message,elapsed,ORANGE)
-        key+=':new-block'; message=message or 'NEUER BLOCK'
+        key+=':new-block'; message=message or 'NEW BLOCK'
     else:
         elapsed-=6 if visit.event else 0
         if elapsed < .8:

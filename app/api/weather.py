@@ -45,14 +45,14 @@ def _preview_options(settings):
             if not isinstance(values, list) or not values or any(
                 not isinstance(value, str) or value not in allowed for value in values
             ):
-                raise HTTPException(422, 'Bitte gültige Wetter-Infos und Szenen auswählen.')
+                raise HTTPException(422, 'Please select valid weather information and scenes.')
     return settings
 
 
 async def _weather_row(db, module_id):
     row = await db.get(ModuleConfig, module_id)
     if row is None or row.key.split('-')[0] != 'weather':
-        raise HTTPException(404, 'Wetter-Modul nicht gefunden')
+        raise HTTPException(404, 'Weather module not found')
     return row
 
 
@@ -69,7 +69,7 @@ async def get_weather(request: Request):
     }
     return {**catalog(), 'data': [info_value(key, cache, settings) for key in INFOS],
             'location': location,
-            'source': 'Modellbasierte Open-Meteo Current Conditions für den konfigurierten Standort; keine lokale Wetterbeobachtung.',
+            'source': 'Model-based Open-Meteo Current Conditions for the configured location; no local weather observation.',
             'sleep': service.time_stage_status().get('sleep', {})}
 
 
@@ -87,10 +87,10 @@ async def preview(payload: Preview, request: Request, db=Depends(get_db)):
     if (payload.style not in STYLES or
             payload.info is not None and payload.info not in INFOS or
             payload.condition is not None and payload.condition not in WMO_CODES):
-        raise HTTPException(422, 'Unbekannte Wetter-Szene, Information oder WMO-Bedingung')
+        raise HTTPException(422, 'Unknown weather scene, information or WMO condition')
     simulated = payload.condition is not None or payload.is_day is not None
     if simulated and not payload.demo or payload.physical and (payload.demo or simulated):
-        raise HTTPException(422, 'Beispieldaten und simulierte Wetterbedingungen sind nur in Browser-Demos erlaubt')
+        raise HTTPException(422, 'Sample data and simulated weather conditions are only allowed in browser demos')
     row = await _weather_row(db, payload.module_id)
     settings = normalize(_preview_options({**(row.settings or {}), **(payload.settings or {})}))
     settings.update(weather_stage=True, weather_styles=[payload.style])
@@ -101,7 +101,7 @@ async def preview(payload: Preview, request: Request, db=Depends(get_db)):
         sleep = service.time_stage_status().get('sleep', {})
         if sleep.get('active') or (service.time_stage is not None and
                 service.time_stage.sleep_state(service._stage_now())['active']):
-            raise HTTPException(409, 'Schlafmodus aktiv. Bitte zuerst ausdrücklich auf Wach umschalten.')
+            raise HTTPException(409, 'Sleep mode active. Please first explicitly switch to awake.')
         try:
             service.preview_weather(settings)
         except ValueError as exc:

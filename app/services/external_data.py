@@ -721,11 +721,11 @@ class ExternalDataService:
         devmem_rw = os.access("/dev/mem", os.R_OK | os.W_OK) if devmem_exists else False
 
         if backend == "unavailable":
-            problems.append("Kein GPIO-Backend importierbar (RPi.GPIO oder lgpio)")
+            problems.append("No GPIO backend can be imported (RPi.GPIO or lgpio)")
         if not gpiomem_exists and not devmem_exists:
-            problems.append("Weder /dev/gpiomem noch /dev/mem vorhanden")
+            problems.append("Neither /dev/gpiomem nor /dev/mem exists")
         if gpiomem_exists and not gpiomem_rw:
-            problems.append("Keine RW-Berechtigung auf /dev/gpiomem")
+            problems.append("No RW permission on /dev/gpiomem")
 
         can_setup_input = False
         input_error = None
@@ -781,7 +781,7 @@ class ExternalDataService:
                 "adafruit_blinka_version": _module_version("Adafruit-Blinka"),
             },
             "problems": problems,
-            "hint": "Wenn RPi.GPIO unter Python 3.13 fehlt: 'pip install lgpio' testen oder OS-Paket/venv angleichen.",
+            "hint": "If RPi.GPIO is missing under Python 3.13: test 'pip install lgpio' or adjust OS package/venv.",
         }
 
 

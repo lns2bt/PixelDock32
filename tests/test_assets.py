@@ -97,14 +97,14 @@ class AssetTests(unittest.TestCase):
         buffer = BytesIO()
         frames = [Image.new("RGB", (1, 1), "red" if i % 2 else "blue") for i in range(MAX_FRAMES + 1)]
         frames[0].save(buffer, format="GIF", save_all=True, append_images=frames[1:], duration=100)
-        with self.assertRaisesRegex(ValueError, f"maximal {MAX_FRAMES}"):
+        with self.assertRaisesRegex(ValueError, f"at most {MAX_FRAMES}"):
             decode_image(buffer.getvalue(), "Too many", "contain")
 
     def test_total_source_pixel_budget_has_distinct_error(self):
         buffer = BytesIO()
         frames = [Image.new('RGB', (512, 512), 'red' if i % 2 else 'blue') for i in range(31)]
         frames[0].save(buffer, format='GIF', save_all=True, append_images=frames[1:], duration=100)
-        with self.assertRaisesRegex(ValueError, '8 Millionen Quellpixel'):
+        with self.assertRaisesRegex(ValueError, '8 million source pixels'):
             decode_image(buffer.getvalue(), 'Large resolution', 'contain')
 
     def test_original_demos_seed_once_and_render(self):

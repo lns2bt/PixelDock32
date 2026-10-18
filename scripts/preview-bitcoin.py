@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate an offline, clearly labelled Bitcoin story gallery (no network IO)."""
+"""Generate an offline, clearly labeled Bitcoin story gallery (no network IO)."""
 import argparse
 from html import escape
 import json
@@ -19,7 +19,7 @@ def main():
                btc_block_details_updated_at=1000,btc_block_details_height=960123,
                btc_fees={'halfHourFee':3},btc_fees_updated_at=1000)
     cards=[];sheet=Image.new('RGB',(512,13*95),(12,12,18));draw=ImageDraw.Draw(sheet)
-    for index,(key,(title,description)) in enumerate(list(STYLES.items())+[(f'event_{k}',(v,'Simulierte Neue-Block-Zeremonie')) for k,v in EVENTS.items()]):
+    for index,(key,(title,description)) in enumerate(list(STYLES.items())+[(f'event_{k}',(v,'Simulated New Block Ceremony')) for k,v in EVENTS.items()]):
         visit=Director().begin({'bitcoin_styles':['forge' if key.startswith('event_') else key]},cache,1000,preview=True)
         if key.startswith('event_'):
             visit.event=key[6:];visit.old_height=960122;visit.new_height=960123
@@ -36,7 +36,7 @@ def main():
         cards.append(f'<article><h2>{escape(title)}</h2><img src="{key}.gif" data-still="{key}.png" width="256" height="64" alt="{escape(title)}"><p>{escape(description)}</p></article>')
     sheet.save(args.output/'contact-sheet.png')
     (args.output/'catalog.json').write_text(json.dumps(catalog(),ensure_ascii=False,indent=2))
-    (args.output/'index.html').write_text('''<!doctype html><html lang="de"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bitcoin-Stage Beispielgalerie</title><style>body{font:16px system-ui;background:#101019;color:#eee;margin:1.5rem}main{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}article{padding:1rem;border:1px solid #343440;border-radius:12px}img{width:100%;height:auto;image-rendering:pixelated}a{color:#ffc25c}h2{font-size:1.2rem}button{padding:.8rem;background:#292936;color:#eee;border:1px solid #555}</style><h1>Bitcoin-Stage · Beispielgalerie</h1><p>10 gemeinsame Stile und 3 Neue-Block-Zeremonien. Ausschließlich erfundene Beispielwerte – keine Live-Daten oder Hardware-Steuerung.</p><p><a href="/bitcoin">Zur Bitcoin-Stage</a></p><button id="pause">Animationen pausieren</button><main>'''+''.join(cards)+'''</main><script>let stopped=false;const button=document.getElementById('pause');button.onclick=()=>{stopped=!stopped;document.querySelectorAll('img').forEach(img=>{img.dataset.original ||= img.src;img.src=stopped?img.dataset.still:img.dataset.original;});button.textContent=stopped?'Animationen abspielen':'Animationen pausieren';};if(matchMedia('(prefers-reduced-motion: reduce)').matches)button.click();</script></html>''')
+    (args.output/'index.html').write_text('''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bitcoin-Stage sample gallery</title><style>body{font:16px system-ui;background:#101019;color:#eee;margin:1.5rem}main{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}article{padding:1rem;border:1px solid #343440;border-radius:12px}img {width:100%;height:auto;image-rendering:pixelated}a{color:#ffc25c}h2{font-size:1.2rem}button{padding:.8rem;background:#292936;color:#eee;border:1px solid #555}</style><h1>Bitcoin-Stage · Sample gallery</h1><p>Ten coherent styles and three new-block ceremonies. Invented sample values only, no live data or hardware control.</p><p><a href="/bitcoin">Back to Bitcoin-Stage</a></p><button id="pause">Pause animations</button><main>'''+''.join(cards)+'''</main><script>let stopped=false;const button=document.getElementById('pause');button.onclick=()=>{stopped=!stopped;document.querySelectorAll('img').forEach(img=>{img.dataset.original ||= img.src;img.src=stopped?img.dataset.still:img.dataset.original;});button.textContent=stopped?'Resume animations':'Pause animations';};if(matchMedia('(prefers-reduced-motion: reduce)').matches)button.click();</script></html>''')
     print('Generated 10 stories and 3 event examples:',args.output)
 
 

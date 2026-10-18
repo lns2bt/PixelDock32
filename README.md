@@ -1,98 +1,97 @@
 # PixelDock32
 
-![Version](https://img.shields.io/badge/version-0.2.1-blue)
+![Version](https://img.shields.io/badge/version-0.3.0-blue)
 ![Status](https://img.shields.io/badge/status-release-brightgreen)
 
 
-PixelDock32 ist ein modularer 8x32-Controller für 4x WS2812B-8x8 Panels. Standardmäßig rendert der Raspberry Pi die Daten und überträgt Frames effizient per USB-Serial an einen Arduino UNO R3, der das WS2812B-Signal erzeugt (optional bleibt GPIO18 + `rpi_ws281x`).
+PixelDock32 is a modular 8x32 controller for 4x WS2812B-8x8 panels. By default, the Raspberry Pi renders the data and transfers frames efficiently via USB serial to an Arduino UNO R3, which generates the WS2812B signal (GPIO18 + `rpi_ws281x` remains optional).
 
-Das README ist bewusst kurz gehalten. Die ausführliche, aufgeteilte Projektdokumentation liegt unter [`/docs`](docs).
+See [`docs/`](docs) for setup, architecture, hardware, and feature guides.
 
-## Aktueller Standard: Datenweg, Dashboard und Pixel-Studio
+## Features
 
-**Time-Stage**: 25 Uhransichten, 10 magische Ereignisanimationen,
-eigenständige Uhr-Regie, Schlafmodus und lokale Sonnen-/Mondzeremonien.
+**Time-Stage**: 25 clock views, 10 magical event animations,
+independent clock scheduling, sleep mode and local sun/moon ceremonies.
 Details: [Time-Stage](docs/time-stage.md).
 
-**Bitcoin-Stage**: zehn gemeinsame Pixelstile für sieben gleichberechtigte Infos,
-standardmäßig höchstens zwei pro Vorstellung, mit eigenen Einstellungen und Vorschauen
-unter `/bitcoin`. Details: [docs/bitcoin-stage.md](docs/bitcoin-stage.md).
+**Bitcoin-Stage**: ten coherent pixel styles for seven equally rotated information types,
+with at most two per presentation by default, dedicated settings and previews
+under `/bitcoin`. Details: [docs/bitcoin-stage.md](docs/bitcoin-stage.md).
 
-**Wetter-Stage**: vier gemeinsame Pixelstile für Außentemperatur, Innentemperatur,
-Innenfeuchtigkeit und aktuelle Wetterbedingungen. Szenen, Rotation und direkte
-Vorschauen unter `/weather`. Modellbasierte Open-Meteo-Außendaten und lokale
-Innenmessung mit getrenntem Datenstatus: [Wetter-Stage](docs/weather-stage.md).
+**Weather-Stage**: four coherent pixel styles for outdoor/indoor temperature,
+indoor humidity, and current conditions. Configure scenes, rotation, and previews
+at `/weather`. Open-Meteo model data and local indoor readings have independent
+freshness indicators: [Weather-Stage](docs/weather-stage.md).
 
-Dieser Zweig enthält den überarbeiteten 30-FPS-Datenweg und Uno-Firmware v3.
-Vorhandene `.env`-Werte werden nicht überschrieben. Für vollständige
-Helligkeits-Synchronisation ist die neue Firmware vorgesehen; Details und
-Kompatibilitätsgrenzen: [Phase 2](docs/rework-phase2.md).
-Für Entwicklung ohne Hardware explizit `LED_TRANSPORT=mock` verwenden.
+The display targets 30 FPS using Uno firmware v3. Existing `.env` settings are
+preserved. Firmware compatibility and brightness synchronization:
+[Phase 2](docs/rework-phase2.md).
+For development without hardware, explicitly use `LED_TRANSPORT=mock`.
 
-Das Dashboard bietet jetzt eine einklappbare Live-LED-Vorschau, eine sortierbare
-Playlist mit Prioritäts-/Shuffle-Slots sowie GIF-/PNG-Import und einen Sprite-Editor
-mit Bereichskürzung, zeitgetreuem Ausdünnen und drei GIF-Wiedergabemodi
-([GIF-Bearbeitung](docs/gif-editing.md)). Uhransichten, Modulsymbole und Übergänge wurden überarbeitet;
-Diagnosewerkzeuge sind unter „Erweitert“ gebündelt.
+The dashboard includes a collapsible live preview, sortable playlist with
+priority/shuffle slots, GIF/PNG import, and a sprite editor with range trimming,
+timing-preserving frame thinning, and three GIF playback modes
+([GIF editing](docs/gif-editing.md)). Diagnostics are grouped under **Advanced**.
 
-Der geprüfte Stand mit Firmware v3, Pixel-Studio, Time-Stage, Bitcoin-Stage und
-kompakter Oberfläche mit direkten LED-Vorschauen ist auf dem Pi installiert und als
-Autostart eingerichtet. `main` enthält diesen Standardstand; die früheren Pi-Stände
-und Sicherungen bleiben für einen Rückwechsel erhalten. Umfang und Testanleitung:
-[Pixel-Studio-Rework](docs/pixel-studio-rework.md).
+Pi deployments retain settings, modules, assets, and mapping. Substantial updates
+use a separate directory with a private backup and rollback instructions.
 
-## Version 0.2.1 — Fünf neue Uhrzeitwelten
+## Version 0.3.0 — Reliable sleep scheduling and English interface
 
-Dieser auf dem Pi geprüfte Stand umfasst GIF-Bearbeitung, Time-Stage,
-Bitcoin-Stage und Wetter-Stage mit kompakter Oberfläche und direkten Vorschauen.
-Time-Stage bietet jetzt zusätzlich Orbitalstation, Pixel-Gewächshaus, Neon-U-Bahn,
-Leuchtturm und Uhrwerk-Manufaktur mit echten Sekundenanimationen und fester HH:MM-Anzeige.
+Sleep scheduling separates the daily plan from temporary sleep/wake exceptions.
+The UI verifies saved times by reading them back, rejects stale-tab writes,
+shows the selected duration/timezone, and warns about unusually long sleep periods.
+Sliders use five-minute steps; direct time fields retain exact minute precision.
 
-- Aktuelle Version: [`0.2.1`](VERSION)
-- Release-Notizen: [`CHANGELOG.md`](CHANGELOG.md)
-- Release-Tag: `v0.2.1` auf `main`
+The shared navigation shows the **running server version**. Documentation,
+interface text, and new GitHub contributions use English; saved user content is
+not translated. See [Time-Stage](docs/time-stage.md) for details.
 
-## Schnellstart
+- Current version: [`0.3.0`](VERSION)
+- Release notes: [`CHANGELOG.md`](CHANGELOG.md)
+- Release tag: `v0.3.0` on `main`
+
+## Quick start
 
 ```bash
 cd /path/to/PixelDock32
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-# nur auf Raspberry Pi mit DHT-Sensor erforderlich:
+# only required on Raspberry Pi with DHT sensor:
 pip install Adafruit_DHT==1.4.0 --config-settings="--build-option=--force-pi"
-# Alternative (falls Adafruit_DHT/Plattform-Erkennung fehlschlägt):
+# Alternative (if Adafruit_DHT/platform discovery fails):
 pip install adafruit-circuitpython-dht adafruit-blinka
-# optionaler GPIO-Backend-Fallback:
-# lgpio aus pip braucht Build-Tools UND die native lgpio-Library
+# optional GPIO backend fallback:
+# lgpio from pip needs build tools AND the native lgpio library
 sudo apt update && sudo apt install -y swig python3-dev liblgpio-dev
 pip install lgpio
-# Alternative ohne pip-Build (Systempaket):
+# Alternative without pip build (system package):
 # sudo apt install -y python3-lgpio
 cp .env.example .env
-# Für Arduino-USB-Transport empfohlen:
+# Recommended for Arduino USB transport:
 # LED_TRANSPORT=serial
 # LED_SERIAL_PORT=auto
 # LED_SERIAL_ACK_TIMEOUT=0.05
-# Firmware v3 empfohlen; v2 hat nur Frame-ACK, v1 wird nicht mehr angesteuert
+# Firmware v3 recommended; v2 only has frame ACK, v1 is no longer controlled
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-Im LAN öffnen: `http://<raspberrypi-ip>:8000`
+Open on LAN: `http://<raspberrypi-ip>:8000`
 
-## Dokumentation
+## Documentation
 
-- [Projektüberblick & Architektur](docs/overview.md)
-- [Setup, Betrieb, .env und Troubleshooting](docs/setup-und-betrieb.md)
-- [Raspberry Pi Autostart + Recovery bei Hängern](docs/autostart-raspberry-pi.md)
-- [API-Übersicht](docs/api.md)
-- [Hardware, Mapping, Kalibrierung, Arduino UNO R3 & DHT11](docs/hardware-und-mapping.md)
-- [Module und Features](docs/module-und-feature-doku.md)
+- [Project Overview & Architecture](docs/overview.md)
+- [Setup, operation, .env, and troubleshooting](docs/setup-and-operation.md)
+- [Raspberry Pi autostart + recovery in case of hangs](docs/autostart-raspberry-pi.md)
+- [API Overview](docs/api.md)
+- [Hardware, mapping, calibration, Arduino Uno R3, and DHT11](docs/hardware-and-mapping.md)
+- [Modules and features](docs/modules-and-features.md)
 - [Roadmap](docs/roadmap.md)
-- [Rework-Analyse](docs/rework-analyse.md)
-- [Lokale Tests und passive Transportmessung](docs/tests-und-messungen.md)
+- [Rework analysis](docs/rework-analysis.md)
+- [Local tests and passive transport measurements](docs/tests-and-measurements.md)
 
-## Hinweise
+## Notes
 
-- Es wurden keine Inhalte entfernt; alle bisherigen README-Informationen wurden in thematisch getrennte Dateien unter `docs/` ausgelagert.
-- Service-Setup bleibt unter `systemd/pixeldock32.service`.
+- Older architecture/rework notes describe their historical development stage.
+- Service setup remains under `systemd/pixeldock32.service`.

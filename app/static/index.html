@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -10,7 +10,7 @@
   <header class="top-nav">
     <div class="top-nav-inner">
       <a class="brand" href="/">PixelDock32</a>
-      <nav class="top-nav-links" aria-label="Hauptnavigation">
+      <nav class="top-nav-links" aria-label="Main navigation">
         <a data-page-link="overview" href="/">Overview</a>
         <a data-page-link="modules" href="/modules">Modules</a>
         <a data-page-link="debug" href="/debug">Debugging</a>
@@ -19,7 +19,7 @@
         <a data-page-link="login" href="/login">Login</a>
       </nav>
       <div class="top-nav-actions">
-        <button class="btn btn-secondary" onclick="refreshStatus()">Status aktualisieren</button>
+        <button class="btn btn-secondary" onclick="refreshStatus()">Update status</button>
         <button class="btn btn-secondary" id="logoutBtn" onclick="logout()">Logout</button>
       </div>
     </div>
@@ -30,57 +30,57 @@
       <div>
         <p class="eyebrow">Raspberry Pi LED Controller</p>
         <h1>PixelDock32</h1>
-        <p class="subtle">Steuerzentrale für deine modulare 8x32 LED-Matrix: Status prüfen, Module verwalten und Tools direkt nutzen.</p>
+        <p class="subtle">Control center for your modular 8x32 LED matrix: Check status, manage modules and use tools directly.</p>
       </div>
     </header>
 
     <section class="card section-anchor" data-section-title="Overview">
-      <h2>System-Status</h2>
+      <h2>System status</h2>
       <div class="status-grid">
-        <span>API</span><strong id="statusApi">unbekannt</strong>
-        <span>Render-Quelle</span><strong id="statusSource">-</strong>
-        <span>Aktives Modul</span><strong id="statusModule">-</strong>
-        <span>FPS (Soll / Ist)</span><strong id="statusFps">-</strong>
-        <span>Debug-Pattern</span><strong id="statusDebug">-</strong>
-        <span>BTC Update</span><strong id="statusBtc">-</strong>
-        <span>Wetter Update</span><strong id="statusWeather">-</strong>
-        <span>DHT GPIO-Level</span><strong id="statusDhtLevel">-</strong>
-        <span>DHT Letztes Read</span><strong id="statusDhtRead">-</strong>
+        <span>API</span><strong id="statusApi">unknown</strong>
+        <span>Render source</span><strong id="statusSource">-</strong>
+        <span>Active module</span><strong id="statusModule">-</strong>
+        <span>FPS (target / actual)</span><strong id="statusFps">-</strong>
+        <span>Debug pattern</span><strong id="statusDebug">-</strong>
+        <span>BTC updates</span><strong id="statusBtc">-</strong>
+        <span>Weather update</span><strong id="statusWeather">-</strong>
+        <span>DHT GPIO level</span><strong id="statusDhtLevel">-</strong>
+        <span>DHT Last Read</span><strong id="statusDhtRead">-</strong>
       </div>
     </section>
 
     <section class="card section-anchor" data-section-title="Live Data">
-      <h2>Live-Daten (LED Panel)</h2>
-      <p class="subtle">Alle dynamischen Werte, die am Panel genutzt werden – auf einen Blick in der Overview.</p>
+      <h2>Live data (LED panel)</h2>
+      <p class="subtle">All dynamic values used on the panel – at a glance in the overview.</p>
       <details class="overview-debug" id="overviewLiveDataDebugWrap">
-        <summary>Debug: Datenquelle prüfen</summary>
-        <pre id="overviewLiveDataDebug">warte auf status…</pre>
+        <summary>Debug: Check data source</summary>
+        <pre id="overviewLiveDataDebug">waiting for status...</pre>
       </details>
       <div class="overview-metric-grid">
         <article class="overview-metric-card">
-          <span class="overview-metric-label">BTC Preis</span>
+          <span class="overview-metric-label">BTC price</span>
           <strong id="overviewBtcPrice">-</strong>
-          <small id="overviewBtcTrend">Trend: -</small>
+          <small id="overviewBtcTrend">Trending:-</small>
         </article>
         <article class="overview-metric-card">
-          <span class="overview-metric-label">BTC Blockheight</span>
+          <span class="overview-metric-label">BTC block height</span>
           <strong id="overviewBlockHeight">-</strong>
-          <small id="overviewBlockHeightUpdated">Update: -</small>
+          <small id="overviewBlockHeightUpdated">Update:-</small>
         </article>
         <article class="overview-metric-card">
-          <span class="overview-metric-label">Temperatur OUT</span>
+          <span class="overview-metric-label">Temperature OUT</span>
           <strong id="overviewOutdoorTemp">-</strong>
-          <small id="overviewWeatherSource">Quelle: -</small>
+          <small id="overviewWeatherSource">Source:-</small>
         </article>
         <article class="overview-metric-card">
-          <span class="overview-metric-label">Temperatur IN</span>
+          <span class="overview-metric-label">Temperature IN</span>
           <strong id="overviewIndoorTemp">-</strong>
-          <small id="overviewDhtBackend">Backend: -</small>
+          <small id="overviewDhtBackend">Backend:-</small>
         </article>
         <article class="overview-metric-card">
-          <span class="overview-metric-label">Luftfeuchtigkeit IN</span>
+          <span class="overview-metric-label">Humidity IN</span>
           <strong id="overviewHumidity">-</strong>
-          <small id="overviewDhtUpdated">Update: -</small>
+          <small id="overviewDhtUpdated">Update:-</small>
         </article>
       </div>
     </section>

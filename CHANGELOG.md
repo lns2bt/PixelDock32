@@ -1,86 +1,115 @@
 # Changelog
 
-Alle nennenswerten Änderungen an PixelDock32 werden in dieser Datei dokumentiert.
+All notable changes to PixelDock32 are documented in this file.
+
+## [0.3.0] - 2026-10-18
+
+### Fixed
+
+- Daily sleep settings and temporary overrides now have separate persistence.
+  Saving or importing settings cannot revive, cancel, or replace a manual exception.
+- Expired overrides resolve to automatic mode consistently in the API and renderer.
+  Legacy exceptions without a deadline are ignored rather than renewed after reload.
+- Sleep sliders update only their own time field. Adjusting the other slider cannot
+  round an exact-minute entry. Sliders use five-minute steps with visible values.
+- Saves verify the server acknowledgement and read back the stored sleep times.
+  Mismatches are reported as errors; stale browser tabs are rejected with HTTP 409.
+- Sleep status shows the effective policy, deadline, and timezone. Long daily sleep
+  periods show their duration and require confirmation before saving.
+- Bounded transition history and journal entries make policy changes traceable.
+
+### Added
+
+- Running server version in the shared navigation and passive `GET /api/version`.
+- Sleep regression tests for save/reload, stale tabs, exact-minute inputs,
+  acknowledgement mismatches, restarts, DST, and immediate brightness restoration.
+- English documentation, interface, comments, and release conventions. Existing
+  saved user names/content, schedules, modules, assets, and mapping are preserved.
+
+### Deployment
+
+- Separate Raspberry Pi deployment with a private data backup and rollback path.
+- Uno firmware unchanged. No system reboot required.
 
 ## [0.2.1] - 2026-10-15
 
-### Neu
+### New
 
-- Fünf normale Time-Stage-Ansichten: Orbitalstation, Pixel-Gewächshaus,
-  Neon-U-Bahn, Leuchtturm und Uhrwerk-Manufaktur.
-- Sekundenanimationen folgen der tatsächlichen Uhrzeit statt der Einblendungsdauer;
-  alle 60 Sekundenstände sind unterscheidbar. Lokale Akzente zum Minutenwechsel.
-- Festes, kontrastreiches HH:MM-Ziffernfeld ohne Überdeckung oder Blinken.
-- Time-Stage mit insgesamt 25 normalen Ansichten, Browser-/LED-Vorschauen und
-  aktualisierter statischer Galerie mit 35 Beispielen.
+- Five normal time stage views: Orbital Station, Pixel Greenhouse,
+  Neon subway, lighthouse and clockwork factory.
+- Second animations follow the actual time instead of the display duration;
+  all 60 second states are distinct. Small local accents mark minute boundaries.
+- Fixed, high-contrast HH:MM number field without overlap or flashing.
+- Time stage with a total of 25 normal views, browser/LED previews and
+  updated static gallery with 35 examples.
 
-### Erhaltung und Prüfung
+### Preservation and testing
 
-- Bestehende Szenenauswahl, Profile, Ereignisse, Schlafmodus, Module und Assets
-  bleiben unverändert. Neue Ansichten können gezielt zur Rotation hinzugefügt werden.
-- 243 lokale Tests (optionaler Wetter-Metriktest übersprungen), 242 Pi-Tests sowie
-  mobile Browser- und Galerie-Prüfungen erfolgreich.
-- Aktueller Pi-Stand als dauerhafter systemd-Autostart eingerichtet; kein
-  Firmwarewechsel und kein Reboot zur Veröffentlichung erforderlich.
+- Existing scene selection, profiles, events, sleep mode, modules and assets
+  remain unchanged. New views can be specifically added to the rotation.
+- 243 local tests (optional weather metrics test skipped), 242 Pi tests as well
+  Mobile browser and gallery checks successful.
+- Current Pi status set up as a permanent systemd autostart; no
+  Firmware change and no reboot required for release.
 
 ## [0.2.0] - 2026-10-14
 
-### Neu
+### New
 
-- Pixel-Studio mit GIF-/PNG-Import, Animationseditor, Varianten und Playlist-Verwaltung.
-- GIFs vor dem Import oder im Editor per Framezahl oder Zeitbereich kürzen;
-  Frames zeitgetreu ausdünnen, Auswahl vorab prüfen und Änderungen rückgängig machen.
-- Importvorbereitung für bis zu 4096 Quellframes; fertige Assets bis zu 512 Frames.
-- Drei GIF-Wiedergabemodi: maximale Dauer, ein vollständiger Durchlauf und
-  Zeitlimit mit anschließendem Loopabschluss; Tempo in der Dauerberechnung berücksichtigt.
-- Time-Stage mit 20 Uhransichten, Ereignissen, eigenständiger Zeitplanung,
-  Schlafmodus und offline berechneten Sonnen-/Mondzeremonien.
-- Bitcoin-Stage mit zehn Stilen, sieben fair rotierenden Infos und Blockzeremonien.
-- Wetter-Stage mit vier Stilen für Außen, Innen, Feuchtigkeit und aktuelles Wetter;
-  Sonne/Mond/Wolken/Regen/Schnee/Nebel und gedämpfte Gewittermotive.
-- Open-Meteo-Wettercode, Tag/Nacht, Niederschlag und Wind aus einer gemeinsamen Abfrage;
-  getrennte Aktualität für Außen- und Sensordaten sowie Trends aus echten Messwerten.
-- Kompakte mobile Einstellungen, einklappbarer persistenter Header und direkte
-  LED-Vorschauen mit ungespeicherten Optionen, ohne Überlagerungsdialog.
-- Gemeinsamer Vorschau-Slot mit Ersatz statt Warteschlange und Fortsetzung
-  pausierter Vorstellungen ohne Verbrauch regulärer Rotationsplätze.
+- Pixel Studio with GIF/PNG import, animation editor, variants and playlist management.
+- Shorten GIFs by frame number or time range before import or in the editor;
+  Thin frames in time, check selections in advance and undo changes.
+- Import preparation for up to 4096 source frames; finished assets up to 512 frames.
+- Three GIF playback modes: maximum duration, one full playthrough and
+  Time limit with subsequent loop completion; Speed taken into account in the duration calculation.
+- Time stage with 20 clock views, events, independent scheduling,
+  Sleep mode and offline calculated sun/moon ceremonies.
+- Bitcoin stage with ten styles, seven fair rotating info and block ceremonies.
+- Weather Stage with four styles for Outdoor, Indoor, Humidity and Current Weather;
+  Sun/moon/clouds/rain/snow/fog and muted thunderstorm motifs.
+- Open Meteo weather code, day/night, precipitation and wind from a common query;
+  Separate updates for external and sensor data as well as trends from real measured values.
+- Compact mobile settings, collapsible persistent header and direct
+  LED previews with unsaved options, no overlay dialog.
+- Shared preview slot with replacement instead of queue and continuation
+  paused performances without using up regular rotation slots.
 
-### Korrigiert
+### Corrected
 
-- GIF-Anzeigedauer ist standardmäßig eine echte maximale Dauer statt stiller
-  Verlängerung bis zur nächsten Loopgrenze; gilt auch für „Jetzt“.
-- Bitcoin- und Wetter-Vorstellungen verwenden eine einheitliche automatische
-  Dauerberechnung, ohne zusätzliche Playlist-Mindestdauer.
-- Keine erneute alte Info-Beschriftung zwischen den Lesephasen.
-- Frische Innenmessungen können veraltete Außendaten nicht mehr als frisch markieren.
-- Schlafschutz gilt auch für Vorschauen; simulierte Daten bleiben ausschließlich im Browser.
+- GIF display duration defaults to a true maximum duration instead of silent
+  Extension to the next loop boundary; also applies to “Now”.
+- Bitcoin and weather ideas use a unified automatic
+  Duration calculation, without additional playlist minimum duration.
+- No new old information labeling between reading phases.
+- Fresh indoor measurements can no longer mark outdated outdoor data as fresh.
+- Sleep protection also applies to previews; simulated data remains exclusively in the browser.
 
-### Betrieb und Prüfung
+### Operation and testing
 
-- Überarbeiteter Datenweg für etwa 30 FPS, Uno-Firmware v3 und persistente Helligkeit.
-- Hardwarefreie API-, Renderer-, Controller-, Daten-, Firmware- und Browser-Tests.
-- Getrennte Pi-Installationen mit Sicherung; vorhandene Einstellungen und Assets erhalten.
-- Aktuelle Pi-Prüfung: 236 Tests erfolgreich, lokale Prüfung: 237 Tests erfolgreich.
-- Hinweis: Innenwerte benötigen gültige DHT-Messungen. Der eingesetzte Sensor meldet
-  derzeit Lesefehler; fehlende Werte erscheinen korrekt als `--`. Open-Meteo liefert
-  modellbasierte Bedingungen, keine Wetterbeobachtung direkt am Gerät.
+- Reworked data path for around 30 FPS, Uno firmware v3 and persistent brightness.
+- Hardware-free API, renderer, controller, data, firmware and browser testing.
+- Separate Pi installations with backup; Preserve existing settings and assets.
+- Current Pi testing: 236 tests successful, local testing: 237 tests successful.
+- Note: Indoor values ​​require valid DHT measurements. The sensor used reports
+  currently reading error; missing values ​​appear correctly as `--`. Open-Meteo delivers
+  Model-based conditions, no weather observation directly on the device.
 
 ## [0.1.0] - 2026-07-09
 
 ### Status
 
-- Erste als stabil markierte Arbeitsversion des Projekts.
-- Geeignet als Rückkehrpunkt vor den nächsten Feature- und UI-Verbesserungen.
+- First working version of the project marked as stable.
+- Suitable as a return point before the next feature and UI improvements.
 
-### Enthalten
+### Included
 
-- FastAPI-Weboberfläche zur Steuerung des 32x8-Pixel-Displays.
-- Modulares Rendering mit Uhr, Textbox, Bitmap, Wetter- und BTC-Modulen.
-- Debug-, Mapping- und Preview-Werkzeuge für Panel-Setup und Fehlersuche.
-- USB-Serial-Transport zum Arduino UNO R3 inklusive Frame-ACK-Unterstützung.
-- Raspberry-Pi-Systemd-Services, Healthcheck und Autostart-Hilfen.
-- Projektdokumentation für Setup, Hardware-Mapping, API, Module und Roadmap.
+- FastAPI web interface to control the 32x8 pixel display.
+- Modular rendering with clock, textbox, bitmap, weather and BTC modules.
+- Debug, mapping and preview tools for panel setup and troubleshooting.
+- USB serial transport to the Arduino UNO R3 including frame ACK support.
+- Raspberry Pi systemd services, health check and autostart help.
+- Project documentation for setup, hardware mapping, API, modules and roadmap.
 
-### Hinweis
+### Note
 
-Diese Version ist bewusst als sichtbarer GitHub-Snapshot gedacht. Für eine dauerhafte Markierung sollte nach dem Merge zusätzlich ein Git-Tag `v0.1.0` auf diesen Stand gesetzt werden.
+This release is intentionally intended to be a visible GitHub snapshot. For permanent marking, a Git tag `v0.1.0` should also be set to this status after the merge.

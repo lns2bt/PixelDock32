@@ -1,98 +1,95 @@
-# Bitcoin-Stage
+# Bitcoin Stage
 
-Die neue Darstellung nutzt das bestehende Bitcoin-Playlist-Modul, keine zweite
-unabhängige Playlist. Andere Module, Time-Stage und gespeicherte Inhalte bleiben
-unverändert. Einstellungen und echte/browserbasierte Vorschauen: `/bitcoin`.
+Bitcoin-Stage uses the existing Bitcoin playlist module, not a second playlist.
+Other modules, Time-Stage, and saved content remain unchanged. Settings and
+browser/physical previews are available at `/bitcoin`.
 
-## Gleichberechtigte Rotation
+## Equal rotation
 
-Sieben auswählbare Infos: EUR-Preis, Blockhöhe, Sats/€, Alter des letzten Blocks,
-Gebühren in sat/vB, Restblöcke bis zum nächsten Halving, 24h-Preisänderung.
-Standard: alle aktiv, maximal **zwei Infos pro Vorstellung**, faire geordnete Rotation.
-Keine Doppelungen innerhalb einer Vorstellung. Eine kleine Auswahl wird nicht
-künstlich aufgefüllt. Bei Zufall leert sich erst ein gemischter Beutel, bevor eine
-neue Runde beginnt; höchstens eine Info kann im Durchlauf vorne liegen.
+Seven information types: EUR price, block height, sats/€, age of the last block,
+fees in sat/vB, blocks remaining until the next halving, and 24-hour price change.
+All are enabled by default, with **at most two per presentation** in fair order.
+A presentation never duplicates an item or pads a short selection. Random mode
+exhausts a shuffled bag before starting another round; at most one item can be
+ahead in the rotation.
 
-Jedes Modul hat seinen eigenen Rotationszustand im Speicher. Neustarts beginnen
-wieder mit der konfigurierten Reihenfolge; Browser- und explizite LED-Vorschauen
-verbrauchen keine normalen Rotationsplätze. Konfigurationsänderungen gelten ab
-dem nächsten Besuch; ein laufender Besuch behält seine Werte und Einstellungen.
+Each module has independent in-memory rotation state. A restart begins with the
+configured order. Browser and physical previews do not consume regular slots.
+Configuration changes apply to the next visit; an active visit retains its
+snapshot of values and settings.
 
-Eine Szene pro Vorstellung, unabhängige Szenenauswahl geordnet oder zufällig ohne
-direkte Wiederholung bei mehreren Stilen. Zehn Motive: Schmiede, Blockchain-Zug,
-Mining-Schacht, Nonce-Suche, Orbit, Transaktionsregen, Terminal, mechanischer Zähler,
-Tetris, Goldader. Alle Infos funktionieren in jedem Stil. Kunstmotive sind keine
-echten Mining-/Mempoolmessungen. Ruhige/normal/lebhaft einstellbar.
+Each presentation uses one scene, selected independently in order or randomly
+without immediate repeats when multiple styles are available. Ten motifs: forge,
+blockchain train, mining shaft, nonce search, orbit, transaction rain, terminal,
+mechanical counter, Tetris, and gold vein. Every information type works in every
+style. These artistic motifs do not represent measured mining/mempool activity.
+Motion can be calm, normal, or lively.
 
-Kurzer Einstieg, pro Info Beschriftung → Motiv → Übergang → ruhige Lesephase →
-Ausklang. Standard-Lesezeit vier Sekunden (2–15 einstellbar), gesamte Vorstellung
-mit zwei Infos ca. 17,4 Sekunden. **Automatische Gesamtdauer** statt einer zweiten
-Playlist-Mindestdauer: Infoanzahl, Lesezeit und Choreografie bestimmen den Auftritt.
-Bei besonders langen Zahlen wird bis zum Ende des Lauftexts verlängert. Die frühere
-Playlist-Dauer bleibt für den klassischen Modus gespeichert, wird im neuen Modus
-aber nicht verwendet. Playlist und Bitcoin-Seite verwenden dieselbe serverseitige
-Berechnung; Angaben sind Näherungen bei langen Zahlen/Blockzeremonien.
-Nach der Lesephase folgt ausschließlich ein künstlerischer Übergang, keine erneute
-Beschriftung der alten Info oder zusätzliche ALT-/FEHLT-Tafel. Statusmarkierungen
-bleiben während der Lesephase sichtbar. Schlaf darf jederzeit unterbrechen.
+Sequence: short introduction, then label → motif → transition → quiet reading
+phase for each item, followed by an ending. Reading time defaults to four seconds
+(adjustable from 2–15); two items take approximately 17.4 seconds in total.
+**Total duration is automatic**, based on item count, reading time, and choreography.
+Long numbers extend the visit until scrolling completes. The old playlist duration
+is retained for classic mode but is not used by stage mode. The playlist and
+Bitcoin page use the same server-side calculation; displayed estimates may grow
+for long values or block ceremonies. After reading, only the artistic transition
+remains: no repeated label or extra stale/missing panel. Status markers stay
+visible while reading. **Sleep can interrupt the presentation immediately.**
 
-## Daten und Ehrlichkeit
+## Data and honesty
 
-- Preisquelle weiterhin `BTC_API_URL`; CoinGecko-Aufruf ergänzt
-  `include_24hr_change=true`. 24h-Änderung ist **nicht** der Trend seit letzter Abfrage.
-- Sats/€ = 100 Millionen / EUR-Preis. Anzeige gerundet; Preis K/M komprimiert.
-- Blockhöhe weiterhin `BTC_BLOCK_HEIGHT_API_URL`. Halving ist das nächste Vielfache
-  von 210.000 Blöcken, kein geschätztes Datum. Bei Ende der Subventionsära „ENDE“.
-- Neue optionale Datenquelle `BTC_NETWORK_API_URL`, Standard
-  `https://mempool.space/api`: Gebührenempfehlungen und Timestamp genau des
-  abgefragten Blocks. Block-ID, Höhe und Timestamp werden validiert; konkurrierende
-  Höhensprünge können keine unpassende Blockzeit veröffentlichen.
-- Gebührenprofil sparsam / ca. Stunde / ca. halbe Stunde / schnell auswählbar.
-  Kein garantierter Bestätigungszeitpunkt und keine absolute Transaktionsgebühr.
-- Alter ist die Zeit seit Block-Timestamp, keine Vorhersage des nächsten Blocks.
-- Werte werden pro Vorstellung eingefroren. Abruffehler oder über fünf Minuten
-  alte Abrufzeiten erzeugen „ALT“ plus orange-rote Markierung; fehlende/ungültige
-  Werte „--“ und „FEHLT“. Werte werden nicht erfunden, Ausfälle blockieren keine
-  Rotation. Abrufe laufen unabhängig vom Renderer, mit Timeout und mindestens
-  60 Sekunden Abstand für Gebühren/Blockmetadaten.
+- Price source continues to be `BTC_API_URL`; CoinGecko call added
+  `include_24hr_change=true`. 24h change is **not** the trend since last query.
+- Sats/€ = 100 million / EUR price. display rounded; Price K/M compressed.
+- Block height still `BTC_BLOCK_HEIGHT_API_URL`. Halving is the next multiple
+  of 210,000 blocks, no estimated date. At the end of the subsidy era “END”.
+- Optional `BTC_NETWORK_API_URL`, default `https://mempool.space/api`: fee
+  recommendations and the timestamp of the exact queried block. Block ID, height,
+  and timestamp are validated; concurrent height changes cannot publish a timestamp
+  for a different block.
+- Fee profiles: economy, approximately one hour, half an hour, or fastest.
+  No guaranteed confirmation time and no absolute transaction fee.
+- Age is the time since block timestamp, not a prediction of the next block.
+- Values are frozen per presentation. Fetch errors or data older than five minutes
+  produce a stale marker in orange-red; missing/invalid values show `--` and a
+  missing marker. No values are invented and failures do not block rotation.
+  Requests run outside the renderer with timeouts and at least sixty seconds
+  between fee/block-metadata queries.
 
-## Ereignisse und Vorschauen
+## Events and Previews
 
-Drei sechssekündige Neue-Block-Zeremonien: Andocken, Schmieden, Zählerwechsel.
-Vor dem nächsten Bitcoin-Besuch, zusätzlich zur regulären Info-Maximalzahl.
-Nur bei neu beobachteter Höhe +1 mit frischem vorherigem/nächsten Abruf; keine
-Feier bei Initialisierung, Reorg, größerem Sprung, langer Unterbrechung oder Schlaf.
-Maximale Verspätung 120 Sekunden; nur neuestes Ereignis statt Warteschlange.
-Ereignisse verändern nicht die faire Info-Rotation. Bereits laufende Inhalte
-werden nicht abrupt für Bitcoin unterbrochen.
+Three six-second new-block ceremonies: docking, forging, and counter change.
+They precede the next Bitcoin visit, outside its regular information limit.
+Only a newly observed height increment of exactly one, with fresh consecutive
+fetches, qualifies. No celebration on initialization, reorg, large height jump,
+long pause, or sleep. Maximum delay is 120 seconds; only the latest event is
+retained. Events do not change fair rotation or abruptly interrupt other content.
 
-Browser-Vorschau (ein Wert oder eine vollständige Beispielvorstellung) off-thread,
-serialisiert mit höchstens vier Anfragen/Sekunde, pausiert bei versteckter Seite.
-Live-Daten sind Standard; Beispieldaten und simulierte Blockereignisse sind deutlich
-markiert. Eine Simulation nutzt erfundene Höhen und **darf nie** auf LEDs starten.
-Echte LED-Vorschau startet direkt ohne Bestätigungsdialog und verwendet auch
-ungespeicherte Optionen, ausschließlich echte Daten. Im Schlafmodus HTTP 409,
-kein stilles Aufwecken; erst ausdrücklich „Wach“ wählen.
+Browser preview (a value or a complete sample preview) off-thread,
+serialized with a maximum of four requests/second, paused when the page is hidden.
+Live data is standard; Sample data and simulated block events are clear
+marked. A simulation uses invented heights and **may never** start on LEDs.
+Real LED preview starts directly without a confirmation dialog and also uses
+unsaved options, only real data. In sleep mode HTTP 409,
+no silent awakening; first explicitly select “Awake”.
 
-Gemeinsamer Vorschau-Slot für Bitcoin und Time-Stage: eine neue Vorschau ersetzt
-die vorherige, keine Warteschlange. Normale Slots, GIFs, laufende Bitcoin- und
-Time-Stage-Vorstellungen werden mit angepassten Zeitmarken fortgesetzt, ohne dabei
-eine neue reguläre Rotation zu verbrauchen. Keine Einstellung wird durch Vorschauen
-gespeichert. Der Header lässt sich auf eine schmale Statuszeile einklappen; die Wahl
-bleibt pro Browser beim Seitenwechsel erhalten. Bitcoin-Details sind einklappbar,
-Szenen kompakte Zeilen mit direktem LED-Vorschauknopf, Speichern erscheint nur bei
-ungespeicherten Änderungen.
+Bitcoin, Weather, and Time-Stage share one physical preview slot: a new preview
+replaces the previous one, without a queue. Regular playback resumes with adjusted
+timestamps, without consuming another rotation slot. Previews never save settings.
+The header collapses to a status line; the choice persists per browser. Details
+are collapsible and scene rows have direct LED preview buttons. The save bar is
+shown only for unsaved changes.
 
-Offline-Galerie: `python scripts/preview-bitcoin.py --output OUTPUT_DIRECTORY`.
-Zehn Geschichten, drei Ereignisse, Pause/Reduced-Motion, nur markierte Beispieldaten.
-Generierte GIFs sind Deployment-Artefakte, nicht im Quellrepository gespeichert.
+Offline gallery: `python scripts/preview-bitcoin.py --output OUTPUT_DIRECTORY`.
+Ten stories, three events, pause/reduced-motion, highlighted sample data only.
+Generated GIFs are deployment artifacts, not stored in the source repository.
 
-Neue Einstellungen ergänzen alte BTC-Einstellungen zur Laufzeit ohne DB-Migration
-oder Überschreiben alter Farben/Name/Order/Enabled/Dauer. `bitcoin_stage=false`
-nutzt weiterhin die vorherige Darstellung. Eigene Farbpaletten gelten bei neuen
-Szenen; die bisherigen Farbregler bleiben für die alte Darstellung erhalten.
+New settings complement old BTC settings at runtime without DB migration
+or overwriting old colors/name/order/enabled/duration. `bitcoin_stage=false`
+continues to use the previous representation. Own color palettes apply to new ones
+scenes; The previous color controllers remain for the old display.
 
-Tests: Datenvalidierung, faire Reihenfolge/Zufall, Auswahl, eingefrorene Besuche,
-Ereignis-/Schlaf-/Vorschau-Sicherheit, alle 70 Stil×Info-Kombinationen, Display-
-Zeitgrenzen, API-Authentifizierung, persistente Einstellungen und mobiler Browser.
-Kein Langzeit-Stabilitätstest; physische Szenenwirkung muss vor Ort geprüft werden.
+Tests: data validation, fair ordering/random, selection, frozen visits,
+Event/Sleep/Preview security, all 70 style×info combinations, display
+Time limits, API authentication, persistent settings and mobile browser.
+No long-term stability test; physical scene effect must be checked on site.

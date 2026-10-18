@@ -55,7 +55,7 @@ class BitcoinStageTests(unittest.TestCase):
         self.assertEqual(info_value('halving',data,settings,1000)['value'],'90000')
         self.assertEqual(info_value('change',data,settings,1000)['value'],'+2.5%')
         self.assertEqual(info_value('fees',data,settings,1000)['value'],'3')
-        for height,expected in [(1_049_999,'1'),(1_050_000,'210000'),(6_930_000,'ENDE')]:
+        for height,expected in [(1_049_999,'1'),(1_050_000,'210000'),(6_930_000,'END')]:
             data['btc_block_height']=height
             self.assertEqual(info_value('halving',data,settings,1000)['value'],expected)
 
@@ -132,7 +132,7 @@ class BitcoinStageTests(unittest.TestCase):
                             expected=story(style,actual_phase,info['key'],visit.settings['bitcoin_intensity'])
                             self.assertEqual(result.color_frame,expected.colors)
                             old_card=Canvas()
-                            text(old_card,'ALT' if state=='stale' else 'FEHLT' if state=='missing' else info['label'],phase,ORANGE)
+                            text(old_card,'STALE' if state=='stale' else 'MISSING' if state=='missing' else info['label'],phase,ORANGE)
                             self.assertNotEqual(result.color_frame,old_card.colors)
                 final_phase=visit.segment+.3
                 self.assertEqual(render(visit,visit.duration-.3).color_frame,

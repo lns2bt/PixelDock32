@@ -19,7 +19,7 @@ images[0].save(sys.argv[1],format='GIF',save_all=True,append_images=images[1:],d
  const initial=(await(await context.request.get(base+'/api/assets',{headers})).json()).length;
  await page.locator('#importAsset [name="image"]').setInputFiles(fixture);
  await page.locator('#importAsset [name="name"]').fill(sourceName);
- await page.locator('#importAnalysis').filter({hasText:'600 Quellframes'}).waitFor();
+ await page.locator('#importAnalysis').filter({hasText:'600 source frames'}).waitFor();
  assert.equal(await page.locator('#importPreparation').getAttribute('open'),'');
  await page.locator('#importTrimControls [name="trim_start"]').fill('50');await page.locator('#importTrimControls [name="trim_end"]').fill('50');
  await page.locator('#importTrimControls [name="step"]').fill('2');
@@ -29,7 +29,7 @@ images[0].save(sys.argv[1],format='GIF',save_all=True,append_images=images[1:],d
  await page.locator('#playImportRange').click();await page.locator('#playImportRange').filter({hasText:'Stopp'}).waitFor();await page.locator('#playImportRange').click();
  await page.locator('#importAsset button[type="submit"]').click();
  const card=page.locator('.asset-card').filter({has:page.getByRole('heading',{name:sourceName,exact:true})});await card.waitFor();
- await card.getByRole('button',{name:'Bearbeiten',exact:true}).click();
+ await card.getByRole('button',{name:'Edit',exact:true}).click();
  await page.locator('#editorState').filter({hasText:'250 Frames'}).waitFor();
  await page.locator('#editorTrim summary').click();
  await page.locator('#editorTrimControls [name="trim_start"]').fill('10');await page.locator('#editorTrimControls [name="trim_end"]').fill('10');
@@ -49,11 +49,11 @@ images[0].save(sys.argv[1],format='GIF',save_all=True,append_images=images[1:],d
  await module.locator('[name="playback_mode"]').selectOption('once');await module.locator('[name="speed"]').fill('2');
  assert.equal(await module.locator('[name="duration_seconds"]').isVisible(),false);
  await module.locator('[data-asset-timing]').filter({hasText:'25 s'}).waitFor();
- await module.getByRole('button',{name:'Speichern',exact:true}).click();await module.locator('.save-state').filter({hasText:'Gespeichert'}).waitFor();
+ await module.getByRole('button',{name:'Save',exact:true}).click();await module.locator('.save-state').filter({hasText:'Saved'}).waitFor();
  await page.reload();await page.locator('.module-card').first().waitFor();await module.locator('summary').first().click();
  assert.equal(await module.locator('[name="playback_mode"]').inputValue(),'once');
  await module.locator('[name="playback_mode"]').selectOption('finish_loop');assert.equal(await module.locator('[name="duration_seconds"]').isVisible(),true);
- await module.locator('[name="duration_seconds"]').fill('6');await module.locator('[data-asset-timing]').filter({hasText:'Wiedergabe: 25 s'}).waitFor();
+ await module.locator('[name="duration_seconds"]').fill('6');await module.locator('[data-asset-timing]').filter({hasText:'Playback: 25 s'}).waitFor();
  for(const width of [320,390,1280]){await page.setViewportSize({width,height:900});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));}
  assert.deepEqual(errors,[]);console.log('Asset editing smoke passed: overlong import, nonpersistent preview, trim, thinning, variable duration, undo, time selection, preserved original, playback modes and mobile layout.');
  }finally{await browser.close();}

@@ -118,7 +118,7 @@ function formatTs(ts) {
 
 function formatNumber(value, digits = 0) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return '-';
-  return Number(value).toLocaleString('de-DE', {
+  return Number(value).toLocaleString('en-GB', {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   });
@@ -216,12 +216,12 @@ function renderSerialDebugView(result) {
   const serial = led.serial && typeof led.serial === 'object' ? led.serial : null;
 
   if (!serial) {
-    if (summaryEl) summaryEl.innerText = `Status: ⚠️ Kein Serial-Transport aktiv
-Aktueller Transport: ${led.transport || '-'}
+    if (summaryEl) summaryEl.innerText = `Status: ⚠️ No serial transport active
+Current transport: ${led.transport || '-'}
 Strip: ${led.strip_class || '-'}`;
-    if (metricsEl) metricsEl.innerText = 'Keine Serial-Metriken verfügbar (LED Driver läuft nicht im serial-Modus).';
-    if (timelineEl) timelineEl.innerText = 'Kein Verlauf, da kein serial-Modus aktiv ist.';
-    if (arduinoEl) arduinoEl.innerText = 'Arduino-Debugwerte sind nur mit led_transport=serial verfügbar.';
+    if (metricsEl) metricsEl.innerText = 'No serial metrics available (LED Driver does not run in serial mode).';
+    if (timelineEl) timelineEl.innerText = 'No history because no serial mode is active.';
+    if (arduinoEl) arduinoEl.innerText = 'Arduino debug values ​​are only available with led_transport=serial.';
     return;
   }
 
@@ -247,22 +247,22 @@ Strip: ${led.strip_class || '-'}`;
   const pingState = serial.last_ping_ok === true
     ? '✅ OK'
     : serial.last_ping_ok === false
-      ? '⚠️ Fehler'
-      : '— noch kein Ping';
-  const healthState = serial.last_error ? '⚠️ Fehler erkannt' : '✅ stabil';
+      ? '⚠️ Error'
+      : '— no ping yet';
+  const healthState = serial.last_error ? '⚠️ Error detected' : '✅ stabil';
 
   if (summaryEl) {
     summaryEl.innerText = [
       `Status: ${healthState}`,
       `Port/Baud: ${serial.port || '-'} @ ${serial.baudrate || '-'} (requested: ${serial.requested_port || '-'})`,
-      `Frames gesendet: ${formatNumber(serial.frames_sent)}`,
-      `Letzter Frame: ${formatTs(serial.last_frame_at)} (${formatAgeSeconds(serial.last_frame_at)} alt)`,
-      `Letzter Write: ${formatMs(serial.last_frame_write_ms, 3)}`,
-      `Letzter ACK / Frame-RTT: ${formatMs(serial.last_frame_ack_ms, 3)} / ${formatMs(serial.last_frame_roundtrip_ms, 3)}`,
+      `Frames sent: ${formatNumber(serial.frames_sent)}`,
+      `Last frame: ${formatTs(serial.last_frame_at)} (${formatAgeSeconds(serial.last_frame_at)} alt)`,
+      `Last write: ${formatMs(serial.last_frame_write_ms, 3)}`,
+      `Last ACK/Frame RTT: ${formatMs(serial.last_frame_ack_ms, 3)} / ${formatMs(serial.last_frame_roundtrip_ms, 3)}`,
       `Ping: ${pingState} (${formatMs(serial.last_ping_rtt_ms, 3)})`,
-      `Debug Poll: ${serial.last_debug_poll_ok === true ? '✅ OK' : serial.last_debug_poll_ok === false ? '⚠️ Fehler' : '— noch nicht'} (${formatMs(serial.last_debug_poll_rtt_ms, 3)})`,
-      serial.last_debug_poll_error ? `Debug Poll Fehler: ${serial.last_debug_poll_error}` : 'Debug Poll Fehler: -',
-      serial.last_error ? `Letzter Fehler: ${serial.last_error}` : 'Letzter Fehler: -',
+      `Debug Poll: ${serial.last_debug_poll_ok === true ? '✅ OK' : serial.last_debug_poll_ok === false ? '⚠️ Error' : '- not yet'} (${formatMs(serial.last_debug_poll_rtt_ms, 3)})`,
+      serial.last_debug_poll_error ? `Debug poll error: ${serial.last_debug_poll_error}` : 'Debug Poll Error:-',
+      serial.last_error ? `Last error: ${serial.last_error}` : 'Last error:-',
     ].join('\n');
   }
 
@@ -271,41 +271,41 @@ Strip: ${led.strip_class || '-'}`;
       `Transport: ${led.transport || '-'} (${led.strip_class || '-'})`,
       `Brightness: ${serial.brightness ?? led.brightness ?? '-'} / 255`,
       `Frame-Payload: ${formatNumber(serial.frame_payload_bytes)} bytes`,
-      `Gesamt gesendet: ${formatNumber(serial.bytes_sent)} bytes`,
-      `Δ seit letztem Refresh: ${deltaFrames === null ? '-' : `${deltaFrames} Frames`} | ${deltaBytes === null ? '-' : `${deltaBytes} bytes`}`,
+      `Total sent: ${formatNumber(serial.bytes_sent)} bytes`,
+      `Δ since last refresh: ${deltaFrames === null ? '-' : `${deltaFrames} Frames`} | ${deltaBytes === null ? '-' : `${deltaBytes} bytes`}`,
       `Brightness-Updates: ${formatNumber(serial.brightness_updates)} (Resync: ${formatNumber(serial.brightness_resyncs)})`,
       `Timeout read/write/ack: ${formatDebugValue(serial.timeout)}s / ${formatDebugValue(serial.write_timeout)}s / ${formatDebugValue(serial.ack_timeout)}s`,
-      `Protokoll/ACK: v${formatDebugValue(serial.protocol_version)} | supported=${serial.frame_ack_supported ? 'ja' : 'nein'} | aktiv=${serial.frame_ack_enabled ? 'ja' : 'nein'}`,
-      `Verbunden: ${serial.connected ? 'ja' : 'nein'}`,
-      `Port-Kandidaten: ${(serial.port_candidates || []).join(', ') || '-'}`,
-      `Sender-Thread: ${serial.sender_thread_alive ? 'alive' : 'dead'} | busy=${serial.sender_busy ? 'ja' : 'nein'} | wartet auf ACK=${serial.sender_waiting_for_ack ? 'ja' : 'nein'}`,
-      `Queue latest-frame-wins: pending=${serial.sender_queue_pending ? 'ja' : 'nein'} | enqueued=${formatNumber(serial.frames_enqueued)} | ersetzt=${formatNumber(serial.frames_replaced_before_send)}`,
-      `Queue-Wartezeit (letzter Frame): ${formatMs(serial.last_frame_queue_wait_ms, 3)}`,
-      `Reconnects: ${formatNumber(serial.reconnect_successes)} / ${formatNumber(serial.reconnect_attempts)} (ok/versucht)`,
-      `Frame Write Timeouts: ${formatNumber(serial.frame_write_timeouts)} | Retry-OK: ${formatNumber(serial.frame_write_timeout_retry_successes)} | Retries gesamt: ${formatNumber(serial.frame_write_retries)}`,
-      `Frame ACKs: ${formatNumber(serial.frame_acks_received)} | ACK-Timeouts: ${formatNumber(serial.frame_ack_timeouts)} | ACK-Fehler: ${formatNumber(serial.frame_ack_errors)} | ACK-Retry-OK: ${formatNumber(serial.frame_ack_retry_successes)}`,
+      `Protokoll/ACK: v${formatDebugValue(serial.protocol_version)} | supported=${serial.frame_ack_supported ? 'yes' : 'no'} | aktiv=${serial.frame_ack_enabled ? 'yes' : 'no'}`,
+      `Tied together: ${serial.connected ? 'yes' : 'no'}`,
+      `Port candidates: ${(serial.port_candidates || []).join(', ') || '-'}`,
+      `Sender-Thread: ${serial.sender_thread_alive ? 'alive' : 'dead'} | busy=${serial.sender_busy ? 'yes' : 'no'} | waiting for ACK=${serial.sender_waiting_for_ack ? 'yes' : 'no'}`,
+      `Queue latest-frame-wins: pending=${serial.sender_queue_pending ? 'yes' : 'no'} | enqueued=${formatNumber(serial.frames_enqueued)} | replaced=${formatNumber(serial.frames_replaced_before_send)}`,
+      `Queue waiting time (last frame): ${formatMs(serial.last_frame_queue_wait_ms, 3)}`,
+      `Reconnects: ${formatNumber(serial.reconnect_successes)} / ${formatNumber(serial.reconnect_attempts)} (ok/tried)`,
+      `Frame Write Timeouts: ${formatNumber(serial.frame_write_timeouts)} | Retry-OK: ${formatNumber(serial.frame_write_timeout_retry_successes)} | Total retries: ${formatNumber(serial.frame_write_retries)}`,
+      `Frame ACKs: ${formatNumber(serial.frame_acks_received)} | ACK-Timeouts: ${formatNumber(serial.frame_ack_timeouts)} | ACK error: ${formatNumber(serial.frame_ack_errors)} | ACK-Retry-OK: ${formatNumber(serial.frame_ack_retry_successes)}`,
       `Frame Seq (tx/ack): ${formatDebugValue(serial.last_frame_seq)} / ${formatDebugValue(serial.last_frame_ack_seq)}`,
-      `Frame-Resync erforderlich: ${serial.frame_resync_required ? 'ja' : 'nein'}`,
+      `Frame resync required: ${serial.frame_resync_required ? 'yes' : 'no'}`,
       `Debug-Poll Cache-Hits: ${formatNumber(serial.debug_poll_cache_hits)}`,
       `Letzter Reconnect: ${formatTs(serial.last_reconnect_at)} (${formatAgeSeconds(serial.last_reconnect_at)} alt)`,
-      `Reconnect-Fehler: ${serial.last_reconnect_error || '-'}`,
-      `Protocol-Probe-Fehler: ${serial.protocol_probe_error || '-'}`,
-      `Arduino Snapshot: ${arduinoDebug ? 'vorhanden' : 'nicht verfügbar'}`,
-      `Ping-Fehler: ${serial.last_ping_error || '-'}`,
-      `Debug-Poll-Fehler: ${serial.last_debug_poll_error || '-'}`,
-      `Fehlerzeitpunkt: ${formatTs(serial.last_error_at)} (${formatAgeSeconds(serial.last_error_at)} alt)`,
-      `Sender-Fehler: ${serial.sender_last_error || '-'} (${formatTs(serial.sender_last_error_at)} / ${formatAgeSeconds(serial.sender_last_error_at)} alt)`,
+      `Reconnect error: ${serial.last_reconnect_error || '-'}`,
+      `Protocol probe error: ${serial.protocol_probe_error || '-'}`,
+      `Arduino Snapshot: ${arduinoDebug ? 'present' : 'not available'}`,
+      `Ping error: ${serial.last_ping_error || '-'}`,
+      `Debug poll error: ${serial.last_debug_poll_error || '-'}`,
+      `Time of error: ${formatTs(serial.last_error_at)} (${formatAgeSeconds(serial.last_error_at)} alt)`,
+      `Sender error: ${serial.sender_last_error || '-'} (${formatTs(serial.sender_last_error_at)} / ${formatAgeSeconds(serial.sender_last_error_at)} alt)`,
     ].join('\n');
   }
 
   if (arduinoEl) {
     if (!arduinoDebug) {
       arduinoEl.innerText = [
-        'Noch keine Arduino-Debugwerte empfangen.',
-        `Letzter Poll: ${formatTs(serial.last_debug_poll_at)} (${formatAgeSeconds(serial.last_debug_poll_at)} alt)`,
-        `Poll-Status: ${serial.last_debug_poll_ok === false ? '⚠️ Fehler' : 'warte auf Daten'}`,
-        serial.last_debug_poll_error ? `Poll-Fehler: ${serial.last_debug_poll_error}` : 'Poll-Fehler: -',
-        serial.last_error ? `Fehler: ${serial.last_error}` : 'Fehler: -',
+        'No Arduino debug values ​​received yet.',
+        `Last poll: ${formatTs(serial.last_debug_poll_at)} (${formatAgeSeconds(serial.last_debug_poll_at)} alt)`,
+        `Poll-Status: ${serial.last_debug_poll_ok === false ? '⚠️ Error' : 'waiting for data'}`,
+        serial.last_debug_poll_error ? `Poll error: ${serial.last_debug_poll_error}` : 'Poll Error:-',
+        serial.last_error ? `Mistake: ${serial.last_error}` : 'Mistake: -',
       ].join('\n');
     } else {
       arduinoEl.innerText = [
@@ -316,10 +316,10 @@ Strip: ${led.strip_class || '-'}`;
         `Brightness-Pakete: ${formatNumber(arduinoDebug.brightness_packets)}`,
         `Ping-Pakete: ${formatNumber(arduinoDebug.ping_packets)}`,
         `Debug-Pakete: ${formatNumber(arduinoDebug.debug_packets)}`,
-        `Checksum-Fehler: ${formatNumber(arduinoDebug.checksum_errors)}`,
-        `Ungültige Pakete: ${formatNumber(arduinoDebug.invalid_packets)}`,
+        `Checksum error: ${formatNumber(arduinoDebug.checksum_errors)}`,
+        `Invalid packages: ${formatNumber(arduinoDebug.invalid_packets)}`,
         `Timeouts: ${formatNumber(arduinoDebug.packet_timeouts)}`,
-        `Letzter Befehl: 0x${Number(arduinoDebug.last_command || 0).toString(16).padStart(2, '0')}`,
+        `Last command: 0x${Number(arduinoDebug.last_command || 0).toString(16).padStart(2, '0')}`,
         `Arduino Brightness: ${arduinoDebug.brightness ?? '-'} / 255`,
       ].join('\n');
     }
@@ -342,14 +342,14 @@ function clearSerialDebugHistory() {
   renderSerialPingHistory();
   const timelineEl = document.getElementById('serialDebugTimeline');
   if (timelineEl) timelineEl.innerText = '-';
-  toast('Serial-Debugverlauf zurückgesetzt');
+  toast('Serial debug history reset');
 }
 
 function renderSerialPingHistory() {
   const el = document.getElementById('serialPingHistory');
   if (!el) return;
   if (!serialPingHistory.length) {
-    el.innerText = 'Noch kein Ping ausgeführt.';
+    el.innerText = 'No ping yet.';
     return;
   }
 
@@ -374,17 +374,17 @@ function renderBackendStatusDebug(payload) {
   if (!summaryEl) return;
 
   summaryEl.innerText = [
-    `Display-Service: ${display.running ? 'aktiv' : 'inaktiv'}`,
-    `Render-Task alive: ${display.task_alive ? 'ja' : 'nein'}`,
+    `Display-Service: ${display.running ? 'aktiv' : 'inactive'}`,
+    `Render-Task alive: ${display.task_alive ? 'yes' : 'no'}`,
     `FPS (target/actual): ${display.target_fps ?? '-'} / ${display.actual_fps ?? '-'}`,
-    `Letzter Frame: ${formatTs(display.last_frame_ts)} (${formatAgeSeconds(display.last_frame_ts)} alt)`,
+    `Last frame: ${formatTs(display.last_frame_ts)} (${formatAgeSeconds(display.last_frame_ts)} alt)`,
     `Loop Timing: work=${formatMs(display.last_loop_work_ms, 3)} | sleep=${formatMs(display.last_loop_sleep_ms, 3)} | total=${formatMs(display.last_loop_total_ms, 3)}`,
-    `LED Dispatch (Render-Thread): ${formatMs(display.last_led_write_ms, 3)} | frame submitted=${display.last_led_frame_sent === true ? 'ja' : display.last_led_frame_sent === false ? 'nein' : '-'}`,
+    `LED Dispatch (Render-Thread): ${formatMs(display.last_led_write_ms, 3)} | frame submitted=${display.last_led_frame_sent === true ? 'yes' : display.last_led_frame_sent === false ? 'no' : '-'}`,
     `Skipped duplicate frames: ${formatNumber(display.unchanged_frame_skips)}`,
     `Module Query: ${formatMs(display.last_module_query_ms, 3)} | cache=${display.last_module_query_cache_hit === true ? 'hit' : display.last_module_query_cache_hit === false ? 'miss' : '-'}`,
-    `Quelle: ${display.last_source || '-'} | Modul: ${display.last_module || '-'}`,
-    `Letzter Render-Loop-Fehler: ${display.last_loop_error || '-'}`,
-    `Fehlerzeitpunkt: ${formatTs(display.last_loop_error_at)} (${formatAgeSeconds(display.last_loop_error_at)} alt)`,
+    `Source: ${display.last_source || '-'} | Modul: ${display.last_module || '-'}`,
+    `Last render loop error: ${display.last_loop_error || '-'}`,
+    `Time of error: ${formatTs(display.last_loop_error_at)} (${formatAgeSeconds(display.last_loop_error_at)} alt)`,
   ].join('\n');
 }
 
@@ -395,14 +395,14 @@ function getLiveDataWaitReason(display, sourceData, liveDataDebug) {
   const moduleHasValues = !!renderDebug.cache_has_any_values;
   const activeModule = renderDebug.module_key || display.last_module;
   if (!snapshotTs) {
-    return 'warte auf den ersten Cache-Snapshot aus dem Render-Loop (display.cache_snapshot_ts ist leer)';
+    return 'wait for the first cache snapshot from the render loop (display.cache_snapshot_ts is empty)';
   }
   if (activeModule && !moduleHasValues && hasAnyValues) {
-    return `Global sind Daten vorhanden, aber das aktive Modul (${activeModule}) hat aktuell keine Nutzwerte im Cache`;
+    return `Data is available globally, but the active module (${activeModule}) currently has no useful values ​​in the cache`;
   }
   if (!hasAnyValues) {
     const weatherSource = sourceData.weather_source || sourceData.dht_backend || '-';
-    return `Snapshot vorhanden, aber noch keine Nutzdaten (BTC/Wetter/DHT). Wetterquelle aktuell: ${weatherSource}`;
+    return `Snapshot available, but no user data yet (BTC/Weather/DHT). Current weather source: ${weatherSource}`;
   }
   return 'ok';
 }
@@ -452,39 +452,39 @@ function renderOverviewLiveDataDebug(display, sourceData, externalData, liveData
   const moduleMap = getModuleFieldMap(renderDebug.module_key || display.last_module);
 
   const lines = [
-    `Status: ${waitReason === 'ok' ? 'Daten vorhanden' : 'Warten auf Daten'}`,
+    `Status: ${waitReason === 'ok' ? 'Data available' : 'Waiting for data'}`,
     `Wartegrund: ${waitReason === 'ok' ? '-' : waitReason}`,
-    `Quelle: ${liveDataDebug.source || 'unbekannt'}`,
-    `Render-Quelle: ${display.last_source || '-'}`,
-    `Aktives Modul: ${display.last_module || '-'}`,
+    `Source: ${liveDataDebug.source || 'unknown'}`,
+    `Render source: ${display.last_source || '-'}`,
+    `Active module: ${display.last_module || '-'}`,
     `Render-Hook Modul: ${renderDebug.module_key || '-'}`,
     `Render-Hook Text: ${renderDebug.module_text || '-'}`,
     `Render-Hook Update: ${formatTs(renderDebug.updated_at)} | ${formatAgeSeconds(renderDebug.updated_at)}`,
     `Snapshot: ${formatTs(liveDataDebug.snapshot_ts || display.cache_snapshot_ts)}`,
-    `LiveData hat Werte: ${liveDataDebug.has_any_values ? 'ja' : 'nein'}`,
-    `Aktives Modul hat Werte: ${renderDebug.cache_has_any_values ? 'ja' : 'nein'}`,
+    `LiveData has values: ${liveDataDebug.has_any_values ? 'yes' : 'no'}`,
+    `Active module has values: ${renderDebug.cache_has_any_values ? 'yes' : 'no'}`,
     `Display-Cache-Keys: ${(liveDataDebug.display_cache_keys || []).length}`,
     `External-Cache-Keys: ${(liveDataDebug.external_cache_keys || []).length}`,
-    `Fehlende Modul-Keys: ${(renderDebug.cache_missing_keys || []).join(', ') || '-'}`,
+    `Missing module keys: ${(renderDebug.cache_missing_keys || []).join(', ') || '-'}`,
     '',
     'Polling:',
-    `- ExternalDataService läuft: ${pollState.external_running ? 'ja' : 'nein'} (Tasks: ${pollState.poll_task_count ?? 0})`,
-    `- Intervalle: BTC=${pollIntervals.btc_seconds ?? '-'}s, Weather=${pollIntervals.weather_seconds ?? '-'}s, DHT=${pollIntervals.dht_seconds ?? '-'}s (enabled=${pollState.dht_enabled ? 'ja' : 'nein'})`,
+    `- ExternalDataService is running: ${pollState.external_running ? 'yes' : 'no'} (Tasks: ${pollState.poll_task_count ?? 0})`,
+    `- Intervalle: BTC=${pollIntervals.btc_seconds ?? '-'}s, Weather=${pollIntervals.weather_seconds ?? '-'}s, DHT=${pollIntervals.dht_seconds ?? '-'}s (enabled=${pollState.dht_enabled ? 'yes' : 'no'})`,
     '',
-    'Letzte Updates (Zeit | Alter):',
+    'Latest Updates (Time | Age):',
     `- BTC: ${formatTs(timestamps.btc_updated_at)} | ${formatAgeSeconds(timestamps.btc_updated_at)}`,
     `- BTC Blockheight: ${formatTs(timestamps.btc_block_height_updated_at)} | ${formatAgeSeconds(timestamps.btc_block_height_updated_at)}`,
     `- Weather: ${formatTs(timestamps.weather_updated_at)} | ${formatAgeSeconds(timestamps.weather_updated_at)}`,
     `- DHT: ${formatTs(timestamps.dht_updated_at)} | ${formatAgeSeconds(timestamps.dht_updated_at)}`,
-    `- DHT letzter Versuch: ${formatTs(timestamps.dht_last_attempt_at)} | ${formatAgeSeconds(timestamps.dht_last_attempt_at)}`,
+    `- DHT last attempt: ${formatTs(timestamps.dht_last_attempt_at)} | ${formatAgeSeconds(timestamps.dht_last_attempt_at)}`,
     '',
-    'Fehlerstatus:',
+    'Error status:',
     `- BTC: ${errors.btc_error || '-'}`,
     `- BTC Blockheight: ${errors.btc_block_height_error || '-'}`,
     `- Weather: ${errors.weather_error || '-'}`,
     `- DHT: ${errors.dht_error || '-'}`,
     '',
-    'Modul-Hook (Werte, die das aktive Modul direkt nutzt):',
+    'Module hook (values ​​that the active module uses directly):',
   ];
 
   Object.entries(renderFields).forEach(([key, value]) => {
@@ -492,16 +492,16 @@ function renderOverviewLiveDataDebug(display, sourceData, externalData, liveData
   });
 
   lines.push('');
-  lines.push('UI-Verknüpfung (Overview-Feld -> Datenkeys):');
+  lines.push('UI shortcut (overview field -> data keys):');
   Object.entries(moduleMap).forEach(([uiKey, keys]) => {
     lines.push(`• ${uiKey} <= ${keys.join(' | ')}`);
   });
   if (!Object.keys(moduleMap).length) {
-    lines.push('• keine direkte Modul-Verknüpfung (z. B. clock/textbox/bitmap)');
+    lines.push('• no direct module link (e.g. clock/textbox/bitmap)');
   }
 
   lines.push('');
-  lines.push('Vergleich display-cache vs external-cache:');
+  lines.push('Comparison display cache vs external cache:');
 
   fields.forEach((key) => {
     const live = sourceData?.[key];
@@ -526,13 +526,13 @@ function renderLiveDataSection(sourceData) {
     ? '-'
     : formatNumber(sourceData.btc_block_height, 0));
   setTextIfExists('overviewBlockHeightUpdated', sourceData.btc_block_height_error
-    ? `Fehler: ${String(sourceData.btc_block_height_error).slice(0, 28)}`
+    ? `Mistake: ${String(sourceData.btc_block_height_error).slice(0, 28)}`
     : `Update: ${formatTs(sourceData.btc_block_height_updated_at)}`);
 
   setTextIfExists('overviewOutdoorTemp', weatherOutdoorTemp === null
     ? '-'
     : `${formatNumber(weatherOutdoorTemp, 1)} °C`);
-  setTextIfExists('overviewWeatherSource', `Quelle: ${weatherSource}`);
+  setTextIfExists('overviewWeatherSource', `Source: ${weatherSource}`);
   setTextIfExists('overviewIndoorTemp', weatherIndoorTemp === null
     ? '-'
     : `${formatNumber(weatherIndoorTemp, 1)} °C`);
@@ -569,14 +569,14 @@ async function apiRequest(path, options = {}, okMessage = '') {
           window.location.replace('/login');
         }, 250);
       }
-      toast(`Fehler: ${msg}`, true);
+      toast(`Mistake: ${msg}`, true);
       return null;
     }
 
     if (okMessage) toast(okMessage);
     return data;
   } catch (_err) {
-    toast('Netzwerkfehler', true);
+    toast('Network error', true);
     return null;
   }
 }
@@ -593,12 +593,12 @@ function formatApiErrorMessage(detail, status) {
       const max = first?.ctx?.le;
       const min = first?.ctx?.ge;
       if (message.includes('less than or equal to') && Number.isFinite(Number(max))) {
-        const label = fieldPath || 'Wert';
-        return `${label}: Zu groß. Erlaubt sind maximal ${Number(max)} Sekunden.`;
+        const label = fieldPath || 'Value';
+        return `${label}: Too big. A maximum is allowed ${Number(max)} seconds.`;
       }
       if (message.includes('greater than or equal to') && Number.isFinite(Number(min))) {
-        const label = fieldPath || 'Wert';
-        return `${label}: Zu klein. Erlaubt sind mindestens ${Number(min)} Sekunden.`;
+        const label = fieldPath || 'Value';
+        return `${label}: Too small. At least are allowed ${Number(min)} seconds.`;
       }
       return fieldPath ? `${fieldPath}: ${message}` : message;
     }
@@ -614,10 +614,10 @@ function formatApiErrorMessage(detail, status) {
 function transitionControls(moduleId, settings) {
   return `
     <div class="field">
-      <label for="set-trans-dir-${moduleId}">Transition Richtung</label>
+      <label for="set-trans-dir-${moduleId}">Transition direction</label>
       <select id="set-trans-dir-${moduleId}">
-        <option value="down" ${settings.transition_direction !== 'up' ? 'selected' : ''}>Neu von oben nach unten</option>
-        <option value="up" ${settings.transition_direction === 'up' ? 'selected' : ''}>Neu von unten nach oben</option>
+        <option value="down" ${settings.transition_direction !== 'up' ? 'selected' : ''}>New from top to bottom</option>
+        <option value="up" ${settings.transition_direction === 'up' ? 'selected' : ''}>New from bottom to top</option>
       </select>
     </div>
     <div class="field">
@@ -647,7 +647,7 @@ function applyTextboxPreset(moduleId) {
       transitionMs: 350,
     },
     alert: {
-      lines: 'WARNUNG\nCHECK\nSYSTEM',
+      lines: 'WARNING\nCHECK\nSYSTEM',
       font: 'normal',
       lineSeconds: 1,
       mode: 'static',
@@ -672,7 +672,7 @@ function applyTextboxPreset(moduleId) {
   document.getElementById(`set-text-mode-${moduleId}`).value = cfg.mode;
   document.getElementById(`set-scroll-speed-${moduleId}`).value = cfg.speed;
   document.getElementById(`set-trans-ms-${moduleId}`).value = cfg.transitionMs;
-  toast('Textbox-Preset geladen (bitte speichern)');
+  toast('Textbox preset loaded (please save)');
 }
 
 function moduleSettingsHtml(module) {
@@ -682,22 +682,22 @@ function moduleSettingsHtml(module) {
     return `
       <div class="settings-grid settings-grid-color">
         <div class="field">
-          <label for="set-tz-${module.id}">Zeitzone</label>
+          <label for="set-tz-${module.id}">Time zone</label>
           <input id="set-tz-${module.id}" value="${s.timezone || 'Europe/Vienna'}" placeholder="Europe/Vienna" />
         </div>
         <div class="field">
-          <label>Anzeige</label>
-          <label class="check-label"><input type="checkbox" id="set-sec-${module.id}" ${s.show_seconds !== false ? 'checked' : ''}> Sekunden anzeigen</label>
+          <label>Display</label>
+          <label class="check-label"><input type="checkbox" id="set-sec-${module.id}" ${s.show_seconds !== false ? 'checked' : ''}> Show seconds</label>
         </div>
         <div class="field">
-          <label for="set-font-${module.id}">Schriftgröße</label>
+          <label for="set-font-${module.id}">Font size</label>
           <select id="set-font-${module.id}">
             <option value="normal" ${s.font_size !== 'small' ? 'selected' : ''}>Normal (5x7)</option>
             <option value="small" ${s.font_size === 'small' ? 'selected' : ''}>Klein (3x5)</option>
           </select>
         </div>
         <div class="field">
-          <label for="set-color-${module.id}">Schriftfarbe</label>
+          <label for="set-color-${module.id}">Font color</label>
           <input id="set-color-${module.id}" type="color" value="${s.color || '#c8e6ff'}" />
         </div>
         <div class="field">
@@ -709,20 +709,20 @@ function moduleSettingsHtml(module) {
           <input id="set-y-${module.id}" type="number" min="-4" max="4" value="${s.y_offset ?? 0}" />
         </div>
         <div class="field">
-          <label for="set-spacing-${module.id}">Zeichenabstand</label>
+          <label for="set-spacing-${module.id}">Character spacing</label>
           <input id="set-spacing-${module.id}" type="number" min="0" max="4" value="${s.char_spacing ?? 1}" />
         </div>
         <div class="field">
-          <label for="set-clock-sec-border-mode-${module.id}">Sekunden-Rand Animation</label>
+          <label for="set-clock-sec-border-mode-${module.id}">Second Edge Animation</label>
           <select id="set-clock-sec-border-mode-${module.id}">
-            <option value="off" ${!s.seconds_border_mode || s.seconds_border_mode === 'off' ? 'selected' : ''}>Aus</option>
+            <option value="off" ${!s.seconds_border_mode || s.seconds_border_mode === 'off' ? 'selected' : ''}>Off</option>
             <option value="linear" ${s.seconds_border_mode === 'linear' ? 'selected' : ''}>Simpel (linear)</option>
-            <option value="two_forward_one_back" ${s.seconds_border_mode === 'two_forward_one_back' ? 'selected' : ''}>2 vor, 1 zurück</option>
-            <option value="dual_edge" ${s.seconds_border_mode === 'dual_edge' ? 'selected' : ''}>Dual-Edge (von zwei Seiten)</option>
+            <option value="two_forward_one_back" ${s.seconds_border_mode === 'two_forward_one_back' ? 'selected' : ''}>2 forward, 1 back</option>
+            <option value="dual_edge" ${s.seconds_border_mode === 'dual_edge' ? 'selected' : ''}>Dual edge (from two sides)</option>
           </select>
         </div>
         <div class="field">
-          <label for="set-clock-sec-border-color-${module.id}">Sekunden-Rand Farbe</label>
+          <label for="set-clock-sec-border-color-${module.id}">Second Edge Color</label>
           <input id="set-clock-sec-border-color-${module.id}" type="color" value="${s.seconds_border_color || '#3cc8ff'}" />
         </div>
 
@@ -734,7 +734,7 @@ function moduleSettingsHtml(module) {
     return `
       <div class="settings-grid settings-grid-color">
         <div class="field">
-          <label for="set-font-${module.id}">Schriftgröße</label>
+          <label for="set-font-${module.id}">Font size</label>
           <select id="set-font-${module.id}">
             <option value="normal" ${s.font_size !== 'small' ? 'selected' : ''}>Normal (5x7)</option>
             <option value="small" ${s.font_size === 'small' ? 'selected' : ''}>Klein (3x5)</option>
@@ -749,31 +749,31 @@ function moduleSettingsHtml(module) {
           <input id="set-y-${module.id}" type="number" min="-4" max="4" value="${s.y_offset ?? 0}" />
         </div>
         <div class="field">
-          <label for="set-spacing-${module.id}">Zeichenabstand</label>
+          <label for="set-spacing-${module.id}">Character spacing</label>
           <input id="set-spacing-${module.id}" type="number" min="0" max="4" value="${s.char_spacing ?? 1}" />
         </div>
         <div class="field">
-          <label for="set-b-${module.id}">Farbe B</label>
+          <label for="set-b-${module.id}">Color B</label>
           <input id="set-b-${module.id}" type="color" value="${s.color_b || '#ff8c00'}" />
         </div>
         <div class="field">
-          <label for="set-up-${module.id}">Farbe Trend hoch</label>
+          <label for="set-up-${module.id}">Color trend high</label>
           <input id="set-up-${module.id}" type="color" value="${s.color_up || '#00c850'}" />
         </div>
         <div class="field">
-          <label for="set-down-${module.id}">Farbe Trend runter</label>
+          <label for="set-down-${module.id}">Color trend down</label>
           <input id="set-down-${module.id}" type="color" value="${s.color_down || '#e63c3c'}" />
         </div>
         <div class="field">
-          <label for="set-flat-${module.id}">Farbe Trend neutral</label>
+          <label for="set-flat-${module.id}">Color trend neutral</label>
           <input id="set-flat-${module.id}" type="color" value="${s.color_flat || '#dcdc50'}" />
         </div>
         <div class="field">
-          <label for="set-fallback-${module.id}">Farbe Fallback</label>
+          <label for="set-fallback-${module.id}">Color Fallback</label>
           <input id="set-fallback-${module.id}" type="color" value="${s.color_fallback || '#9ca3af'}" />
         </div>
         <div class="field">
-          <label class="check-label"><input type="checkbox" id="set-btc-block-${module.id}" ${s.show_block_height === true ? 'checked' : ''}> Zweiter Screen: Blockhöhe</label>
+          <label class="check-label"><input type="checkbox" id="set-btc-block-${module.id}" ${s.show_block_height === true ? 'checked' : ''}> Second screen: Block height</label>
         </div>
         <div class="field">
           <label for="set-btc-screen-sec-${module.id}">Screen-Wechsel (Sek.)</label>
@@ -788,11 +788,11 @@ function moduleSettingsHtml(module) {
     return `
       <div class="settings-grid settings-grid-color">
         <div class="field">
-          <label for="set-post-${module.id}">Postleitzahl (Info)</label>
+          <label for="set-post-${module.id}">Postal code (info)</label>
           <input id="set-post-${module.id}" value="${s.postcode || '6020'}" placeholder="6020" />
         </div>
         <div class="field">
-          <label for="set-font-${module.id}">Schriftgröße</label>
+          <label for="set-font-${module.id}">Font size</label>
           <select id="set-font-${module.id}">
             <option value="normal" ${s.font_size !== 'small' ? 'selected' : ''}>Normal (5x7)</option>
             <option value="small" ${s.font_size === 'small' ? 'selected' : ''}>Klein (3x5)</option>
@@ -807,23 +807,23 @@ function moduleSettingsHtml(module) {
           <input id="set-y-${module.id}" type="number" min="-4" max="4" value="${s.y_offset ?? 0}" />
         </div>
         <div class="field">
-          <label for="set-spacing-${module.id}">Zeichenabstand</label>
+          <label for="set-spacing-${module.id}">Character spacing</label>
           <input id="set-spacing-${module.id}" type="number" min="0" max="4" value="${s.char_spacing ?? 1}" />
         </div>
         <div class="field">
-          <label for="set-cold-${module.id}">Farbe kalt</label>
+          <label for="set-cold-${module.id}">Color cold</label>
           <input id="set-cold-${module.id}" type="color" value="${s.color_cold || '#3b82f6'}" />
         </div>
         <div class="field">
-          <label for="set-warm-${module.id}">Farbe warm</label>
+          <label for="set-warm-${module.id}">Color warm</label>
           <input id="set-warm-${module.id}" type="color" value="${s.color_warm || '#f97316'}" />
         </div>
         <div class="field">
-          <label for="set-humidity-${module.id}">Farbe Luftfeuchte</label>
+          <label for="set-humidity-${module.id}">Color Humidity</label>
           <input id="set-humidity-${module.id}" type="color" value="${s.color_humidity || '#6ed2ff'}" />
         </div>
         <div class="field">
-          <label for="set-fallback-${module.id}">Farbe Fallback</label>
+          <label for="set-fallback-${module.id}">Color Fallback</label>
           <input id="set-fallback-${module.id}" type="color" value="${s.color_fallback || '#9ca3af'}" />
         </div>
         <div class="field">
@@ -847,21 +847,21 @@ function moduleSettingsHtml(module) {
               <option value="alert" ${s.preset === 'alert' ? 'selected' : ''}>Alert</option>
               <option value="ticker" ${s.preset === 'ticker' ? 'selected' : ''}>Ticker</option>
             </select>
-            <button type="button" class="btn btn-secondary" onclick="applyTextboxPreset(${module.id})">Laden</button>
+            <button type="button" class="btn btn-secondary" onclick="applyTextboxPreset(${module.id})">Loading</button>
           </div>
         </div>
         <div class="field field-span-2">
-          <label for="set-lines-${module.id}">Mehrzeiliger Text (eine Zeile pro Zeile)</label>
-          <textarea id="set-lines-${module.id}" rows="4" placeholder="ZEILE 1&#10;ZEILE 2">${s.lines || 'HELLO\nPIXELDOCK'}</textarea>
+          <label for="set-lines-${module.id}">Multi-line text (one line per line)</label>
+          <textarea id="set-lines-${module.id}" rows="4" placeholder="ROW 1&#10;ROW 2">${s.lines || 'HELLO\nPIXELDOCK'}</textarea>
         </div>
         <div class="field">
-          <label for="set-line-sec-${module.id}">Zeilenwechsel (Sek.)</label>
+          <label for="set-line-sec-${module.id}">Line change (sec.)</label>
           <input id="set-line-sec-${module.id}" type="number" min="1" max="30" value="${s.line_seconds ?? 2}" />
         </div>
         <div class="field">
-          <label for="set-text-mode-${module.id}">Text-Ausgabe</label>
+          <label for="set-text-mode-${module.id}">Text output</label>
           <select id="set-text-mode-${module.id}">
-            <option value="static" ${s.text_mode !== 'scroll' ? 'selected' : ''}>Zeilenweise</option>
+            <option value="static" ${s.text_mode !== 'scroll' ? 'selected' : ''}>Line by line</option>
             <option value="scroll" ${s.text_mode === 'scroll' ? 'selected' : ''}>Scroll/Ticker</option>
           </select>
         </div>
@@ -870,14 +870,14 @@ function moduleSettingsHtml(module) {
           <input id="set-scroll-speed-${module.id}" type="number" min="5" max="120" value="${s.scroll_speed ?? 35}" />
         </div>
         <div class="field">
-          <label for="set-font-${module.id}">Schriftgröße</label>
+          <label for="set-font-${module.id}">Font size</label>
           <select id="set-font-${module.id}">
             <option value="normal" ${s.font_size !== 'small' ? 'selected' : ''}>Normal (5x7)</option>
             <option value="small" ${s.font_size === 'small' ? 'selected' : ''}>Klein (3x5)</option>
           </select>
         </div>
         <div class="field">
-          <label for="set-color-${module.id}">Farbe</label>
+          <label for="set-color-${module.id}">Color</label>
           <input id="set-color-${module.id}" type="color" value="${s.color || '#f4f4f5'}" />
         </div>
         <div class="field">
@@ -889,7 +889,7 @@ function moduleSettingsHtml(module) {
           <input id="set-y-${module.id}" type="number" min="-4" max="4" value="${s.y_offset ?? 0}" />
         </div>
         <div class="field">
-          <label for="set-spacing-${module.id}">Zeichenabstand</label>
+          <label for="set-spacing-${module.id}">Character spacing</label>
           <input id="set-spacing-${module.id}" type="number" min="0" max="4" value="${s.char_spacing ?? 1}" />
         </div>
         ${transitionControls(module.id, s)}
@@ -902,8 +902,8 @@ function moduleSettingsHtml(module) {
       <div class="settings-grid settings-grid-color">
         <div class="field">
           <label>Animation</label>
-          <label class="check-label"><input type="checkbox" id="set-anim-enabled-${module.id}" ${s.enabled !== false ? 'checked' : ''}> Animations-Modul aktiv</label>
-          <small class="subtle">Schaltet die Animation innerhalb des Moduls ein oder aus.</small>
+          <label class="check-label"><input type="checkbox" id="set-anim-enabled-${module.id}" ${s.enabled !== false ? 'checked' : ''}> Animation module active</label>
+          <small class="subtle">Turns the animation on or off within the module.</small>
         </div>
         <div class="field">
           <label for="set-anim-preset-${module.id}">Preset</label>
@@ -916,17 +916,17 @@ function moduleSettingsHtml(module) {
             <option value="lava_lamp" ${s.preset === 'lava_lamp' ? 'selected' : ''}>Lava Lamp</option>
             <option value="pixel_snake" ${s.preset === 'pixel_snake' ? 'selected' : ''}>Pixel Snake</option>
           </select>
-          <small class="subtle">Wählt den Animationsstil für das 32x8 Display.</small>
+          <small class="subtle">Selects the animation style for the 32x8 display.</small>
         </div>
         <div class="field">
-          <label for="set-anim-speed-${module.id}">Geschwindigkeit</label>
+          <label for="set-anim-speed-${module.id}">Speed</label>
           <input id="set-anim-speed-${module.id}" type="range" min="1" max="100" value="${s.speed ?? 50}" />
-          <small class="subtle">Niedrig = ruhig, hoch = schnell.</small>
+          <small class="subtle">Low = quiet, high = fast.</small>
         </div>
         <div class="field">
-          <label for="set-anim-intensity-${module.id}">Intensität / Helligkeit</label>
+          <label for="set-anim-intensity-${module.id}">Intensity / Brightness</label>
           <input id="set-anim-intensity-${module.id}" type="range" min="1" max="100" value="${s.intensity ?? s.brightness ?? 80}" />
-          <small class="subtle">Regelt die Leuchtkraft der Animation.</small>
+          <small class="subtle">Adjusts the brightness of the animation.</small>
         </div>
         <div class="field">
           <label for="set-anim-palette-${module.id}">Palette</label>
@@ -937,12 +937,12 @@ function moduleSettingsHtml(module) {
             <option value="ice" ${s.palette === 'ice' ? 'selected' : ''}>Ice</option>
             <option value="bitcoin_orange" ${s.palette === 'bitcoin_orange' ? 'selected' : ''}>Bitcoin Orange</option>
           </select>
-          <small class="subtle">Farbwelt für das ausgewählte Preset.</small>
+          <small class="subtle"> Color world for the selected preset.</small>
         </div>
         <div class="field">
-          <label>Spiegelmodus</label>
-          <label class="check-label"><input type="checkbox" id="set-anim-mirror-${module.id}" ${s.mirror_mode === true ? 'checked' : ''}> Bild horizontal spiegeln</label>
-          <small class="subtle">Symmetrische Ausgabe für Tunnel- und Plasma-Effekte.</small>
+          <label>Mirror mode</label>
+          <label class="check-label"><input type="checkbox" id="set-anim-mirror-${module.id}" ${s.mirror_mode === true ? 'checked' : ''}> Flip image horizontally</label>
+          <small class="subtle">Symmetrical output for tunnel and plasma effects.</small>
         </div>
       </div>
     `;
@@ -953,14 +953,14 @@ function moduleSettingsHtml(module) {
     return `
       <div class="settings-grid settings-grid-color">
         <div class="field field-span-2">
-          <label for="set-bitmap-file-${module.id}">Bitmap-Datei (unter app/bitmaps, z. B. .txt/.pbm/.ppm)</label>
+          <label for="set-bitmap-file-${module.id}">Bitmap file (under app/bitmaps, e.g. .txt/.pbm/.ppm)</label>
           <input id="set-bitmap-file-${module.id}" value="${s.file || 'sample_gradient.ppm'}" placeholder="sample_arrow.txt" />
         </div>
         <div class="field">
-          <label for="set-bitmap-dir-${module.id}">Scroll-Richtung</label>
+          <label for="set-bitmap-dir-${module.id}">Scroll direction</label>
           <select id="set-bitmap-dir-${module.id}">
             <option value="top_to_bottom" ${s.scroll_direction !== 'bottom_to_top' ? 'selected' : ''}>unten → oben</option>
-            <option value="bottom_to_top" ${s.scroll_direction === 'bottom_to_top' ? 'selected' : ''}>oben → unten</option>
+            <option value="bottom_to_top" ${s.scroll_direction === 'bottom_to_top' ? 'selected' : ''}>top → bottom</option>
           </select>
         </div>
         <div class="field">
@@ -968,14 +968,14 @@ function moduleSettingsHtml(module) {
           <input id="set-bitmap-speed-${module.id}" type="number" min="0.25" max="20" step="0.25" value="${s.scroll_speed ?? 2}" />
         </div>
         <div class="field">
-          <label for="set-bitmap-color-${module.id}">Fallback/Solid Farbe</label>
+          <label for="set-bitmap-color-${module.id}">Fallback/Solid Color</label>
           <input id="set-bitmap-color-${module.id}" type="color" value="${s.color || '#f4f4f5'}" />
         </div>
         <div class="field">
           <label for="set-bitmap-color-mode-${module.id}">Farbmodus</label>
           <select id="set-bitmap-color-mode-${module.id}">
-            <option value="bitmap" ${s.color_mode !== 'solid' ? 'selected' : ''}>Bitmap RGB verwenden</option>
-            <option value="solid" ${s.color_mode === 'solid' ? 'selected' : ''}>Alles in Solid-Farbe</option>
+            <option value="bitmap" ${s.color_mode !== 'solid' ? 'selected' : ''}>Use Bitmap RGB</option>
+            <option value="solid" ${s.color_mode === 'solid' ? 'selected' : ''}>All in solid color</option>
           </select>
         </div>
         ${transitionControls(module.id, s)}
@@ -984,7 +984,7 @@ function moduleSettingsHtml(module) {
   }
 
 
-  return '<p class="subtle">Keine Settings verfügbar.</p>';
+  return '<p class="subtle">No settings available.</p>';
 }
 
 function collectModuleSettings({ id: moduleId, key: moduleKey }) {
@@ -1089,7 +1089,7 @@ function setLoginUiState(isLoading = false, statusText = '') {
   const button = document.getElementById('loginButton');
   if (button) {
     button.disabled = isLoading;
-    button.innerText = isLoading ? 'Logge ein…' : 'Einloggen';
+    button.innerText = isLoading ? 'Log in…' : 'Log in';
   }
 
   const statusEl = document.getElementById('loginStatus');
@@ -1119,11 +1119,11 @@ async function login(event) {
   const password = document.getElementById('password')?.value || '';
 
   if (!username || !password) {
-    setLoginUiState(false, 'Bitte Benutzername und Passwort eingeben');
+    setLoginUiState(false, 'Please enter username and password');
     return;
   }
 
-  setLoginUiState(true, 'Prüfe Login…');
+  setLoginUiState(true, 'Check login…');
 
   const data = await apiRequest(
     '/api/auth/login',
@@ -1132,17 +1132,17 @@ async function login(event) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
     },
-    'Login erfolgreich',
+    'Login successful',
   );
 
   if (!data?.access_token) {
-    setLoginUiState(false, 'Login fehlgeschlagen');
+    setLoginUiState(false, 'Login failed');
     return;
   }
 
   token = data.access_token;
   localStorage.setItem('token', token);
-  setLoginUiState(true, 'Eingeloggt – weiter zur Übersicht');
+  setLoginUiState(true, 'Logged in – continue to the overview');
   setTimeout(() => { window.location.href = '/'; }, 350);
 }
 
@@ -1150,7 +1150,7 @@ async function login(event) {
 function logout() {
   token = '';
   localStorage.removeItem('token');
-  toast('Abgemeldet');
+  toast('Logged out');
   setTimeout(() => {
     window.location.href = '/login';
   }, 200);
@@ -1173,7 +1173,7 @@ async function loadModules() {
     row.className = `module-row ${isCollapsed ? 'collapsed' : ''}`;
     row.innerHTML = `
       <div class="module-main">
-        <button class="module-toggle" type="button" onclick="toggleModuleCard(${m.id})" aria-label="Modul ein- oder ausklappen">
+        <button class="module-toggle" type="button" onclick="toggleModuleCard(${m.id})" aria-label="Collapse or expand module">
           <span id="arrow-${m.id}" class="module-arrow ${isCollapsed ? '' : 'open'}">▸</span>
         </button>
         <div class="field module-name-wrap">
@@ -1182,23 +1182,23 @@ async function loadModules() {
           <span class="module-key">${m.key}</span>
         </div>
         <div class="field">
-          <label>Aktiv</label>
+          <label>Active</label>
           <label class="check-label"><input type="checkbox" ${m.enabled ? 'checked' : ''} id="en-${m.id}" onchange="toggleModuleEnabled(${m.id}, '${m.key}')"> aktiv</label>
         </div>
         <div class="field">
-          <label for="dur-${m.id}">Dauer (Sek.)</label>
+          <label for="dur-${m.id}">Duration (sec)</label>
           <input type="number" id="dur-${m.id}" value="${m.duration_seconds}" min="1">
         </div>
         <div class="field">
-          <label for="ord-${m.id}">Reihenfolge</label>
+          <label for="ord-${m.id}">Order</label>
           <input type="number" id="ord-${m.id}" value="${m.sort_order}">
         </div>
         <div class="field actions-end">
-          <button class="btn" onclick="saveModule(${m.id}, '${m.key}')">Speichern</button>
+          <button class="btn" onclick="saveModule(${m.id}, '${m.key}')">Save</button>
         </div>
       </div>
       <div class="module-settings" id="settings-${m.id}">
-        <label class="settings-title">Moduleinstellungen</label>
+        <label class="settings-title">Module settings</label>
         ${moduleSettingsHtml(m)}
       </div>
     `;
@@ -1233,7 +1233,7 @@ async function toggleModuleEnabled(moduleId, moduleKey) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     },
-    enabled ? 'Modul aktiviert' : 'Modul deaktiviert',
+    enabled ? 'Module activated' : 'Module disabled',
   );
 
   if (!res) {
@@ -1254,11 +1254,11 @@ async function saveModule(moduleId, moduleKey) {
   const duration = parseInt(document.getElementById(`dur-${moduleId}`).value, 10);
   const sortOrder = parseInt(document.getElementById(`ord-${moduleId}`).value, 10);
   if (!Number.isInteger(duration) || duration < 1) {
-    toast('Dauer muss >= 1 sein', true);
+    toast('Duration must be >= 1', true);
     return;
   }
   if (!Number.isInteger(sortOrder)) {
-    toast('Reihenfolge muss Zahl sein', true);
+    toast('Order must be number', true);
     return;
   }
 
@@ -1276,7 +1276,7 @@ async function saveModule(moduleId, moduleKey) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     },
-    'Modul gespeichert',
+    'Module saved',
   );
   if (res) {
     await Promise.all([loadModules(), refreshStatus(), refreshPreview()]);
@@ -1297,7 +1297,7 @@ async function sendText() {
       x_offset: parseInt(document.getElementById('manualOffsetX').value, 10) || 0,
       y_offset: parseInt(document.getElementById('manualOffsetY').value, 10) || 0,
     }),
-  }, 'Text gesendet');
+  }, 'Text sent');
   if (res) {
     await refreshStatus();
     await refreshPreview();
@@ -1310,7 +1310,7 @@ async function setBrightness() {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ brightness }),
-  }, 'Helligkeit gesetzt');
+  }, 'Brightness set');
   if (res) await refreshStatus();
 }
 
@@ -1324,7 +1324,7 @@ async function startDebugPattern() {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
-  }, 'Debug-Pattern gestartet');
+  }, 'Debug pattern started');
   if (res) {
     await refreshStatus();
     await refreshPreview();
@@ -1332,7 +1332,7 @@ async function startDebugPattern() {
 }
 
 async function stopDebugPattern() {
-  const res = await apiRequest('/api/debug/pattern', { method: 'DELETE' }, 'Debug-Pattern gestoppt');
+  const res = await apiRequest('/api/debug/pattern', { method: 'DELETE' }, 'Debug pattern stopped');
   if (res) {
     await refreshStatus();
     await refreshPreview();
@@ -1352,11 +1352,11 @@ async function refreshStatus() {
 
   const data = await apiRequest('/api/debug/status');
   if (!data) {
-    if (hasStatusUi) statusApiEl.innerText = token ? 'offline / auth?' : 'nicht eingeloggt';
+    if (hasStatusUi) statusApiEl.innerText = token ? 'offline / auth?' : 'not logged in';
     debugPanelLoadMessage(
       'backendStatusSummary',
-      'Fehler beim Laden von /api/debug/status',
-      'Pruefe Login, Backend-Logs und Browser-Konsole/Netzwerk-Tab.',
+      'Error loading /api/debug/status',
+      'Check login, backend logs and browser console/network tab.',
     );
     debugPanelLoadMessage(
       'backendStatusInfo',
@@ -1394,17 +1394,17 @@ async function refreshStatus() {
   setTextIfExists('statusModule', display.last_module || '-');
   setTextIfExists('statusFps', `${display.target_fps ?? '-'} / ${display.actual_fps ?? '-'}`);
   setTextIfExists('statusDebug', display.debug_active
-    ? `${display.debug_pattern} bis ${formatTs(display.debug_until)}`
-    : 'inaktiv');
+    ? `${display.debug_pattern} until ${formatTs(display.debug_until)}`
+    : 'inactive');
   setTextIfExists('statusBtc', shortError(sourceData.btc_error)
-    ? `Fehler (${shortError(sourceData.btc_error)})`
+    ? `Mistake (${shortError(sourceData.btc_error)})`
     : formatTs(sourceData.btc_updated_at));
   setTextIfExists('statusWeather', shortError(sourceData.weather_error)
-    ? `Fehler (${shortError(sourceData.weather_error)})`
+    ? `Mistake (${shortError(sourceData.weather_error)})`
     : `${formatTs(sourceData.weather_updated_at)} (${weatherSource})`);
   setTextIfExists('statusDhtLevel', sourceData.dht_gpio_level === null || sourceData.dht_gpio_level === undefined ? '-' : `${sourceData.dht_gpio_level}`);
   setTextIfExists('statusDhtRead', shortError(sourceData.dht_error, 24)
-    ? `Fehler (${shortError(sourceData.dht_error, 24)})`
+    ? `Mistake (${shortError(sourceData.dht_error, 24)})`
     : `${formatTs(sourceData.dht_updated_at)} / ${sourceData.dht_last_duration_ms ?? '-'}ms / ${sourceData.dht_backend || 'n/a'}`);
 
   renderLiveDataSection(sourceData);
@@ -1432,24 +1432,24 @@ async function refreshDhtDebug() {
 
 
 async function runDhtReadOnce() {
-  const data = await apiRequest('/api/debug/dht/read-once', { method: 'POST' }, 'DHT Einzel-Read ausgeführt');
+  const data = await apiRequest('/api/debug/dht/read-once', { method: 'POST' }, 'DHT single read executed');
   if (!data?.result) return;
 
   const el = document.getElementById('dhtReadOnceResult');
   if (!el) return;
 
   const result = data.result;
-  const state = result.ok ? '✅ OK' : '⚠️ Fehler';
+  const state = result.ok ? '✅ OK' : '⚠️ Error';
   const temp = result.temperature === null || result.temperature === undefined ? '-' : `${result.temperature} °C`;
   const hum = result.humidity === null || result.humidity === undefined ? '-' : `${result.humidity} %`;
   el.innerText = [
     `Status: ${state}`,
-    `Backend: ${result.backend || 'unbekannt'}`,
+    `Backend: ${result.backend || 'unknown'}`,
     `GPIO ${result.gpio_pin}: level before=${result.gpio_level_before} after=${result.gpio_level_after}`,
-    `Read-Dauer: ${result.duration_ms} ms`,
-    `Temperatur: ${temp}`,
-    `Luftfeuchte: ${hum}`,
-    result.error ? `Fehler: ${result.error}` : 'Fehler: -',
+    `Read duration: ${result.duration_ms} ms`,
+    `Temperature: ${temp}`,
+    `Humidity: ${hum}`,
+    result.error ? `Mistake: ${result.error}` : 'Mistake: -',
   ].join('\n');
 
   await refreshDhtDebug();
@@ -1458,14 +1458,14 @@ async function runDhtReadOnce() {
 async function runGpioEnvironmentCheck() {
   const data = await apiRequest('/api/debug/gpio/environment');
   if (!data?.result) return;
-  renderGpioResult('GPIO-Umgebungscheck', data.result);
+  renderGpioResult('GPIO environment check', data.result);
 }
 
 function renderGpioResult(title, result) {
   const el = document.getElementById('gpioFinderResult');
   if (!el) return;
   const safe = result || {};
-  const status = safe.ok ? '✅ OK' : '⚠️ Fehler';
+  const status = safe.ok ? '✅ OK' : '⚠️ Error';
   el.innerText = `${title}\nStatus: ${status}\n${JSON.stringify(safe, null, 2)}`;
 }
 
@@ -1478,10 +1478,10 @@ async function runGpioOutputTest() {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ gpio_pin: gpioPin, pulses, hold_ms: holdMs }),
-  }, 'GPIO Output-Test abgeschlossen');
+  }, 'GPIO output test completed');
 
   if (!data?.result) return;
-  renderGpioResult(`LED-Datenpin-Test auf GPIO ${gpioPin}`, data.result);
+  renderGpioResult(`LED data pin test on GPIO ${gpioPin}`, data.result);
 }
 
 async function runGpioInputProbe() {
@@ -1493,10 +1493,10 @@ async function runGpioInputProbe() {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ gpio_pin: gpioPin, sample_ms: sampleMs, pull_up: pullUp }),
-  }, 'GPIO Input-Probe abgeschlossen');
+  }, 'GPIO input probe completed');
 
   if (!data?.result) return;
-  renderGpioResult(`Sensor-Probe auf GPIO ${gpioPin}`, data.result);
+  renderGpioResult(`Sensor probe on GPIO ${gpioPin}`, data.result);
 }
 
 async function refreshLedDebug(options = {}) {
@@ -1507,12 +1507,12 @@ async function refreshLedDebug(options = {}) {
   }
 
   ledDebugRefreshInFlight = (async () => {
-    const data = await apiRequest('/api/debug/led', {}, silent ? '' : 'Arduino Serial Debug aktualisiert');
+    const data = await apiRequest('/api/debug/led', {}, silent ? '' : 'Arduino Serial Debug updated');
     if (!data?.result) {
       debugPanelLoadMessage(
         'serialDebugSummary',
-        'Fehler beim Laden von /api/debug/led',
-        'Pruefe Login, API und ob das Backend laeuft.',
+        'Error loading /api/debug/led',
+        'Check login, API and whether the backend is running.',
       );
       debugPanelLoadMessage('serialDebugMetrics', '-');
       debugPanelLoadMessage(
@@ -1538,7 +1538,7 @@ async function refreshLedDebug(options = {}) {
 
 async function runLedSerialPing() {
   const nonce = Math.floor(Date.now()) >>> 0;
-  const data = await apiRequest('/api/debug/led/serial-ping', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nonce }) }, 'Serial Ping ausgeführt');
+  const data = await apiRequest('/api/debug/led/serial-ping', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nonce }) }, 'Serial ping executed');
   if (!data?.result) return;
 
   const el = document.getElementById('ledPingResult');
@@ -1555,13 +1555,13 @@ async function runLedSerialPing() {
   renderSerialPingHistory();
 
   el.innerText = [
-    `Status: ${r.ok ? '✅ OK' : '⚠️ Fehler'}`,
-    `Reconnect während Ping: ${r.reconnected ? 'ja' : 'nein'}`,
+    `Status: ${r.ok ? '✅ OK' : '⚠️ Error'}`,
+    `Reconnect during ping: ${r.reconnected ? 'yes' : 'no'}`,
     `Roundtrip: ${r.roundtrip_ms ?? '-'} ms`,
     `Nonce: ${r.nonce ?? '-'}`,
-    `Antwort-Nonce: ${r.response_nonce ?? '-'}`,
+    `Answer nonce: ${r.response_nonce ?? '-'}`,
     `Rohantwort (hex): ${r.raw_response_hex || '-'}`,
-    `Fehler: ${r.error || '-'}`,
+    `Mistake: ${r.error || '-'}`,
   ].join('\n');
 
   await refreshLedDebug({ silent: true });
@@ -1611,7 +1611,7 @@ async function checkMappingCoordinate() {
   const x = parseInt(document.getElementById('mapX').value, 10);
   const y = parseInt(document.getElementById('mapY').value, 10);
   if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || x > maxX || y < 0 || y > 7) {
-    toast(`X/Y müssen im Bereich 0..${maxX} / 0..7 liegen`, true);
+    toast(`X/Y must be in the range 0..${maxX} / 0..7 lie`, true);
     return;
   }
 
@@ -1736,13 +1736,13 @@ function renderRuntimeMappingInfo(mapping) {
   const el = document.getElementById('mappingRuntimeInfo');
   if (!el) return;
   if (!mapping) {
-    el.innerText = 'Kein Mapping-Status verfügbar.';
+    el.innerText = 'No mapping status available.';
     return;
   }
 
   el.innerText = [
-    `Live Override: ${mapping.active ? '✅ aktiv' : 'ℹ️ aus (Settings)'}`,
-    `Quelle: ${mapping.source || '-'}`,
+    `Live Override: ${mapping.active ? '✅ aktiv' : 'ℹ️ off (Settings)'}`,
+    `Source: ${mapping.source || '-'}`,
     `first_pixel_offset: ${mapping.first_pixel_offset}`,
     `data_starts_right: ${mapping.data_starts_right}`,
     `serpentine: ${mapping.serpentine}`,
@@ -1750,7 +1750,7 @@ function renderRuntimeMappingInfo(mapping) {
     `panel_rotations: ${(mapping.panel_rotations || []).join(',') || '-'}`,
     `pixel_fixes_count: ${mapping.pixel_fixes_count ?? 0}`,
     `Panel-Layout: ${mapping.panel_count || '-'} x ${mapping.panel_width || '-'}×${mapping.panel_height || '-'} | Matrix ${mapping.panel_columns || '-'}×${mapping.panel_rows || '-'} | LED count ${mapping.led_count || '-'}`,
-    'Tipp: Starte "Stripes" oder "Panel Walk" und ändere Offset/Order/Rotation live bis Preview + reale LEDs übereinstimmen.',
+    'Tip: Start “Stripes” or “Panel Walk” and change the offset/order/rotation live until the preview + real LEDs match.',
   ].join('\n');
 }
 
@@ -1758,7 +1758,7 @@ async function refreshLiveMappingState(options = {}) {
   const { silent = true, useStatusPayload = null } = options;
   let mapping = useStatusPayload;
   if (!mapping) {
-    const data = await apiRequest('/api/debug/mapping/runtime', {}, silent ? '' : 'Live-Mapping geladen');
+    const data = await apiRequest('/api/debug/mapping/runtime', {}, silent ? '' : 'Live mapping loaded');
     if (!data?.mapping) return null;
     mapping = data.mapping;
   }
@@ -1782,7 +1782,7 @@ async function applyLiveMapping(options = {}) {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
-  }, silentToast ? '' : 'Live-Mapping angewendet');
+  }, silentToast ? '' : 'Live mapping applied');
   if (!data?.mapping) return;
   applyMappingToForm(data.mapping);
   renderRuntimeMappingInfo(data.mapping);
@@ -1791,7 +1791,7 @@ async function applyLiveMapping(options = {}) {
 }
 
 async function resetLiveMapping() {
-  const data = await apiRequest('/api/debug/mapping/runtime', { method: 'DELETE' }, 'Live-Mapping zurückgesetzt');
+  const data = await apiRequest('/api/debug/mapping/runtime', { method: 'DELETE' }, 'Live mapping reset');
   if (!data?.mapping) return;
   applyMappingToForm(data.mapping);
   renderRuntimeMappingInfo(data.mapping);
@@ -1842,7 +1842,7 @@ function initMappingAssistGrid() {
       if (y === 0) px.classList.add('assist-panel-top-edge');
       if (y === PANEL_HEIGHT - 1) px.classList.add('assist-panel-bottom-edge');
       px.id = `assist-${x}-${y}`;
-      px.title = `Beobachtet: ${x},${y}`;
+      px.title = `Observed: ${x},${y}`;
       px.setAttribute('aria-label', `Position ${x}, ${y}`);
       px.onclick = () => mappingAssistMarkObserved(x, y);
       container.appendChild(px);
@@ -1858,7 +1858,7 @@ function updateMappingCoordinateRange() {
   const mapX = document.getElementById('mapX');
   const mapXLabel = document.querySelector('label[for="mapX"]');
   if (mapX) mapX.max = `${maxX}`;
-  if (mapXLabel) mapXLabel.innerText = `Logisches X (0-${maxX})`;
+  if (mapXLabel) mapXLabel.innerText = `Logical X (0-${maxX})`;
 }
 
 function mappingAssistDimensions() {
@@ -2019,7 +2019,7 @@ function mappingAssistJumpToSelection() {
   const targetX = panel * PANEL_WIDTH + localX;
   const idx = mappingAssist.sequence.findIndex((item) => item.x === targetX && item.y === localY);
   if (idx < 0) {
-    toast('LED ist im aktuellen Scope nicht enthalten', true);
+    toast('LED is not included in the current scope', true);
     return;
   }
   mappingAssist.active = true;
@@ -2059,13 +2059,13 @@ function renderMappingFixesInfo() {
   const el = document.getElementById('mappingFixesInfo');
   if (!el) return;
   if (!mappingAssist.draftFixes.length) {
-    el.innerText = 'Noch keine Fix-Pixel.';
+    el.innerText = 'No fixed pixels yet.';
     return;
   }
   const lines = [
-    `Fix-Pixel (Entwurf): ${mappingAssist.draftFixes.length}`,
-    `Bereits aktiv im Backend: ${mappingAssist.fixedPixels.length}`,
-    'Format: logisch -> beobachtet',
+    `Fix pixel (draft): ${mappingAssist.draftFixes.length}`,
+    `Already active in the backend: ${mappingAssist.fixedPixels.length}`,
+    'Format: logical -> observed',
   ];
   mappingAssist.draftFixes
     .slice()
@@ -2073,7 +2073,7 @@ function renderMappingFixesInfo() {
     .forEach((item) => {
       lines.push(`(${item.logical_x},${item.logical_y}) -> (${item.observed_x},${item.observed_y})`);
     });
-  lines.push('Editieren: gehe auf die logische LED im Assistenten und klicke eine neue beobachtete Position.');
+  lines.push('Edit: go to the logical LED in the wizard and click a new observed position.');
   el.innerText = lines.join('\n');
 }
 
@@ -2100,18 +2100,18 @@ function renderMappingAssistState() {
   const el = document.getElementById('mappingAssistState');
   if (!el) return;
   if (!mappingAssist.active) {
-    el.innerText = 'Assistent noch nicht gestartet.';
+    el.innerText = 'Wizard not started yet.';
     return;
   }
   const { x, y, panelIndex, localX, localY } = assistLogicalFromCursor(mappingAssist.cursor);
   const total = mappingAssist.sequence.length || 0;
   el.innerText = [
-    `Schritt: ${mappingAssist.cursor + 1}/${total}`,
-    `Leuchte jetzt: logische LED (${x},${y}) | Panel ${panelIndex + 1}, lokal (${localX},${localY})`,
-    `Erfasste Beobachtungen: ${mappingAssist.observations.length} (Fixes Entwurf: ${mappingAssist.draftFixes.length})`,
-    `Übersprungen: ${mappingAssist.skipped.length}`,
-    `Panel-Setup: ${mappingAssist.panelCount}×8x8 | Bereich: ${mappingAssist.scope === 'active' ? `nur Panel ${mappingAssist.activePanel + 1}` : 'alle aktiven Panels'}`,
-    'Klicke unten auf die LED-Position, die in echt leuchtet.',
+    `Step: ${mappingAssist.cursor + 1}/${total}`,
+    `Light now: logical LED (${x},${y}) | Panel ${panelIndex + 1}, lokal (${localX},${localY})`,
+    `Observations recorded: ${mappingAssist.observations.length} (Fixed draft: ${mappingAssist.draftFixes.length})`,
+    `Skipped: ${mappingAssist.skipped.length}`,
+    `Panel-Setup: ${mappingAssist.panelCount}×8x8 | Area: ${mappingAssist.scope === 'active' ? `panel only ${mappingAssist.activePanel + 1}` : 'all active panels'}`,
+    'Click on the LED position below that actually lights up.',
   ].join('\n');
   renderMappingAssistGridState();
 }
@@ -2184,7 +2184,7 @@ async function mappingAssistMarkObserved(observedX, observedY) {
   renderMappingFixesInfo();
   renderMappingAssistGridState();
 
-  toast(`Beobachtung gespeichert: logisch (${x},${y}) -> real (${observedX},${observedY})`);
+  toast(`Observation saved: logical (${x},${y}) -> real (${observedX},${observedY})`);
   if (mappingAssist.cursor < mappingAssist.sequence.length - 1) {
     mappingAssist.cursor += 1;
     await mappingAssistShowCurrent();
@@ -2197,31 +2197,31 @@ function renderMappingAssistResult(result) {
   const el = document.getElementById('mappingAssistResult');
   if (!el) return;
   if (!result) {
-    el.innerText = 'Noch keine Mapping-Auswertung.';
+    el.innerText = 'No mapping evaluation yet.';
     return;
   }
   const solutions = Array.isArray(result.solutions) ? result.solutions : [];
   if (!solutions.length) {
     el.innerText = [
-      'Keine Lösung gefunden.',
-      `Beobachtungen: ${result.observation_count || 0}`,
-      'Erfasse mehr LEDs (idealerweise aus verschiedenen Panels/Zeilen).',
+      'No solution found.',
+      `Observations: ${result.observation_count || 0}`,
+      'Capture more LEDs (ideally from different panels/rows).',
     ].join('\n');
     return;
   }
   const first = solutions[0];
   el.innerText = [
-    `Lösungen gefunden: ${result.solutions_found}`,
-    `Beste Lösung: offset=${first.first_pixel_offset}, data_starts_right=${first.data_starts_right}, serpentine=${first.serpentine}`,
+    `Solutions found: ${result.solutions_found}`,
+    `Best solution: offset=${first.first_pixel_offset}, data_starts_right=${first.data_starts_right}, serpentine=${first.serpentine}`,
     `panel_order=${(first.panel_order || []).join(',')}`,
     `panel_rotations=${(first.panel_rotations || []).join(',')}`,
-    'Klicke "Live-Mapping anwenden", um diese Werte zu übernehmen.',
+    'Click "Apply Live Mapping" to apply these values.',
   ].join('\n');
 }
 
 async function inferMappingFromAssist() {
   if (!mappingAssist.observations.length) {
-    toast('Keine Beobachtungen vorhanden', true);
+    toast('No observations available', true);
     return;
   }
   const payload = { observations: mappingAssist.observations, max_solutions: 8 };
@@ -2229,7 +2229,7 @@ async function inferMappingFromAssist() {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
-  }, 'Mapping-Auswertung fertig');
+  }, 'Mapping evaluation finished');
   if (!data?.result) return;
 
   renderMappingAssistResult(data.result);
@@ -2251,7 +2251,7 @@ async function applyMappingAssistFixes() {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
-  }, 'Fix-Pixel live angewendet');
+  }, 'Fix pixels applied live');
   if (!data?.fixes) return;
   mappingAssist.fixedPixels = Array.isArray(data.fixes) ? data.fixes : [];
   mappingAssist.draftFixes = mappingAssist.fixedPixels.map((item) => ({ ...item }));
@@ -2263,7 +2263,7 @@ async function applyMappingAssistFixes() {
 }
 
 async function clearMappingAssistFixes() {
-  const data = await apiRequest('/api/debug/mapping/fixes', { method: 'DELETE' }, 'Fix-Pixel gelöscht');
+  const data = await apiRequest('/api/debug/mapping/fixes', { method: 'DELETE' }, 'Fix pixels deleted');
   if (!data?.fixes) return;
   mappingAssist.fixedPixels = [];
   mappingAssist.draftFixes = [];
@@ -2283,11 +2283,11 @@ function renderMappingAssistRuntimeState(display = null) {
   mappingAssist.runtimeManualActive = manualActive;
   mappingAssist.runtimeDebugActive = debugActive;
   const lines = [
-    `Display-Override aktiv: ${manualActive ? '⚠️ ja (Assistent/Draw blockiert Module)' : '✅ nein (Module laufen)'}`,
-    `Debug-Pattern aktiv: ${debugActive ? 'ja' : 'nein'}`,
+    `Display-Override aktiv: ${manualActive ? '⚠️ yes (Assistant/Draw blocks modules)' : '✅ no (modules are running)'}`,
+    `Debug pattern aktiv: ${debugActive ? 'yes' : 'no'}`,
   ];
   if (manualActive && !mappingAssist.active) {
-    lines.push('Hinweis: Der Assistent ist aktiv, aber die UI ist nicht im Run-Modus. Bitte sauber beenden.');
+    lines.push('Note: The wizard is active, but the UI is not in run mode. Please finish cleanly.');
   }
   el.innerText = lines.join('\n');
 }
@@ -2296,13 +2296,13 @@ async function saveAndFinishMappingAssist() {
   await applyLiveMapping({ silentToast: true });
   await applyMappingAssistFixes();
   await mappingAssistReset();
-  toast('Mapping gespeichert und Assistent beendet.');
+  toast('Mapping saved and wizard ended.');
 }
 
 async function finishMappingAssistWithoutSave() {
   await mappingAssistReset();
   await refreshLiveMappingState({ silent: true });
-  toast('Assistent beendet. Module laufen wieder.');
+  toast('Wizard finished. Modules are running again.');
 }
 
 async function refreshMappingBundleEditor() {
@@ -2345,7 +2345,7 @@ async function importMappingBundle() {
   try {
     parsed = JSON.parse(textarea.value || '{}');
   } catch (err) {
-    toast(`Ungültiges JSON: ${err.message || err}`, true);
+    toast(`Invalid JSON: ${err.message || err}`, true);
     return;
   }
   const runtime = parsed.runtime_mapping || {};
@@ -2380,7 +2380,7 @@ async function importMappingBundle() {
   renderMappingFixesInfo();
   renderMappingAssistGridState();
   await refreshMappingBundleEditor();
-  toast('Mapping-Bundle importiert und live angewendet.');
+  toast('Mapping bundle imported and applied live.');
 }
 
 function initGrid() {
@@ -2413,7 +2413,7 @@ async function sendGrid() {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ pixels: gridState, seconds: 8 }),
-  }, 'Pixel-Frame gesendet');
+  }, 'Pixel frame sent');
   if (res) {
     await refreshStatus();
     await refreshPreview();
@@ -2428,14 +2428,14 @@ if (document.body?.dataset.page === 'debug') {
   window.addEventListener('error', (event) => {
     debugPanelLoadMessage(
       'backendStatusSummary',
-      'Frontend-JS-Fehler',
-      `${event.message || 'unbekannter Fehler'} @ ${event.filename || '-'}:${event.lineno || '-'}:${event.colno || '-'}`,
+      'Frontend JS error',
+      `${event.message || 'unknown error'} @ ${event.filename || '-'}:${event.lineno || '-'}:${event.colno || '-'}`,
     );
   });
   window.addEventListener('unhandledrejection', (event) => {
     const reason = event?.reason;
     const text = typeof reason === 'string' ? reason : (reason?.message || JSON.stringify(reason));
-    debugPanelLoadMessage('backendStatusSummary', 'Frontend Promise-Fehler', text || 'unbekannter Fehler');
+    debugPanelLoadMessage('backendStatusSummary', 'Frontend promise error', text || 'unknown error');
   });
 }
 

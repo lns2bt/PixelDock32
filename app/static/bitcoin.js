@@ -19,21 +19,21 @@
     return result;
   }
   function summaries(s) {
-    $('bitcoinInfosSummary').textContent = `${s.bitcoin_infos.length} ausgewählt · max. ${s.bitcoin_max_infos} pro Vorstellung`;
-    $('bitcoinStylesSummary').textContent = `${s.bitcoin_styles.length} von ${catalog.styles.length} ausgewählt`;
-    $('bitcoinEventsSummary').textContent = s.bitcoin_events ? `An · ${s.bitcoin_event_styles.length} ausgewählt` : 'Aus';
+    $('bitcoinInfosSummary').textContent = `${s.bitcoin_infos.length} selected · max. ${s.bitcoin_max_infos} per presentation`;
+    $('bitcoinStylesSummary').textContent = `${s.bitcoin_styles.length} of ${catalog.styles.length} selected`;
+    $('bitcoinEventsSummary').textContent = s.bitcoin_events ? `An · ${s.bitcoin_event_styles.length} selected` : 'Off';
   }
   function mark() {
     if (!row) return;
     const s = collect(); dirty = JSON.stringify(s) !== baseline;
-    $('bitcoinSavebar').hidden = !dirty; $('bitcoinDirty').textContent = dirty ? 'Ungespeichert' : '';
+    $('bitcoinSavebar').hidden = !dirty; $('bitcoinDirty').textContent = dirty ? 'Unsaved' : '';
     summaries(s); scheduleDuration();
   }
   function scheduleDuration() {
     if (!row) return;
     durationRevision++; durationPending = false; clearTimeout(durationTimer);
-    if (!collect().bitcoin_stage) { $('bitcoinDuration').textContent = `Klassische Playlist-Dauer: ${row.duration_seconds} s.`; return; }
-    $('bitcoinDuration').textContent = 'Automatische Dauer wird berechnet …';
+    if (!collect().bitcoin_stage) { $('bitcoinDuration').textContent = `Classic Playlist Duration: ${row.duration_seconds} s.`; return; }
+    $('bitcoinDuration').textContent = 'Automatic duration is calculated...';
     durationTimer = setTimeout(() => { durationPending = true; updateDuration(); }, 200);
   }
   async function updateDuration() {
@@ -44,17 +44,17 @@
       const data = await api('/api/bitcoin/duration', {method:'POST', body:JSON.stringify({module_id:moduleId, settings:collect()})});
       if (revision === durationRevision && row.id === moduleId) {
         $('bitcoinDuration').textContent = data.automatic
-          ? `${window.PixelDock.bitcoinDurationText(data)} · ${data.info_count} Info${data.info_count === 1 ? '' : 's'} · ${data.read_seconds} s Lesezeit${collect().bitcoin_events ? ` · ggf. +${data.event_extra_seconds} s Blockzeremonie` : ''}.`
-          : `Klassische Playlist-Dauer: ${row.duration_seconds} s.`;
+          ? `${window.PixelDock.bitcoinDurationText(data)} · ${data.info_count} Info${data.info_count === 1 ? '' : 's'} · ${data.read_seconds} s reading time${collect().bitcoin_events ? ` · if necessary +${data.event_extra_seconds} s block ceremony` : ''}.`
+          : `Classic Playlist Duration: ${row.duration_seconds} s.`;
       }
-    } catch (error) { if (revision === durationRevision) $('bitcoinDuration').textContent = `Dauer nicht verfügbar: ${error.message}`; }
+    } catch (error) { if (revision === durationRevision) $('bitcoinDuration').textContent = `Duration not available: ${error.message}`; }
     finally { durationBusy = false; if (durationPending) updateDuration(); }
   }
   function renderInfos() {
     const selected = new Set(settings.bitcoin_infos);
     $('bitcoinInfos').innerHTML = infoOrder.map((key, i) => {
       const info = catalog.infos.find(v => v.key === key);
-      return `<div class="bitcoin-row" data-info="${escape(key)}"><div class="row-top"><label class="check"><input type="checkbox" id="info_${escape(key)}" ${selected.has(key) ? 'checked' : ''}>${escape(info.title)}</label><button type="button" data-move="-1" aria-label="${escape(info.title)} nach oben" ${i === 0 ? 'disabled' : ''}>↑</button><button type="button" data-move="1" aria-label="${escape(info.title)} nach unten" ${i === infoOrder.length - 1 ? 'disabled' : ''}>↓</button></div></div>`;
+      return `<div class="bitcoin-row" data-info="${escape(key)}"><div class="row-top"><label class="check"><input type="checkbox" id="info_${escape(key)}" ${selected.has(key) ? 'checked' : ''}>${escape(info.title)}</label><button type="button" data-move="-1" aria-label="${escape(info.title)} up" ${i === 0 ? 'disabled' : ''}>↑</button><button type="button" data-move="1" aria-label="${escape(info.title)} downward" ${i === infoOrder.length - 1 ? 'disabled' : ''}>↓</button></div></div>`;
     }).join('');
     $('bitcoinInfos').querySelectorAll('[data-move]').forEach(button => button.onclick = () => {
       settings = collect(); const index = infoOrder.indexOf(button.closest('[data-info]').dataset.info), target = index + Number(button.dataset.move);
@@ -68,7 +68,7 @@
     renderInfos();
     $('bitcoinStyles').innerHTML = styleOrder.map(key => {
       const style = catalog.styles.find(v => v.key === key);
-      return `<div class="bitcoin-row"><div class="row-top"><label class="check"><input id="style_${escape(key)}" type="checkbox" value="${escape(key)}" ${settings.bitcoin_styles.includes(key) ? 'checked' : ''}>${escape(style.title)}</label><button type="button" data-led-style="${escape(key)}" aria-label="${escape(style.title)} auf LEDs zeigen">LED-Vorschau</button><button type="button" data-style="${escape(key)}" aria-label="${escape(style.title)} im Browser zeigen">Browser</button></div><details class="bitcoin-description"><summary>Beschreibung</summary><p class="muted">${escape(style.description)}</p></details></div>`;
+      return `<div class="bitcoin-row"><div class="row-top"><label class="check"><input id="style_${escape(key)}" type="checkbox" value="${escape(key)}" ${settings.bitcoin_styles.includes(key) ? 'checked' : ''}>${escape(style.title)}</label><button type="button" data-led-style="${escape(key)}" aria-label="${escape(style.title)} point to LEDs">LED preview</button><button type="button" data-style="${escape(key)}" aria-label="${escape(style.title)} show in browser">Browser</button></div><details class="bitcoin-description"><summary>Description</summary><p class="muted">${escape(style.description)}</p></details></div>`;
     }).join('');
     $('bitcoinStyles').querySelectorAll('[data-style]').forEach(button => button.onclick = () => {
       stop(); previewRevision++; $('bitcoinPreviewStyle').value = button.dataset.style; $('bitcoinElapsed').value = 0; $('bitcoinBrowserPreview').open = true;
@@ -80,34 +80,34 @@
       return `<label class="check"><input id="event_${escape(key)}" type="checkbox" value="${escape(key)}" ${settings.bitcoin_event_styles.includes(key) ? 'checked' : ''}>${escape(event.title)}</label>`;
     }).join('');
     baseline = JSON.stringify(collect()); dirty = false; $('bitcoinSavebar').hidden = true; $('bitcoinDirty').textContent = ''; $('bitcoinFields').disabled = false;
-    $('bitcoinLedStatus').textContent = ''; summaries(collect()); scheduleDuration(); message('Bitcoin-Stage geladen.');
+    $('bitcoinLedStatus').textContent = ''; summaries(collect()); scheduleDuration(); message('Bitcoin stage loaded.');
   }
   function showData(data) {
-    $('bitcoinData').innerHTML = data.data.map(info => `<div><span>${escape(info.title)}</span><strong>${escape(info.value)}</strong><small>${info.state === 'fresh' ? 'Aktuell' : info.state === 'stale' ? 'Veraltet / Abruffehler' : 'Nicht verfügbar'}</small></div>`).join('');
-    $('bitcoinDataSummary').textContent = `${data.data.filter(info => info.state === 'fresh').length} von ${data.data.length} aktuell`;
+    $('bitcoinData').innerHTML = data.data.map(info => `<div><span>${escape(info.title)}</span><strong>${escape(info.value)}</strong><small>${info.state === 'fresh' ? 'Current' : info.state === 'stale' ? 'Obsolete / retrieval error' : 'Not available'}</small></div>`).join('');
+    $('bitcoinDataSummary').textContent = `${data.data.filter(info => info.state === 'fresh').length} of ${data.data.length} current`;
   }
   $('bitcoinFields').oninput = mark;
   $('bitcoinModule').onchange = () => {
-    if (dirty && !confirm('Ungespeicherte Bitcoin-Einstellungen verwerfen?')) { $('bitcoinModule').value = row.id; return; }
+    if (dirty && !confirm('Discard unsaved Bitcoin settings?')) { $('bitcoinModule').value = row.id; return; }
     fill(rows.find(v => v.id === Number($('bitcoinModule').value)));
   };
   $('bitcoinForm').onsubmit = async event => {
     event.preventDefault(); if (!row || !dirty) return;
     const s = collect();
-    if (!s.bitcoin_infos.length || !s.bitcoin_styles.length || s.bitcoin_events && !s.bitcoin_event_styles.length) { message('Bitte mindestens eine Info, eine Szene und ggf. eine Blockzeremonie auswählen.', true); return; }
+    if (!s.bitcoin_infos.length || !s.bitcoin_styles.length || s.bitcoin_events && !s.bitcoin_event_styles.length) { message('Please select at least one piece of information, one scene and, if necessary, one block ceremony.', true); return; }
     const target = row; $('saveBitcoin').disabled = true;
     try {
       const saved = await api(`/api/modules/${target.id}`, {method:'PUT', body:JSON.stringify({name:target.name, enabled:target.enabled, duration_seconds:target.duration_seconds, sort_order:target.sort_order, settings:s})});
       Object.assign(target, saved);
       if (row === target) {
         baseline = JSON.stringify(s); mark();
-        message('Gespeichert. Änderungen gelten ab der nächsten Vorstellung.');
+        message('Saved. Changes apply from the next performance.');
       }
-      toast('Bitcoin-Stage gespeichert.');
+      toast('Bitcoin stage saved.');
     } catch (error) { message(error.message, true); } finally { $('saveBitcoin').disabled = false; }
   };
-  function stop() { playing = false; pendingFrame = false; clearTimeout(timer); $('bitcoinPreviewPlay').textContent = '▶ Browser-Vorschau'; }
-  function browserMode() { $('bitcoinBrowserSummary').textContent = `${$('bitcoinDemo').checked || $('bitcoinPreviewEvent').value ? 'Demo / Simulation' : 'Live'} · nur Browser`; }
+  function stop() { playing = false; pendingFrame = false; clearTimeout(timer); $('bitcoinPreviewPlay').textContent = '▶ Browser preview'; }
+  function browserMode() { $('bitcoinBrowserSummary').textContent = `${$('bitcoinDemo').checked || $('bitcoinPreviewEvent').value ? 'Demo / Simulation' : 'Live'} · Browser only`; }
   async function requestFrame() {
     if (!row || document.hidden || !$('bitcoinBrowserPreview').open) return;
     pendingFrame = true;
@@ -123,7 +123,7 @@
       if (revision !== previewRevision || document.hidden || !$('bitcoinBrowserPreview').open) return;
       const packed = JSON.stringify(data.pixels);
       if (packed !== lastFrame) { matrix($('bitcoinCanvas'), data.pixels); lastFrame = packed; }
-      $('bitcoinPreviewStatus').textContent = `${data.demo || $('bitcoinPreviewEvent').value ? 'Demo / Simulation' : 'Live-Daten'} · nur Browser · ${data.text || 'Szeneneinstieg'} · ${elapsed.toFixed(1)} s`;
+      $('bitcoinPreviewStatus').textContent = `${data.demo || $('bitcoinPreviewEvent').value ? 'Demo / Simulation' : 'Live data'} · Browser only · ${data.text || 'Scene intro'} · ${elapsed.toFixed(1)} s`;
       if (playing && elapsed >= data.duration) { anchor = 0; start = performance.now(); }
     } catch (error) { if (revision === previewRevision) { stop(); $('bitcoinPreviewStatus').textContent = error.message; } }
     finally { inFlight = false; if ((playing || pendingFrame) && !document.hidden && $('bitcoinBrowserPreview').open) timer = setTimeout(requestFrame, Math.max(0, 250 - (performance.now() - lastRequest))); }
@@ -133,7 +133,7 @@
     button.disabled = true;
     try {
       await api('/api/bitcoin/preview', {method:'POST', body:JSON.stringify({module_id:row.id, style, info, elapsed:0, physical:true, demo:false, event:null, settings:collect()})});
-      status.textContent = 'LED-Vorschau gestartet · Live-Daten · aktuelle Einstellungen.';
+      status.textContent = 'LED preview started · Live data · current settings.';
     } catch (error) { status.textContent = error.message; } finally { button.disabled = false; }
   }
   $('bitcoinSnapshot').onclick = () => { stop(); requestFrame(); };
@@ -142,7 +142,7 @@
     playing = true; anchor = Number($('bitcoinElapsed').value) || 0; start = performance.now(); $('bitcoinPreviewPlay').textContent = 'Ⅱ Pause'; requestFrame();
   };
   for (const id of ['bitcoinPreviewStyle','bitcoinPreviewInfo','bitcoinPreviewEvent','bitcoinDemo']) $(id).onchange = () => { stop(); previewRevision++; $('bitcoinElapsed').value = 0; browserMode(); requestFrame(); };
-  $('bitcoinPhysical').textContent = 'LED-Vorschau · Live';
+  $('bitcoinPhysical').textContent = 'LED preview · Live';
   $('bitcoinPhysical').onclick = () => physicalPreview($('bitcoinPreviewStyle').value, $('bitcoinPreviewStatus'), $('bitcoinPhysical'), $('bitcoinPreviewInfo').value || null);
   $('bitcoinBrowserPreview').addEventListener('toggle', () => { if (!$('bitcoinBrowserPreview').open) { stop(); previewRevision++; } });
   document.addEventListener('visibilitychange', () => { if (document.hidden) { stop(); previewRevision++; } });
@@ -152,9 +152,9 @@
     catalog = data; rows = modules.filter(v => v.key.split('-')[0] === 'btc'); showData(data);
     $('bitcoinModule').innerHTML = rows.map(v => `<option value="${v.id}">${escape(v.name)}</option>`).join('');
     $('bitcoinPreviewStyle').innerHTML = data.styles.map(v => `<option value="${escape(v.key)}">${escape(v.title)}</option>`).join('');
-    $('bitcoinPreviewInfo').innerHTML = '<option value="">Vorstellung (aktuelle Info-Auswahl)</option>' + data.infos.map(v => `<option value="${escape(v.key)}">${escape(v.title)}</option>`).join('');
+    $('bitcoinPreviewInfo').innerHTML = '<option value="">Introduction (current information selection)</option>' + data.infos.map(v => `<option value="${escape(v.key)}">${escape(v.title)}</option>`).join('');
     $('bitcoinPreviewEvent').innerHTML += '<optgroup label="Browser-Simulation">' + data.events.map(v => `<option value="${escape(v.key)}">${escape(v.title)}</option>`).join('') + '</optgroup>';
-    if (rows.length) fill(rows[0]); else message('Kein Bitcoin-Modul vorhanden. Bitte in der Playlist hinzufügen.');
+    if (rows.length) fill(rows[0]); else message('No Bitcoin module available. Please add to playlist.');
   }).catch(error => message(error.message, true));
   setInterval(async () => { if (document.hidden || !catalog) return; try { showData(await api('/api/bitcoin')); } catch (_) {} }, 30000);
 })();

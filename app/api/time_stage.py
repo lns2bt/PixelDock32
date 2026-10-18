@@ -16,7 +16,7 @@ from app.config import get_settings
 from app.database import get_db
 from app.models import TimeStagePreference
 from app.services.time_stage import catalog
-from app.services.time_stage.settings import Config, StrictModel, save_config
+from app.services.time_stage.settings import Config, StrictModel, save_config, read_config, config_revision
 
 router = APIRouter(prefix="/api/time-stage", tags=["time-stage"], dependencies=[Depends(get_current_user)])
 
@@ -57,9 +57,7 @@ def _display(request):
 
 
 async def _config(db, service):
-    preference = await db.get(TimeStagePreference, "config")
-    value = preference.value if preference is not None else getattr(service, "time_stage_config", None)
-    return Config.model_validate(value or {}).model_dump(mode="json")
+    return await read_config(db, getattr(service, "time_stage_config", None))
 
 
 def _location(config, service):
@@ -81,15 +79,25 @@ def _snapshot(config, service):
          "description": "Astronomical ceremony with local facts", "seconds": "Wall-clock time",
          "duration": 45, "events": [key], "panels": list(PANELS)} for key in KEYS
     ]
-    return {"config": config, "catalog": scenes, "status": service.time_stage_status(),
+    return {"config": config, "revision": config_revision(config), "catalog": scenes, "status": service.time_stage_status(),
             "astronomy": getattr(service, "astronomy_data", {}) or {},
             "location": _location(config, service)}
 
 
-async def _save(db, service, config):
+async def _save(db, service, config, expected=None):
     async with service.brightness_lock:
+        current = await _config(db, service)
+        if expected is not None and expected != config_revision(current):
+            raise HTTPException(status_code=409, detail="Settings changed in another tab. Reload before saving; your edits have not been saved.")
+        # Ordinary settings writes cannot create, revive or cancel exceptions.
+        override = {key: current["sleep"][key] for key in ("mode", "until")}
+        if await db.get(TimeStagePreference, "sleep_override") is None:
+            db.add(TimeStagePreference(key="sleep_override", value=override))
+        config["sleep"].update(mode="auto", until=None)
         value = await save_config(db, config)
         await db.commit()
+        value = deepcopy(value)
+        value["sleep"].update(override)
         service.configure_time_stage(value)
     return value
 
@@ -103,7 +111,7 @@ async def get_time_stage(request: Request, db=Depends(get_db)):
 @router.put("")
 async def put_time_stage(payload: Config, request: Request, db=Depends(get_db)):
     service = _display(request)
-    config = await _save(db, service, payload.model_dump(mode="json"))
+    config = await _save(db, service, payload.model_dump(mode="json"), request.headers.get("If-Match"))
     return _snapshot(config, service)
 
 
@@ -117,7 +125,7 @@ async def export_time_stage(request: Request, db=Depends(get_db)):
 @router.post("/import")
 async def import_time_stage(payload: ImportRequest, request: Request, db=Depends(get_db)):
     service = _display(request)
-    config = await _save(db, service, payload.config.model_dump(mode="json"))
+    config = await _save(db, service, payload.config.model_dump(mode="json"), request.headers.get("If-Match"))
     return _snapshot(config, service)
 
 
@@ -135,9 +143,18 @@ async def set_sleep(payload: SleepRequest, request: Request, db=Depends(get_db))
             else:
                 from app.services.time_stage.engine import next_sleep_boundary
                 until = next_sleep_boundary(now, config)
-        config["sleep"].update(mode=payload.mode, until=until.isoformat() if until else None)
+        value = {"mode": payload.mode, "until": until.isoformat() if until else None}
+        preference = await db.get(TimeStagePreference, "sleep_override")
+        if preference is None:
+            db.add(TimeStagePreference(key="sleep_override", value=value))
+        else:
+            preference.value = value
+        # Migrate legacy inline exceptions without changing the daily plan.
+        config["sleep"].update(mode="auto", until=None)
         config = await save_config(db, config)
         await db.commit()
+        config = deepcopy(config)
+        config["sleep"].update(value)
         service.configure_time_stage(config)
     return service.time_stage_status()
 
@@ -150,7 +167,7 @@ async def preview(payload: PreviewRequest, request: Request, db=Depends(get_db))
         status = service.time_stage_status()
         if (status.get("sleep_active") or status.get("sleeping") or
                  status.get("sleep", {}).get("active")):
-            raise HTTPException(status_code=409, detail="Schlafmodus aktiv. Bitte zuerst ausdrücklich auf Wach umschalten.")
+            raise HTTPException(status_code=409, detail="Sleep mode active. Please first explicitly switch to awake.")
         try:
             from app.services.time_stage.celestial import KEYS
             info = None

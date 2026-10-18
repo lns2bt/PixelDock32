@@ -45,7 +45,7 @@ async def import_image(request: Request, name: str = Query(default="Import", min
     async for chunk in request.stream():
         raw.extend(chunk)
         if len(raw) > MAX_UPLOAD:
-            raise HTTPException(413, "Maximal 4 MB")
+            raise HTTPException(413, "Maximum 4 MB")
     try:
         async with decode_slot:
             data = await asyncio.to_thread(decode_image, bytes(raw), name, fit,
@@ -63,7 +63,7 @@ async def analyze(request: Request, _: str = Depends(get_current_user)):
     raw=bytearray()
     async for chunk in request.stream():
         raw.extend(chunk)
-        if len(raw)>MAX_UPLOAD: raise HTTPException(413,'Maximal 4 MB')
+        if len(raw)>MAX_UPLOAD: raise HTTPException(413,'Maximum 4 MB')
     try:
         async with decode_slot:
             return await asyncio.to_thread(analyze_image,bytes(raw))
@@ -77,12 +77,12 @@ async def create_sprite(request: Request, _: str = Depends(get_current_user)):
     async for chunk in request.stream():
         raw.extend(chunk)
         if len(raw) > MAX_ASSET_BYTES:
-            raise HTTPException(413, "Sprite-Datei zu groß: maximal 2 MB")
+            raise HTTPException(413, "Sprite file too large: maximum 2 MB")
     try:
         payload = SpriteRequest.model_validate(json.loads(raw))
         return await asyncio.to_thread(store(request).save, payload.model_dump())
     except (ValueError, ValidationError) as error:
-        raise HTTPException(422, f"Ungültige Sprite-Daten: Name, 1–{MAX_FRAMES} Frames, je 256 RGB-Pixel und 33–2000 ms erforderlich") from error
+        raise HTTPException(422, f"Invalid sprite data: name, 1–{MAX_FRAMES} frames, 256 RGB pixels per frame and 33–2000 ms required") from error
 
 
 @router.get("/{asset_id}")
@@ -90,18 +90,18 @@ async def get_asset(asset_id: str, request: Request, _: str = Depends(get_curren
     try:
         return await asyncio.to_thread(store(request).load, asset_id)
     except (ValueError, OSError) as error:
-        raise HTTPException(404, "Asset nicht gefunden") from error
+        raise HTTPException(404, "Asset not found") from error
 
 
 @router.delete("/{asset_id}")
 async def delete_asset(asset_id: str, request: Request, _: str = Depends(get_current_user), db=Depends(get_db)):
     rows = (await db.execute(select(ModuleConfig))).scalars().all()
     if any((row.settings or {}).get("asset_id") == asset_id for row in rows):
-        raise HTTPException(409, "Asset wird noch in einem Modul verwendet")
+        raise HTTPException(409, "Asset is still used in a module")
     if asset_id.startswith("demo_"):
-        raise HTTPException(409, "Beispiel-Assets bleiben in der Bibliothek")
+        raise HTTPException(409, "Sample assets remain in the library")
     try:
         await asyncio.to_thread(store(request).delete, asset_id)
     except (ValueError, OSError) as error:
-        raise HTTPException(404, "Asset nicht gefunden") from error
+        raise HTTPException(404, "Asset not found") from error
     return {"ok": True}

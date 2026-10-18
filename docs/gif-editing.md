@@ -1,51 +1,51 @@
-# GIF-Auswahl und Wiedergabe
+# GIF selection and playback
 
-## Import vorbereiten
+## Prepare import
 
-Im Pixel-Studio nach Auswahl der Datei „Import vorbereiten“ öffnen. Bei mehr als
-512 Quellframes öffnet sich der Bereich automatisch. Die Analyse speichert nichts.
+In Pixel Studio, open **Prepare import** after choosing a file. This section opens
+automatically for more than 512 source frames. Analysis does not save anything.
 
-- **Frames entfernen:** Anzahl am Anfang und Ende eingeben.
-- **Zeitbereich behalten:** Start und Ende in Sekunden; leeres Ende bedeutet
-  Animationsende. Der Bereich wird nach außen auf vollständige Frames erweitert.
-- **Jeden … Frame behalten:** 2 behält jeden zweiten Frame. Die Dauer übersprungener
-  Frames wird dem vorherigen behaltenen Frame hinzugefügt, die ausgewählte Laufzeit
-  bleibt erhalten. Lange Haltezeiten werden in identische Frames mit höchstens
-  2000 ms aufgeteilt; daher reduziert Ausdünnen nicht immer genau um den Faktor.
-- Zusammenfassung zeigt Framezahl, Laufzeit, entfernte Sekunden und echte Grenzen.
-- „Auswahl als Animation prüfen“ dekodiert nur die Auswahl für die Browser-Vorschau;
-  weder Bibliothek, Playlist noch Hardware werden verändert. Erster und letzter
-  Frame sind nebeneinander sichtbar, um den Loopübergang zu prüfen.
-- Erst „Importieren“ erzeugt ein neues Asset. Originaldatei bleibt unverändert.
+- **Remove frames:** Enter number at start and end.
+- **Keep time range:** start/end in seconds; a blank end means the end of the
+  animation. The selection expands outward to complete frames.
+- **Keep every … frame:** 2 keeps every other frame. Skipped durations are added
+  to the preceding retained frame, preserving the selected running time.
+  Holds longer than 2000 ms are split into identical frames, so thinning may not
+  reduce the count by exactly the selected factor.
+- Summary shows frame count, runtime, seconds removed and real limits.
+- “Check selection as animation” only decodes the selection for browser preview;
+  neither the library, playlist nor hardware are changed. First and last
+  Frames are visible next to each other to check the loop transition.
+- Only “Import” creates a new asset. Original file remains unchanged.
 
-Grenzen: 4 MB Upload, maximal 4096 Quellframes für Vorbereitung, 8 Millionen
-Quellpixel über die Animation, maximal 1024 Pixel je Seite/262144 Pixel je Bild.
-Fertige Assets: maximal 512 Frames, mindestens ein Frame, 33–2000 ms je Frame.
-Sehr große Quellbilder müssen weiterhin extern verkleinert werden. Analyse und
-Dekodierung finden außerhalb des Renderloops statt, ohne Quellframes zu sammeln.
+Limits: 4 MB upload, maximum 4096 source frames for preparation, 8 million
+source pixels across the animation, at most 1024 pixels per side and 262144 per image.
+Finished assets: maximum 512 frames, minimum one frame, 33-2000 ms per frame.
+Very large source images still need to be reduced externally. analysis and
+Decoding takes place outside the render loop without collecting source frames.
 
 ## Editor
 
-„Bereich kürzen / Frames ausdünnen“ bietet dieselbe Auswahl. „Nur Auswahl abspielen“
-prüft den Bereich vor dem Anwenden. „Auf Entwurf anwenden“ ist rückgängig machbar.
-„In Bibliothek speichern“ erzeugt immer eine **neue Variante**, überschreibt kein
-Asset und tauscht keine Playlist-Referenz aus. Die Variante bei Bedarf in den
-Einstellungen des betreffenden Playlist-Moduls auswählen.
+“Trim Area / Thin Frames” offers the same selection. “Play selection only”
+checks the area before applying. Apply to Draft is reversible.
+**Save to library** always creates a **new variant**. It neither overwrites the
+original asset nor replaces playlist references. Select the variant in the
+relevant playlist module's settings when desired.
 
-## Playlist-Modi
+## Playlist modes
 
-| Modus | Verhalten |
+| Mode | behavior |
 | --- | --- |
-| Maximale Dauer (Standard) | Wechsel an der eingestellten Zeitgrenze, auch mitten im Loop. Kurze Loops wiederholen sich. |
-| Ein vollständiger Durchlauf | Genau eine Asset-Laufzeit, Dauerfeld ausgeblendet. |
-| Zeitlimit + Loop beenden | Wechsel an der ersten Loopgrenze bei oder nach dem Zeitlimit. |
+| Maximum duration (default) | Change at the set time limit, even in the middle of the loop. Short loops repeat. |
+| One complete cycle | Exactly one asset cycle; duration field hidden. |
+| Timeout + End Loop | Change at the first loop boundary at or after the time limit. |
 
-Die Laufzeit berücksichtigt alle Framezeiten und das Tempo: 12 Sekunden Quelle
-bei 2× ergeben 6 Sekunden pro Durchlauf. Vorschau der resultierenden Dauer direkt
-in der Playlist. „Jetzt“ verwendet dieselbe Regel wie reguläre Wiedergabe.
-Time-Stage wartet auf die so definierte Inhaltsgrenze; Schlaf kann weiterhin sofort
-unterbrechen. Bitcoin, Textscrolls und die eigenständige Uhr-Regie bleiben unverändert.
+Running time includes every frame duration and playback speed: a twelve-second
+source at 2× takes six seconds per cycle. The playlist previews the resulting
+duration. **Play now** uses the same rule as regular playback. Time-Stage waits
+for this content boundary; **sleep can interrupt immediately**. Bitcoin,
+scrolling text, and independent clock scheduling are unchanged.
 
-Bestehende Asset-Dateien und gespeicherte Modulzeiten werden nicht migriert.
-Ohne `settings.playback_mode` gilt jetzt `limit` statt der früher stillschweigenden
-Loopverlängerung. `once` und `finish_loop` können pro Asset-Modul gewählt werden.
+Existing asset files and saved module times will not be migrated.
+Without `settings.playback_mode`, `limit` now applies instead of the previously implied one
+Loop extension. `once` and `finish_loop` can be selected per asset module.

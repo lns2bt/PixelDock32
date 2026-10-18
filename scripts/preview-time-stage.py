@@ -49,32 +49,32 @@ def build(directory):
             now = base + timedelta(seconds=elapsed * (1 if special else 6))
             sheet.paste(panel(render_scene(scene.key, now, elapsed), 9), (col * 320, row * 115 + 25))
         kind = 'event' if special else 'normal'
-        info = (' · '.join({'hour':'Volle Stunde','half':'Halbe Stunde','quarter':'Viertelstunde'}[e] for e in scene.events)
-                if special else 'Sekunden: ' + scene.seconds)
+        info = (' · '.join({'hour':'Full hour','half':'Half an hour','quarter':'Quarter of an hour'}[e] for e in scene.events)
+                if special else 'Seconds: ' + scene.seconds)
         cards.append(f'<article data-kind="{kind}"><div class="tag">{html.escape(scene.style)}</div><h2>{html.escape(scene.title)}</h2>'
-                     f'<img width="320" height="80" loading="lazy" src="{scene.key}.png" data-motion="{scene.key}.gif" data-still="{scene.key}.png" alt="LED-Vorschau: {html.escape(scene.title)}">'
+                     f'<img width="320" height="80" loading="lazy" src="{scene.key}.png" data-motion="{scene.key}.gif" data-still="{scene.key}.png" alt="LED preview: {html.escape(scene.title)}">'
                      f'<p>{html.escape(scene.description)}</p><p class="muted">{html.escape(info)}</p></article>')
     sheet.save(directory / 'contact-sheet.png')
     (directory / 'catalog.json').write_text(json.dumps(catalog(), ensure_ascii=False, indent=2))
-    (directory / 'index.html').write_text('''<!doctype html><html lang="de"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Time-Stage · Szenenatelier</title><style>
+    (directory / 'index.html').write_text('''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Time Stage · Scene Studio</title><style>
 *{box-sizing:border-box}body{margin:0;background:#090d16;color:#e5efff;font:16px system-ui,sans-serif}header,main{max-width:1150px;margin:auto;padding:24px}
 h1{color:#61e5cf}h2{font-size:20px}.muted{color:#b7c5dd}.tag{color:#f4bc67;font-size:12px;text-transform:uppercase}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr));gap:16px}article{padding:16px;background:#131d2d;border:1px solid #33405a;border-radius:12px}
 img{width:100%;height:auto;image-rendering:pixelated;background:#070b11}button,a{color:#61e5cf}button{padding:12px;background:#131d2d;border:1px solid #425371;border-radius:6px;cursor:pointer}
 button[aria-pressed=true]{border-color:#61e5cf}nav{display:flex;flex-wrap:wrap;gap:10px}[hidden]{display:none!important}
-</style><header><a href="/">← PixelDock</a><h1>Time-Stage / Szenenatelier</h1>
-<p>25 Uhransichten und 10 magische Momente. Reine Software-Vorschau – ändert weder Playlist noch LED-Anzeige.</p>
-<p class="muted">Normale Szenen: eine Minute in 10 Sekunden (6× Zeitraffer). Ereignisse: Echtzeit, wiederholt. Farben sind ungedimmt; die tatsächliche LED-Wirkung hängt von Helligkeit und Hardware ab.</p>
-<nav><button data-filter="all" aria-pressed="true">Alle 35</button><button data-filter="normal" aria-pressed="false">25 Uhransichten</button><button data-filter="event" aria-pressed="false">10 Ereignisse</button><button id="pause" aria-pressed="false">Animationen pausieren</button></nav></header><main class="grid">'''
+</style><header><a href="/">← PixelDock</a><h1>Time-Stage / Scene Studio</h1>
+<p>25 clock views and 10 magical moments. Pure software preview - does not change playlist or LED display.</p>
+<p class="muted">Normal scenes: one minute in 10 seconds (6× time lapse). Events: Real time, repeated. Colors are undimmed; the actual LED effect depends on brightness and hardware.</p>
+<nav><button data-filter="all" aria-pressed="true">All 35</button><button data-filter="normal" aria-pressed="false">25 clock views</button><button data-filter="event" aria-pressed="false">10 events</button><button id="pause" aria-pressed="false">Pause animations</button></nav></header><main class="grid">'''
         + ''.join(cards) + '''</main><script>
-document.querySelectorAll('[data-filter]').forEach(button=>button.onclick=()=>{
-document.querySelectorAll('[data-filter]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));
-document.querySelectorAll('article').forEach(card=>card.hidden=button.dataset.filter!=='all'&&card.dataset.kind!==button.dataset.filter);});
-let paused=matchMedia('(prefers-reduced-motion: reduce)').matches;
-function motion(){document.getElementById('pause').setAttribute('aria-pressed',String(paused));document.getElementById('pause').textContent=paused?'Animationen fortsetzen':'Animationen pausieren';
-document.querySelectorAll('img').forEach(img=>img.src=paused?img.dataset.still:img.dataset.motion);}
-document.getElementById('pause').onclick=()=>{paused=!paused;motion();};motion();
+document.querySelectorAll(\'[data-filter]\').forEach(button=>button.onclick=()=>{
+document.querySelectorAll(\'[data-filter]\').forEach(b=>b.setAttribute(\'aria-pressed\',String(b===button)));
+document.querySelectorAll(\'article\').forEach(card=>card.hidden=button.dataset.filter!==\'all\'&&card.dataset.kind!==button.dataset.filter);});
+let paused=matchMedia(\'(prefers-reduced-motion: reduce)\').matches;
+function motion(){document.getElementById(\'pause\').setAttribute(\'aria-pressed\',String(paused));document.getElementById(\'pause\').textContent=paused?\'Resume animations\':\'Pause animations\';
+document.querySelectorAll(\'img\').forEach(img=>img.src=paused?img.dataset.still:img.dataset.motion);}
+document.getElementById(\'pause\').onclick=()=>{paused=!paused;motion();};motion();
 </script></html>''')
     print(f'{len(NORMAL_SCENES + EVENT_SCENES)}-scene gallery built in {time.perf_counter() - start:.2f}s: {directory / "index.html"}')
 

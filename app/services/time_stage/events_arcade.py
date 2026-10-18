@@ -160,33 +160,33 @@ def block_build(now: datetime, elapsed: float) -> Canvas:
 
 SCENES = [
     Scene(
-        key='event_fireworks', title='Stundenfeuerwerk', style='Partikel · Festlich',
-        description='Drei kleine Feuerwerke formen die aktuelle Uhrzeit aus ihren Funken.',
-        seconds='9 Sekunden Ereignis-Countdown; danach bleibt die Uhrzeit klar lesbar.',
+        key='event_fireworks', title='Hourly Fireworks', style='Particles · Festive',
+        description='Three small fireworks display the current time from their sparks.',
+        seconds='9 second event countdown; Afterwards the time remains clearly legible.',
         render=fireworks, duration=9.0, events=('hour',),
     ),
     Scene(
-        key='event_coin_burst', title='Münzenregen', style='Spielhalle · Gold',
-        description='Goldene Münzen springen aus einer Truhe und sammeln sich zur Uhrzeit.',
-        seconds='8 Sekunden Ereignis-Countdown mit ruhigem Uhrzeit-Finale.',
+        key='event_coin_burst', title='Rain of coins', style='Arcade · Gold',
+        description='Golden coins jump out of a chest and collect at the time.',
+        seconds='8 second event countdown with quiet time finale.',
         render=coin_burst, duration=8.0, events=('half', 'hour'),
     ),
     Scene(
-        key='event_level_up', title='Neue Stufe', style='Spielhalle · Aufstieg',
-        description='Eine Erfahrungsleiste lädt sich auf und schaltet die aktuelle Uhrzeit frei.',
-        seconds='7 Sekunden Ereignis-Countdown; die letzten 20 Prozent zeigen die Uhrzeit.',
+        key='event_level_up', title='New stage', style='Arcade · Ascent',
+        description='An experience bar recharges and unlocks the current time.',
+        seconds='7 second event countdown; the last 20 percent show the time.',
         render=level_up, duration=7.0, events=('quarter', 'half', 'hour'),
     ),
     Scene(
-        key='event_portal', title='Zeitportal', style='Portal · Violett',
-        description='Ein violettes Portal öffnet sich und entfaltet die aktuelle Uhrzeit.',
-        seconds='10 Sekunden Ereignis-Countdown mit anschließendem lesbarem Zeitbild.',
+        key='event_portal', title='Time Portal', style='Portal · Purple',
+        description='A purple portal opens and reveals the current time.',
+        seconds='10 second event countdown with subsequent readable time image.',
         render=portal, duration=10.0, events=('half', 'hour'),
     ),
     Scene(
-        key='event_block_build', title='Zeitbausteine', style='Spielhalle · Bausteine',
-        description='Fallende Bausteine setzen die aktuelle Uhrzeit Spalte für Spalte zusammen.',
-        seconds='8 Sekunden Ereignis-Countdown; zum Schluss steht die Uhrzeit vollständig.',
+        key='event_block_build', title='Time Blocks', style='Arcade · Building blocks',
+        description='Falling building blocks compose the current time column by column.',
+        seconds='8 second event countdown; At the end the time is complete.',
         render=block_build, duration=8.0, events=('quarter', 'half', 'hour'),
     ),
 ]

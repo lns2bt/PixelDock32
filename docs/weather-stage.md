@@ -1,67 +1,65 @@
-# Wetter-Stage
+# Weather Stage
 
-Das vorhandene Wetter-Modul bleibt ein regulärer Playlist-Eintrag und erhält
-eine eigene Szenen-Regie; es entsteht keine zweite Playlist. Die klassische
-Darstellung bleibt mit `weather_stage=false` erhalten, einschließlich ihrer
-gespeicherten Optionen und Playlist-Dauer.
+Weather remains a regular playlist module with its own scene scheduling, not a
+second playlist. `weather_stage=false` retains the classic display, saved options,
+and playlist duration.
 
-## Auswahl und Lesedauer
+## Selection and reading time
 
-Vier Stile: **home**, **station**, **nature**, **neon**. Jeder Stil kann jede der
-vier Informationen darstellen: Außentemperatur (**outside**), Innentemperatur
-(**inside**), Innen-Luftfeuchte (**humidity**) und Wetterbedingungen (**conditions**).
-Standardmäßig höchstens **zwei Infos pro Vorstellung**; die Auswahl rotiert fair.
-Browser-Vorschauen nutzen einen eigenen Director und verbrauchen keine regulären
-Rotationsplätze.
+Four styles: **home**, **station**, **nature**, **neon**. Every style can display
+all four information types: outdoor temperature (**outside**), indoor temperature
+(**inside**), indoor air humidity (**humidity**) and weather conditions (**conditions**).
+By default, a maximum of **two pieces of information per presentation**; the selection rotates fairly.
+Browser previews have independent scheduling and do not consume regular rotation slots.
 
-Pixel-Zuhause zeigt Landschaft, Zimmerlicht und Tropfen; Wetterstation animiert
-Messskalen, Naturwelt Bäume/Häuschen/Wellen und Neon-Labor leuchtende Messkammern.
-Wettercodes wählen Sonne, Mond, Wolken, Regen, Schnee, Nebel oder ein gedämpftes
-Gewittermotiv ohne Vollbildblitze/Stroboskop. Während der Lesephase steht die
-Darstellung ruhig; A/I/H unterscheiden Außen, Innen und Innenfeuchtigkeit.
+Pixel Home shows landscapes, room lights, and droplets; Weather Station uses
+animated scales; Nature World uses trees/houses/waves; Neon Lab uses glowing
+measurement chambers. Weather codes select sun, moon, clouds, rain, snow, fog,
+or a restrained thunderstorm motif without full-screen flashes or strobing.
+The reading phase is calm; compact labels distinguish outdoor, indoor, and humidity.
 
-Die automatische Gesamtdauer umfasst Einstieg, Beschriftung, Motiv, Übergang,
-Lesephase und Ausklang. Die eingestellte Lesezeit ist die eigentliche ruhige
-Lesephase, keine zusätzliche Wartezeit nach der Vorstellung. Nach dem Lesen
-folgen keine wiederholte Infotafel und keine zusätzliche ALT-/FEHLT-Tafel.
-`POST /api/weather/duration` berechnet dieselbe Dauer aus gespeicherten und
-ungespeicherten Optionen, ohne Laufzeit oder Rotation zu verändern.
+Automatic total duration includes introduction, label, motif, transition, reading,
+and ending. The reading-time setting controls the actual quiet reading phase,
+not an extra delay afterward. No repeated information or extra stale/missing
+panels appear after reading.
+`POST /api/weather/duration` calculates the same duration from saved and
+unsaved options without changing runtime or rotation.
 
-## Quellen und Aktualität
+## Sources and freshness
 
-Außentemperatur und Wetterbedingungen stammen aus **modellbasierten Open-Meteo
-Current Conditions für den konfigurierten Standort**. Das ist weder eine lokale
-Messung noch eine Beobachtung vor dem Fenster. Tag/Nacht und WMO-Wettercode
-beschreiben diese Modelldaten; die Animation ist keine echte Wetterereignismeldung.
-Innendaten stammen vom konfigurierten DHT-Sensor.
+Outdoor temperature and conditions come from **model-based Open-Meteo Current
+Conditions for the configured location**, not an observation outside the window.
+Day/night and WMO weather codes describe that model data; the animation is not
+a locally observed weather event.
+Indoor data comes from the configured DHT sensor.
 
-Außendaten haben einen eigenen Abrufzeitstempel und gelten nach **900 Sekunden**
-als veraltet. Innentemperatur und Luftfeuchte verwenden ausschließlich den
-DHT-Zeitstempel und werden nach **300 Sekunden** als veraltet markiert. Ein
-frischer Sensorabruf macht alte Außendaten nicht frisch. Fehler/alte Werte bleiben
-erkennbar; fehlende Daten werden nicht erfunden. Werte sind pro Besuch eingefroren.
+Outdoor data has its own fetch timestamp and becomes stale after **900 seconds**.
+Indoor temperature/humidity use only DHT timestamps and become stale after
+**300 seconds**. A fresh sensor sample cannot make old outdoor data fresh.
+Errors/stale values remain visible; missing values are not invented. Each visit
+uses a frozen snapshot.
 
-Trends beruhen auf höchstens 24 echten Samples pro Messgröße, mindestens drei
-über fünf Minuten. Richtung erst ab 0,5 °C beziehungsweise drei Prozentpunkten;
-bei zu wenigen, alten oder fehlerhaften Messungen keine Trendanzeige.
-Wettercode, Tag/Nacht, Niederschlag und Wind werden in derselben Anfrage abgerufen.
-Unbekannte Codes führen zu neutralem Motiv, nicht erfundenem Sonnenschein.
+Trends use at most 24 real samples per metric, at least three spanning five
+minutes. Direction requires a change of at least 0.5 °C or three percentage
+points. Too few, stale, or invalid samples suppress the trend indicator.
+Weather code, day/night, precipitation and wind are retrieved in the same request.
+Unknown codes lead to neutral motif, not invented sunshine.
 
-## Vorschau und Sicherheit
+## Preview and security
 
-Alle `/api/weather`-Endpunkte erfordern Anmeldung. `GET /api/weather` liefert
-Katalog, Live-Infos, Quellenhinweis und Schlafstatus. Browser-Vorschauen und
-Dauerberechnung sind passiv und speichern keine Einstellungen.
+All `/api/weather` endpoints require login. `GET /api/weather` delivers
+Catalog, live information, source information and sleep status. Browser previews and
+Duration calculations are passive and do not save any settings.
 
-`POST /api/weather/preview` berücksichtigt ungespeicherte Optionen. Live-Daten
-sind Standard. Nur eine ausdrücklich markierte Browser-Demo darf Wettercode und
-Tag/Nacht simulieren, auch Nacht. Ihre frischen Beispieldaten sind 12 °C außen,
-22 °C innen, 48 % Luftfeuchte, standardmäßig klarer Tag. Eine Simulation erzeugt
-kein echtes Wetterereignis und darf niemals auf die Hardware gelangen.
+`POST /api/weather/preview` honors unsaved options and defaults to live data.
+Only explicitly marked browser demos may simulate weather codes and day/night.
+Sample values are 12 °C outdoors, 22 °C indoors, 48% humidity, and clear daytime
+conditions by default. Simulations are not real weather events and must never
+reach the hardware.
 
-Eine direkte LED-Vorschau nutzt ausschließlich Live-Daten und den gemeinsamen
-Vorschau-Slot: eine neue Vorschau ersetzt die vorherige. Reguläre Vorstellungen
-werden pausiert und anschließend fortgesetzt, ohne reguläre Rotation zu verbrauchen.
-Auch diese Vorschau speichert nichts und verwendet nicht das gewöhnliche
-`play_once`. Im Schlafmodus gilt HTTP 409: erst ausdrücklich **Wach** wählen;
-die Vorschau darf weder Schlaf umgehen noch still aufwecken.
+A direct LED preview only uses live data and the shared one
+Preview slot: a new preview replaces the previous one. Regular performances
+are paused and then resumed without using up regular rotation.
+This preview never saves settings or uses normal `play_once` playback.
+In sleep mode it returns HTTP 409: explicitly select **Awake** first;
+the preview must neither bypass sleep nor wake up silently.

@@ -78,8 +78,8 @@ class WeatherApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual({style['key'] for style in data['styles']}, {'home', 'station', 'nature', 'neon'})
         self.assertEqual({info['key'] for info in data['infos']}, set(INFOS))
         self.assertEqual(data['data'], [info_value(key, cache_before, normalize({})) for key in INFOS])
-        self.assertIn('Modellbasierte', data['source'])
-        self.assertIn('konfigurierten Standort', data['source'])
+        self.assertIn('Model-based', data['source'])
+        self.assertIn('configured location', data['source'])
         self.assertEqual(data['sleep'], {'active': False})
         for style in data['styles']:
             response = await self.post_preview(style=style['key'], demo=True, elapsed=4)
@@ -148,14 +148,14 @@ class WeatherApiTests(unittest.IsolatedAsyncioTestCase):
         self.display.time_stage_status.return_value = {'sleep': {'active': True}}
         response = await self.post_preview(physical=True)
         self.assertEqual(response.status_code, 409)
-        self.assertIn('Wach', response.json()['detail'])
+        self.assertIn('awake', response.json()['detail'].lower())
         self.display.time_stage_status.return_value = {'sleep': {'active': False}}
         self.display.time_stage = Mock()
         self.display.time_stage.sleep_state.return_value = {'active': True}
         self.assertEqual((await self.post_preview(physical=True)).status_code, 409)
         self.assert_passive()
         self.display.time_stage.sleep_state.return_value = {'active': False}
-        self.display.preview_weather.side_effect = ValueError('Schlafmodus aktiv')
+        self.display.preview_weather.side_effect = ValueError('Sleep mode active')
         self.assertEqual((await self.post_preview(physical=True)).status_code, 409)
 
     async def test_invalid_options_wrong_modules_and_limits(self):

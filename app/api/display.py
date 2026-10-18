@@ -52,7 +52,7 @@ async def brightness(payload: BrightnessRequest, request: Request, _: str = Depe
         try:
             await asyncio.to_thread(service.set_brightness, payload.brightness)
         except (SerialException, OSError) as exc:
-            raise HTTPException(status_code=503, detail="Helligkeit gespeichert; Uno derzeit nicht erreichbar. Wird bei Wiederverbindung angewendet.") from exc
+            raise HTTPException(status_code=503, detail="brightness saved; Uno currently not available. Applied upon reconnection.") from exc
     return {"ok": True}
 
 

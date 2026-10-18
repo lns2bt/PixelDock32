@@ -113,6 +113,8 @@ class DisplayService:
         self._stage_preview = None
         self._stage_counted_generation = -1
         self._was_sleeping = False
+        self._sleep_history = []
+        self._sleep_signature = None
         self._effective_brightness = None
         snapshot = led_driver.get_debug_snapshot(poll=False)
         initial = snapshot.get("brightness") if isinstance(snapshot, dict) else None
@@ -277,6 +279,8 @@ class DisplayService:
         status.update(day_brightness=self._day_brightness, effective_brightness=self._effective_brightness,
                       astronomy_error=self.astronomy_error, render_error=self._stage_render_error,
                       physical_preview=bool(self._stage_preview))
+        status['sleep_transitions'] = list(self._sleep_history)
+        status['timezone'] = self.time_stage_config['timezone']
         return status
 
     def preview_for_browser(self, key, now, elapsed=0, config=None):
@@ -302,10 +306,10 @@ class DisplayService:
         from app.services.time_stage.core import Canvas, shade
         config = config or self.time_stage_config
         if key not in SCENES and key not in KEYS:
-            raise ValueError("Unbekannte Time-Stage-Szene")
+            raise ValueError("Unknown time stage scene")
         elapsed = float(elapsed)
         if not math.isfinite(elapsed):
-            raise ValueError("Ungültige Animationszeit")
+            raise ValueError("Invalid animation time")
         elapsed = max(0, elapsed)
         try:
             if key in KEYS:
@@ -342,9 +346,9 @@ class DisplayService:
         from app.services.time_stage import SCENES
         from app.services.time_stage.celestial import KEYS
         if not self.time_stage or key not in SCENES and key not in KEYS:
-            raise ValueError("Unbekannte Time-Stage-Szene")
+            raise ValueError("Unknown time stage scene")
         if self.time_stage.sleep_state(self._stage_now())["active"]:
-            raise ValueError("Schlafmodus aktiv. Bitte zuerst ausdrücklich auf Wach umschalten.")
+            raise ValueError("Sleep mode active. Please first explicitly switch to awake.")
         config = config or self.time_stage_config
         duration = config["events"][key]["duration_seconds"] if key in KEYS else SCENES[key].duration if SCENES[key].events else config["duration_seconds"]
         self._start_live_preview({"key": key, "config": deepcopy(config), "info": deepcopy(info),
@@ -353,7 +357,7 @@ class DisplayService:
     def preview_bitcoin(self, settings):
         from app.services.bitcoin_stage import Director
         if self.time_stage and self.time_stage.sleep_state(self._stage_now())["active"]:
-            raise ValueError("Schlafmodus aktiv. Bitte zuerst ausdrücklich auf Wach umschalten.")
+            raise ValueError("Sleep mode active. Please first explicitly switch to awake.")
         visit = Director().begin(settings, dict(self.cache_provider() or {}), preview=True)
         self._start_live_preview({"kind": "bitcoin", "visit": visit, "confirm_wake": False}, visit.duration)
 
@@ -368,7 +372,7 @@ class DisplayService:
     def preview_weather(self, settings):
         from app.services.weather_stage import Director
         if self.time_stage and self.time_stage.sleep_state(self._stage_now())["active"]:
-            raise ValueError("Schlafmodus aktiv. Bitte zuerst ausdrücklich auf Wach umschalten.")
+            raise ValueError("Sleep mode active. Please first explicitly switch to awake.")
         visit = Director().begin(settings, dict(self.cache_provider() or {}), preview=True)
         self._start_live_preview({"kind": "weather", "visit": visit, "confirm_wake": False}, visit.duration)
 
@@ -791,6 +795,14 @@ class DisplayService:
                 self._finish_stage_preview(now_mono)
             await self._apply_stage_brightness()
             sleeping = self.time_stage.sleep_state(wall)["active"]
+            state = self.time_stage.sleep_state(wall)
+            signature = (sleeping, state['mode'], state['until'], self.time_stage_config['timezone'])
+            if signature != self._sleep_signature:
+                self._sleep_signature = signature
+                transition = {'at': wall.isoformat(), **state, 'timezone': self.time_stage_config['timezone']}
+                self._sleep_history.append(transition)
+                self._sleep_history = self._sleep_history[-20:]
+                self._logger.info('Sleep transition: %s', transition)
             if sleeping:
                 if self._stage_preview:
                     self._finish_stage_preview(now_mono)

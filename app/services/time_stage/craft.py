@@ -151,33 +151,33 @@ def binary_precision(now: datetime, elapsed: float) -> Canvas:
 
 SCENES = [
     Scene(
-        key='craft_sandglass', title='Sanduhr', style='Goldener Sand',
-        description='Digitale Stunden und Minuten neben einer sich leerenden Sanduhr.',
-        seconds='Zwei feste Reihen mit je 30 Punkten: Punkt 1 steht für Sekunde 00, Punkt 60 für 59. Der Sand folgt der echten Minute.',
+        key='craft_sandglass', title='Hourglass', style='Golden sand',
+        description='Digital hours and minutes next to an emptying hourglass.',
+        seconds='Two fixed rows with 30 points each: Point 1 stands for second 00, point 60 for 59. The sand follows the real minute.',
         render=sandglass,
     ),
     Scene(
-        key='craft_roman_scroll', title='Römische Schriftrolle', style='Antikes Laufband',
-        description='Echte 24-Stunden-Zeit und Minuten in römischen Zahlen; N bedeutet null. Die Schrift gleitet weich durch den Rahmen.',
-        seconds='Der helle Punkt läuft ab links oben im Uhrzeigersinn am festen Rahmen entlang und folgt der Wanduhrsekunde, nicht der Laufzeit.',
+        key='craft_roman_scroll', title='Roman scroll', style='Antique treadmill',
+        description='True 24 hour time and minutes in Roman numerals; N means zero. The writing glides smoothly through the frame.',
+        seconds='The bright dot runs clockwise from the top left along the fixed frame and follows the wall clock second, not the running time.',
         render=roman_scroll,
     ),
     Scene(
-        key='craft_mechanical_flip', title='Klappzahlen', style='Mechanische Tafeln',
-        description='Vier gerahmte Zifferntafeln mit goldenen Scharnieren und kurzem Klappeffekt am Minutenwechsel.',
-        seconds='Die zwei goldenen Ziffern rechts zeigen 00–59; zusätzlich zählen zwei feste Reihen mit je 30 Punkten die Sekunden.',
+        key='craft_mechanical_flip', title='Flip Clock', style='Mechanical panels',
+        description='Four framed number panels with gold hinges and a short folding effect at the change of minutes.',
+        seconds='The two gold numbers on the right show 00-59; In addition, two fixed rows with 30 points each count the seconds.',
         render=mechanical_flip,
     ),
     Scene(
-        key='craft_botanical', title='Minutengarten', style='Botanisches Wachstum',
-        description='Eine grüne Uhr neben einem Keimling, der jede Minute wächst und zum Schluss rosa blüht.',
-        seconds='Zwei feste Reihen mit je 30 Punkten zählen 00–59 (erster Punkt = 00). Wachstum und Blüte folgen der aktuellen Wanduhrminute.',
+        key='craft_botanical', title='Minute Garden', style='Botanical growth',
+        description='A green clock next to a seedling that grows every minute and finally blooms pink.',
+        seconds='Two fixed rows of 30 points each count 00-59 (first point = 00). Growth and flowering follow the current wall clock minute.',
         render=botanical,
     ),
     Scene(
-        key='craft_binary_precision', title='Binäre Präzision', style='Leuchtende Bitregister',
-        description='Drei Binärregister: links Stunden in Gold, mittig Minuten in Grün, rechts Sekunden in Blau.',
-        seconds='Das rechte Register zeigt die echte Sekunde binär: von oben nach unten die Gewichte 32, 16, 8, 4, 2, 1; helle Bits werden addiert.',
+        key='craft_binary_precision', title='Binary precision', style='Lighting bit registers',
+        description='Three binary registers: hours in gold on the left, minutes in green in the middle, seconds in blue on the right.',
+        seconds='The right register shows the real second in binary: from top to bottom the weights 32, 16, 8, 4, 2, 1; bright bits are added.',
         render=binary_precision,
     ),
 ]

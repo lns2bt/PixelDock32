@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -13,7 +13,7 @@
   <header class="top-nav">
     <div class="top-nav-inner">
       <a class="brand" href="/">PixelDock32</a>
-      <nav class="top-nav-links" aria-label="Hauptnavigation">
+      <nav class="top-nav-links" aria-label="Main navigation">
         <a data-page-link="overview" href="/">Overview</a>
         <a data-page-link="modules" href="/modules">Modules</a>
         <a data-page-link="debug" href="/debug">Debugging</a>
@@ -22,7 +22,7 @@
         <a data-page-link="login" href="/login">Login</a>
       </nav>
       <div class="top-nav-actions">
-        <button class="btn btn-secondary" onclick="refreshStatus()">Status aktualisieren</button>
+        <button class="btn btn-secondary" onclick="refreshStatus()">Update status</button>
         <button class="btn btn-secondary" id="logoutBtn" onclick="logout()">Logout</button>
       </div>
     </div>
@@ -30,27 +30,27 @@
 
   <main class="app-shell">
     <section class="card section-anchor" data-section-title="Debugging">
-      <h2>LED Mapping & Kalibrierung</h2>
-      <p class="subtle">Schnellkorrektur in <code>.env</code>: <code>PANEL_ORDER=0,1,2,3</code> und <code>PANEL_ROTATIONS=0,0,0,0</code>.</p>
+      <h2>LED mapping & calibration</h2>
+      <p class="subtle">Quick fix in <code>.env</code>: <code>PANEL_ORDER=0,1,2,3</code> and <code>PANEL_ROTATIONS=0,0,0,0</code>.</p>
       <div class="form-row debug-row">
-        <div class="field"><label for="debugPattern">Pattern</label><select id="debugPattern"><option value="pixel_walk">Pixel Walk</option><option value="panel_walk">Panel Walk</option><option value="stripes">Stripes</option><option value="border">Border</option><option value="rainbow_wave">Rainbow Wave</option><option value="color_comet">Color Comet</option></select></div>
-        <div class="field"><label for="debugSeconds">Laufzeit (Sekunden)</label><input id="debugSeconds" type="number" min="1" max="300" value="20" /></div>
-        <div class="field"><label for="debugInterval">Intervall (ms)</label><input id="debugInterval" type="number" min="50" max="2000" value="250" /></div>
-        <div class="field actions-end"><button class="btn" onclick="startDebugPattern()">Pattern starten</button></div>
-        <div class="field actions-end"><button class="btn btn-secondary" onclick="stopDebugPattern()">Pattern stoppen</button></div>
+        <div class="field"><label for="debugPattern">Pattern</label><select id="debugPattern"><option value="pixel_walk">Pixel Walk</option><option value="panel_walk">Panel walk</option><option value="stripes">Stripes</option><option value="border">Border</option><option value="rainbow_wave">Rainbow Wave</option><option value="color_comet">Color Comet</option></select></div>
+        <div class="field"><label for="debugSeconds">Runtime (seconds)</label><input id="debugSeconds" type="number" min="1" max="300" value="20" /></div>
+        <div class="field"><label for="debugInterval">Interval (ms)</label><input id="debugInterval" type="number" min="50" max="2000" value="250" /></div>
+        <div class="field actions-end"><button class="btn" onclick="startDebugPattern()">Start pattern</button></div>
+        <div class="field actions-end"><button class="btn btn-secondary" onclick="stopDebugPattern()">Stop pattern</button></div>
       </div>
       <div class="preset-row">
-        <button class="btn btn-secondary" onclick="runPreset('panel_walk', 20, 350)">Wiring Check</button>
-        <button class="btn btn-secondary" onclick="runPreset('pixel_walk', 60, 120)">Serpentine Check</button>
-        <button class="btn btn-secondary" onclick="runPreset('stripes', 20, 300)">Noise Check</button>
+        <button class="btn btn-secondary" onclick="runPreset('panel_walk', 20, 350)">Wiring check</button>
+        <button class="btn btn-secondary" onclick="runPreset('pixel_walk', 60, 120)">Serpentine check</button>
+        <button class="btn btn-secondary" onclick="runPreset('stripes', 20, 300)">Noise check</button>
       </div>
     </section>
 
     <section class="card section-anchor" data-section-title="Debugging">
-      <h2>Backend / Render-Loop Debug</h2>
+      <h2>Backend / render loop debug</h2>
       <details class="debug-panel" open>
-        <summary>Render-Loop Status (Backend)</summary>
-        <div id="backendStatusSummary" class="mapping-info">Warte auf Backend-Status…</div>
+        <summary>Render loop status (backend)</summary>
+        <div id="backendStatusSummary" class="mapping-info">Waiting for backend status…</div>
       </details>
       <details class="debug-panel">
         <summary>Backend Debug Status (JSON)</summary>
@@ -59,63 +59,63 @@
     </section>
 
     <section class="card section-anchor" data-section-title="Debugging">
-      <h2>DHT Debug</h2>
+      <h2>DHT debug</h2>
       <div class="preset-row" style="margin-top:12px;">
-        <button class="btn btn-secondary" onclick="refreshDhtDebug()">DHT Debug aktualisieren</button>
+        <button class="btn btn-secondary" onclick="refreshDhtDebug()">Update DHT Debug</button>
         <button class="btn" onclick="runDhtReadOnce()">DHT Read Once</button>
       </div>
-      <details class="debug-panel" open><summary>DHT Read-Once Ergebnis</summary><div id="dhtReadOnceResult" class="mapping-info" style="margin-top:8px;">Noch kein DHT Einzel-Read ausgeführt.</div></details>
+      <details class="debug-panel" open><summary>DHT read-once result</summary><div id="dhtReadOnceResult" class="mapping-info" style="margin-top:8px;">No DHT single read performed yet.</div></details>
       <details class="debug-panel" open><summary>DHT Debug (JSON)</summary><pre id="dhtDebugInfo" class="debug-pre">-</pre></details>
     </section>
 
     <section class="card section-anchor" data-section-title="Debugging">
-      <h2>Arduino / Serieller Link Debug</h2>
+      <h2>Arduino / Serial Link Debug</h2>
       <div class="preset-row" style="margin-top:12px;">
-        <button class="btn btn-secondary" onclick="refreshLedDebug()">Arduino Serial Debug aktualisieren</button>
+        <button class="btn btn-secondary" onclick="refreshLedDebug()">Update Arduino Serial Debug</button>
         <button class="btn" onclick="runLedSerialPing()">Serial Ping (Pi ↔ UNO R3)</button>
-        <button class="btn btn-secondary" onclick="clearSerialDebugHistory()">Serial-Verlauf zurücksetzen</button>
+        <button class="btn btn-secondary" onclick="clearSerialDebugHistory()">Reset serial history</button>
       </div>
       <details class="debug-panel" open>
-        <summary>Serieller Link (Pi ↔ Arduino) – Schnellansicht</summary>
-        <div id="serialDebugSummary" class="mapping-info">Warte auf Arduino-Debugdaten…</div>
+        <summary>Serial Link (Pi ↔ Arduino) – Quick View</summary>
+        <div id="serialDebugSummary" class="mapping-info">Waiting for Arduino debug data…</div>
       </details>
       <details class="debug-panel" open>
-        <summary>Serieller Link (Pi ↔ Arduino) – Metriken</summary>
+        <summary>Serial Link (Pi ↔ Arduino) – Metrics</summary>
         <div id="serialDebugMetrics" class="mapping-info">-</div>
       </details>
       <details class="debug-panel" open>
-        <summary>Arduino-Debug (Firmware-Zähler)</summary>
-        <div id="arduinoDebugInfo" class="mapping-info">Noch keine Arduino-Debugwerte empfangen.</div>
+        <summary>Arduino debug (firmware counter)</summary>
+        <div id="arduinoDebugInfo" class="mapping-info">No Arduino debug values ​​received yet.</div>
       </details>
       <details class="debug-panel">
-        <summary>Serieller Link (Pi ↔ Arduino) – Verlauf / letzte Ereignisse</summary>
+        <summary>Serial link (Pi ↔ Arduino) – history/recent events</summary>
         <div id="serialDebugTimeline" class="mapping-info">-</div>
       </details>
-      <details class="debug-panel" open><summary>LED/Serial Debug (JSON vom Pi)</summary><pre id="ledDebugInfo" class="debug-pre">-</pre></details>
-      <details class="debug-panel" open><summary>LED Serial Ping Ergebnis</summary><div id="ledPingResult" class="mapping-info">Noch kein Serial Ping ausgeführt.</div></details>
+      <details class="debug-panel" open><summary>LED/Serial Debug (JSON from Pi)</summary><pre id="ledDebugInfo" class="debug-pre">-</pre></details>
+      <details class="debug-panel" open><summary>LED Serial Ping Result</summary><div id="ledPingResult" class="mapping-info">No serial ping performed yet.</div></details>
       <details class="debug-panel">
-        <summary>Serial Ping Verlauf</summary>
-        <div id="serialPingHistory" class="mapping-info">Noch kein Ping ausgeführt.</div>
+        <summary>Serial Ping History</summary>
+        <div id="serialPingHistory" class="mapping-info">No ping yet.</div>
       </details>
     </section>
 
     <section class="card section-anchor" data-section-title="Debugging">
       <h2>GPIO Pin Finder</h2>
       <div class="preset-row" style="margin-top:8px;">
-        <button class="btn btn-secondary" onclick="runGpioEnvironmentCheck()">GPIO-Umgebung prüfen</button>
+        <button class="btn btn-secondary" onclick="runGpioEnvironmentCheck()">Check GPIO environment</button>
       </div>
       <div class="form-row gpio-row">
         <div class="field"><label for="gpioPin">GPIO (BCM)</label><input id="gpioPin" type="number" min="2" max="27" value="18" /></div>
-        <div class="field"><label for="gpioPulses">LED-Test Pulse</label><input id="gpioPulses" type="number" min="1" max="12" value="3" /></div>
-        <div class="field"><label for="gpioHoldMs">Pulse Dauer (ms)</label><input id="gpioHoldMs" type="number" min="80" max="2000" value="220" /></div>
-        <div class="field actions-end"><button class="btn" onclick="runGpioOutputTest()">LED-Datenpin testen</button></div>
+        <div class="field"><label for="gpioPulses">LED test pulse</label><input id="gpioPulses" type="number" min="1" max="12" value="3" /></div>
+        <div class="field"><label for="gpioHoldMs">Pulse duration (ms)</label><input id="gpioHoldMs" type="number" min="80" max="2000" value="220" /></div>
+        <div class="field actions-end"><button class="btn" onclick="runGpioOutputTest()">Test LED data pin</button></div>
       </div>
       <div class="form-row gpio-row" style="margin-top:8px;">
-        <div class="field"><label for="gpioSampleMs">Input-Probe Dauer (ms)</label><input id="gpioSampleMs" type="number" min="250" max="10000" value="1200" /></div>
-        <div class="field"><label for="gpioPull">Input Pull</label><select id="gpioPull"><option value="up" selected>Pull-Up</option><option value="down">Pull-Down</option></select></div>
-        <div class="field actions-end"><button class="btn btn-secondary" onclick="runGpioInputProbe()">Sensor-Pin prüfen</button></div>
+        <div class="field"><label for="gpioSampleMs">Input sample duration (ms)</label><input id="gpioSampleMs" type="number" min="250" max="10000" value="1200" /></div>
+        <div class="field"><label for="gpioPull">Input pull</label><select id="gpioPull"><option value="up" selected>Pull-Up</option><option value="down">Pull-Down</option></select></div>
+        <div class="field actions-end"><button class="btn btn-secondary" onclick="runGpioInputProbe()">Check sensor pin</button></div>
       </div>
-      <details class="debug-panel" open><summary>GPIO Debug-Ausgabe</summary><div id="gpioFinderResult" class="mapping-info">Noch kein GPIO-Test ausgeführt.</div></details>
+      <details class="debug-panel" open><summary>GPIO debug output</summary><div id="gpioFinderResult" class="mapping-info">No GPIO test performed yet.</div></details>
     </section>
 
     

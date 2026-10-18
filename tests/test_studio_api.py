@@ -113,7 +113,7 @@ class StudioApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len((await self.client.get('/api/assets/'+response.json()['id'])).json()['frames']), MAX_FRAMES)
         response = await self.client.post('/api/assets/import', content=b'x' * (MAX_UPLOAD + 1))
         self.assertEqual(response.status_code, 413)
-        self.assertEqual(response.json()['detail'], 'Maximal 4 MB')
+        self.assertEqual(response.json()['detail'], 'Maximum 4 MB')
 
     async def test_authentication_required_for_library_and_import(self):
         self.app.dependency_overrides.pop(get_current_user)

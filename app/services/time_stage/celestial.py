@@ -42,24 +42,24 @@ def _card(panel, kind, now, info):
     if panel == 'time':
         return now.strftime('%H:%M')
     if panel == 'day_length':
-        return 'TAG ' + _minutes(_number(info, 'day_length_minutes'))
+        return 'DAY ' + _minutes(_number(info, 'day_length_minutes'))
     if panel == 'night_length':
-        return 'NACHT ' + _minutes(_number(info, 'night_length_minutes'))
+        return 'NIGHT ' + _minutes(_number(info, 'night_length_minutes'))
     if panel == 'day_delta':
         value = _number(info, 'day_delta_minutes')
-        return 'TAG --' if value is None else f'TAG {value:+.1f}M'
+        return 'DAY --' if value is None else f'DAY {value:+.1f}M'
     if panel == 'phase':
         return str(info.get('moon_phase') or 'PHASE --')
     if panel == 'illumination':
         value = _number(info, 'moon_illumination')
-        return 'LICHT --' if value is None else f'LICHT {value:.0f}%'
+        return 'LIGHT --' if value is None else f'LIGHT {value:.0f}%'
     if panel == 'next_full':
-        return 'VOLL ' + _stamp(info.get('next_full_moon'), date=True)
+        return 'FULL ' + _stamp(info.get('next_full_moon'), date=True)
     if panel == 'moon_above':
-        return 'MOND ' + _minutes(_number(info, 'moon_above_minutes'))
+        return 'MOON ' + _minutes(_number(info, 'moon_above_minutes'))
     if panel == 'twilight':
         field = 'civil_dawn' if kind == 'sunrise' else 'civil_dusk'
-        return 'DAEMM ' + _stamp(info.get(field))
+        return 'TWILIGHT ' + _stamp(info.get(field))
     if panel == 'next_event':
         field = ('moon' if moon else 'sun') + ('set' if kind.endswith('rise') else 'rise')
         value = info.get('next_' + field)
@@ -67,7 +67,7 @@ def _card(panel, kind, now, info):
             another_day = datetime.fromisoformat(value).date() != now.date()
         except (TypeError, ValueError):
             another_day = False
-        return ('UNTER ' if field.endswith('set') else 'AUF ') + _stamp(value, date=another_day)
+        return ('SET ' if field.endswith('set') else 'RISE ') + _stamp(value, date=another_day)
     return '--'
 
 
@@ -130,9 +130,9 @@ def _story(canvas, kind, now, age, span, info, color):
         waxing = info.get('moon_waxing')
         phase_name = str(info.get('moon_phase', ''))
         if not isinstance(waxing, bool):
-            if phase_name.startswith(('Zunehm', 'Erstes')):
+            if phase_name.startswith(('Waxing', 'First')):
                 waxing = True
-            elif phase_name.startswith(('Abnehm', 'Letztes')):
+            elif phase_name.startswith(('Waning', 'Last')):
                 waxing = False
             elif illumination is not None and (illumination <= 1 or illumination >= 99):
                 waxing = True  # At full/new the terminator direction is immaterial.

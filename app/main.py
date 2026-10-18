@@ -19,6 +19,7 @@ from app.services.assets import AssetStore
 from app.services.retro_scenes import seed_retro_assets
 from app.models import DisplayPreference
 from app.services.time_stage.settings import load_or_migrate
+from app.version import VERSION
 
 settings = get_settings()
 
@@ -78,7 +79,12 @@ async def lifespan(app: FastAPI):
                     await engine.dispose()
 
 
-app = FastAPI(title=settings.app_name, lifespan=lifespan)
+app = FastAPI(title=settings.app_name, version=VERSION, lifespan=lifespan)
+
+
+@app.get("/api/version")
+async def version():
+    return {"version": VERSION}
 app.include_router(auth.router)
 app.include_router(modules.router)
 app.include_router(display.router)

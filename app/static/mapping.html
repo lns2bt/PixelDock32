@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -13,7 +13,7 @@
   <header class="top-nav">
     <div class="top-nav-inner">
       <a class="brand" href="/">PixelDock32</a>
-      <nav class="top-nav-links" aria-label="Hauptnavigation">
+      <nav class="top-nav-links" aria-label="Main navigation">
         <a data-page-link="overview" href="/">Overview</a>
         <a data-page-link="modules" href="/modules">Modules</a>
         <a data-page-link="debug" href="/debug">Debugging</a>
@@ -22,7 +22,7 @@
         <a data-page-link="login" href="/login">Login</a>
       </nav>
       <div class="top-nav-actions">
-        <button class="btn btn-secondary" onclick="refreshStatus()">Status aktualisieren</button>
+        <button class="btn btn-secondary" onclick="refreshStatus()">Update status</button>
         <button class="btn btn-secondary" id="logoutBtn" onclick="logout()">Logout</button>
       </div>
     </div>
@@ -31,61 +31,61 @@
   <main class="app-shell">
     <section class="card section-anchor" data-section-title="Mapping Assistant">
       <h2>Live Preview (8x32)</h2>
-      <p class="subtle">Live-Vorschau der aktuell gerenderten LEDs inkl. aktiver Mapping-Overrides/Fixes.</p>
+      <p class="subtle">Live preview of the currently rendered LEDs including active mapping overrides/fixes.</p>
       <div id="previewGrid"></div>
     </section>
 
     <section class="card section-anchor" data-section-title="Mapping Assistant">
       <h2>Mapping-Wizard</h2>
-      <p class="subtle">Live-Mapping-Overrides wirken sofort (ohne Neustart) und bleiben in <code>mapping_state.json</code> erhalten.</p>
+      <p class="subtle">Live mapping overrides take effect immediately (without a restart) and remain in <code>mapping_state.json</code> received.</p>
       <div class="form-row wizard-row">
-        <div class="field"><label for="mapFirstOffset">First Pixel Offset</label><input id="mapFirstOffset" type="number" min="-4096" max="4096" value="0" /></div>
-        <div class="field"><label><input id="mapDataStartsRight" type="checkbox" checked /> Datenleitung startet rechts</label></div>
-        <div class="field"><label><input id="mapSerpentine" type="checkbox" checked /> Serpentine aktiv</label></div>
+        <div class="field"><label for="mapFirstOffset">First pixel offset</label><input id="mapFirstOffset" type="number" min="-4096" max="4096" value="0" /></div>
+        <div class="field"><label><input id="mapDataStartsRight" type="checkbox" checked /> Data line starts on the right</label></div>
+        <div class="field"><label><input id="mapSerpentine" type="checkbox" checked /> Serpentine active</label></div>
       </div>
       <input id="mapPanelOrder" type="hidden" value="0,1,2,3" />
       <input id="mapPanelRotations" type="hidden" value="0,0,0,0" />
       <div id="panelConfigEditor" class="mapping-panel-editor" aria-label="Panel-Konfiguration"></div>
       <div class="form-row wizard-row">
-        <div class="field actions-end"><button class="btn" onclick="applyLiveMapping()">Live-Mapping anwenden</button></div>
+        <div class="field actions-end"><button class="btn" onclick="applyLiveMapping()">Apply live mapping</button></div>
         <div class="field actions-end"><button class="btn btn-secondary" onclick="nudgeFirstOffset(-1)">Offset -1</button></div>
         <div class="field actions-end"><button class="btn btn-secondary" onclick="nudgeFirstOffset(1)">Offset +1</button></div>
-        <div class="field actions-end"><button class="btn btn-secondary" onclick="resetLiveMapping()">Live-Mapping reset</button></div>
+        <div class="field actions-end"><button class="btn btn-secondary" onclick="resetLiveMapping()">Live mapping reset</button></div>
       </div>
-      <div id="mappingRuntimeInfo" class="mapping-info">Lade Live-Mapping-Status…</div>
+      <div id="mappingRuntimeInfo" class="mapping-info">Loading live mapping status…</div>
       <div class="preset-row">
-        <button class="btn btn-secondary" onclick="runPreset('panel_walk', 20, 350)">1) Panel-Reihenfolge prüfen</button>
-        <button class="btn btn-secondary" onclick="runPreset('pixel_walk', 50, 120)">2) Serpentine prüfen</button>
-        <button class="btn btn-secondary" onclick="runPreset('border', 20, 300)">3) Rand prüfen</button>
+        <button class="btn btn-secondary" onclick="runPreset('panel_walk', 20, 350)">1) Check panel order</button>
+        <button class="btn btn-secondary" onclick="runPreset('pixel_walk', 50, 120)">2) Check serpentine</button>
+        <button class="btn btn-secondary" onclick="runPreset('border', 20, 300)">3) Check edge</button>
       </div>
       <div class="form-row wizard-row">
-        <div class="field"><label for="mapX">Logisches X (0-31)</label><input id="mapX" type="number" min="0" max="31" value="0" /></div>
-        <div class="field"><label for="mapY">Logisches Y (0-7)</label><input id="mapY" type="number" min="0" max="7" value="0" /></div>
-        <div class="field actions-end"><button class="btn" onclick="checkMappingCoordinate()">Koordinate erklären</button></div>
+        <div class="field"><label for="mapX">Logical X (0-31)</label><input id="mapX" type="number" min="0" max="31" value="0" /></div>
+        <div class="field"><label for="mapY">Logical Y (0-7)</label><input id="mapY" type="number" min="0" max="7" value="0" /></div>
+        <div class="field actions-end"><button class="btn" onclick="checkMappingCoordinate()">Explain coordinate</button></div>
       </div>
-      <div id="mappingInfo" class="mapping-info">Noch keine Koordinate geprüft.</div>
+      <div id="mappingInfo" class="mapping-info">No coordinates checked yet.</div>
 
-      <h3 style="margin-top:18px;">LED-Identifikations-Assistent (fool-proof)</h3>
-      <p class="subtle">Ablauf: Assistent leuchtet jeweils genau 1 logische LED. Du klickst in der Mini-Matrix auf die LED, die in echt geleuchtet hat. Danach kannst du die Fixes direkt anwenden oder ein globales Mapping inferieren.</p>
+      <h3 style="margin-top:18px;">LED identification assistant (fool-proof)</h3>
+      <p class="subtle">Process: Assistant lights up exactly 1 logical LED at a time. You click on the LED in the mini matrix that actually lit up. You can then apply the fixes directly or infer a global mapping.</p>
       <div class="form-row wizard-row">
         <div class="field">
-          <label for="assistPanelCount">Aktive 8x8 Panels</label>
+          <label for="assistPanelCount">Active 8x8 panels</label>
           <select id="assistPanelCount">
-            <option value="1">1 Panel (8x8)</option>
-            <option value="2">2 Panels (16x8)</option>
-            <option value="3">3 Panels (24x8)</option>
-            <option value="4" selected>4 Panels (32x8)</option>
+            <option value="1">1 panel (8x8)</option>
+            <option value="2">2 panels (16x8)</option>
+            <option value="3">3 panels (24x8)</option>
+            <option value="4" selected>4 panels (32x8)</option>
           </select>
         </div>
         <div class="field">
-          <label for="assistPanelScope">Debug-Bereich</label>
+          <label for="assistPanelScope">Debug area</label>
           <select id="assistPanelScope">
-            <option value="all" selected>Alle aktiven Panels</option>
-            <option value="active">Nur gewähltes Panel</option>
+            <option value="all" selected>All active panels</option>
+            <option value="active">Selected panel only</option>
           </select>
         </div>
         <div class="field">
-          <label for="assistActivePanel">Panel für Einzel-Debug</label>
+          <label for="assistActivePanel">Panel for individual debug</label>
           <select id="assistActivePanel">
             <option value="0" selected>Panel 1</option>
             <option value="1">Panel 2</option>
@@ -94,56 +94,56 @@
           </select>
         </div>
         <div class="field">
-          <label for="assistScanMode">Scan-Muster (gewähltes Panel)</label>
+          <label for="assistScanMode">Scan pattern (selected panel)</label>
           <select id="assistScanMode">
-            <option value="row_ltr" selected>Zeilen: links → rechts</option>
-            <option value="row_serpentine">Zeilen: serpentine</option>
-            <option value="col_ttb">Spalten: oben → unten</option>
-            <option value="col_serpentine">Spalten: serpentine</option>
+            <option value="row_ltr" selected>Rows: left → right</option>
+            <option value="row_serpentine">Lines: serpentine</option>
+            <option value="col_ttb">Columns: top → bottom</option>
+            <option value="col_serpentine">Columns: serpentine</option>
           </select>
         </div>
       </div>
       <div class="form-row wizard-row">
         <div class="field">
-          <label for="assistJumpPanel">Schnellwahl Panel</label>
+          <label for="assistJumpPanel">Quick panel selection</label>
           <select id="assistJumpPanel"></select>
         </div>
         <div class="field">
-          <label for="assistJumpLocalX">Schnellwahl X</label>
+          <label for="assistJumpLocalX">Quick selection X</label>
           <select id="assistJumpLocalX"></select>
         </div>
         <div class="field">
-          <label for="assistJumpLocalY">Schnellwahl Y</label>
+          <label for="assistJumpLocalY">Quick selection Y</label>
           <select id="assistJumpLocalY"></select>
         </div>
-        <div class="field actions-end"><button class="btn btn-secondary" onclick="mappingAssistJumpToSelection()">Zu LED springen</button></div>
+        <div class="field actions-end"><button class="btn btn-secondary" onclick="mappingAssistJumpToSelection()">Jump to LED</button></div>
       </div>
       <div class="preset-row">
-        <button class="btn" onclick="startMappingAssist()">Assistent starten (0,0)</button>
-        <button class="btn btn-secondary" onclick="mappingAssistPrev()">Zurück</button>
-        <button class="btn btn-secondary" onclick="mappingAssistNext()">Weiter</button>
-        <button class="btn btn-secondary" onclick="mappingAssistSkip()">Überspringen</button>
+        <button class="btn" onclick="startMappingAssist()">Start wizard (0,0)</button>
+        <button class="btn btn-secondary" onclick="mappingAssistPrev()">Back</button>
+        <button class="btn btn-secondary" onclick="mappingAssistNext()">Next</button>
+        <button class="btn btn-secondary" onclick="mappingAssistSkip()">Skip</button>
         <button class="btn btn-secondary" onclick="mappingAssistReset()">Reset</button>
       </div>
-      <div id="mappingAssistRuntimeState" class="mapping-info">Assistent-Status wird geladen…</div>
-      <div id="mappingAssistState" class="mapping-info">Assistent noch nicht gestartet.</div>
-      <div id="mappingAssistGrid" style="margin-top:8px;" aria-label="Beobachtete LED wählen"></div>
-      <div id="mappingAssistResult" class="mapping-info" style="margin-top:8px;">Noch keine Mapping-Auswertung.</div>
+      <div id="mappingAssistRuntimeState" class="mapping-info">Assistant status loading…</div>
+      <div id="mappingAssistState" class="mapping-info">Wizard not started yet.</div>
+      <div id="mappingAssistGrid" style="margin-top:8px;" aria-label="Select observed LED"></div>
+      <div id="mappingAssistResult" class="mapping-info" style="margin-top:8px;">No mapping evaluation yet.</div>
       <div class="preset-row">
-        <button class="btn" onclick="inferMappingFromAssist()">Aus Beobachtungen Mapping berechnen</button>
-        <button class="btn" onclick="applyMappingAssistFixes()">Fix-Pixel anwenden (live)</button>
-        <button class="btn btn-secondary" onclick="clearMappingAssistFixes()">Fix-Pixel löschen</button>
-        <button class="btn" onclick="saveAndFinishMappingAssist()">Speichern & Assistent beenden</button>
-        <button class="btn btn-secondary" onclick="finishMappingAssistWithoutSave()">Ohne Speichern beenden</button>
+        <button class="btn" onclick="inferMappingFromAssist()">Calculate mapping from observations</button>
+        <button class="btn" onclick="applyMappingAssistFixes()">Apply fix pixels (live)</button>
+        <button class="btn btn-secondary" onclick="clearMappingAssistFixes()">Delete fix pixels</button>
+        <button class="btn" onclick="saveAndFinishMappingAssist()">Save & exit wizard</button>
+        <button class="btn btn-secondary" onclick="finishMappingAssistWithoutSave()">Exit without saving</button>
       </div>
-      <div id="mappingFixesInfo" class="mapping-info" style="margin-top:8px;">Noch keine Fix-Pixel.</div>
+      <div id="mappingFixesInfo" class="mapping-info" style="margin-top:8px;">No fixed pixels yet.</div>
 
-      <h3 style="margin-top:18px;">Aktive Mappings/Bindings (JSON)</h3>
-      <p class="subtle">Hier siehst du exakt den aktiven Zustand. Du kannst ihn exportieren oder aus JSON importieren.</p>
+      <h3 style="margin-top:18px;">Active Mappings/Bindings (JSON)</h3>
+      <p class="subtle">Here you can see exactly the active state. You can export it or import it from JSON.</p>
       <div class="preset-row">
-        <button class="btn btn-secondary" onclick="refreshMappingBundleEditor()">JSON aktualisieren</button>
-        <button class="btn btn-secondary" onclick="downloadMappingBundle()">JSON exportieren</button>
-        <button class="btn" onclick="importMappingBundle()">JSON importieren & anwenden</button>
+        <button class="btn btn-secondary" onclick="refreshMappingBundleEditor()">Update JSON</button>
+        <button class="btn btn-secondary" onclick="downloadMappingBundle()">Export JSON</button>
+        <button class="btn" onclick="importMappingBundle()">Import & apply JSON</button>
       </div>
       <textarea id="mappingBundleJson" rows="12" style="width:100%;margin-top:8px;font-family:ui-monospace,monospace;" aria-label="Mapping JSON"></textarea>
     </section>
