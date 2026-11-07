@@ -2,7 +2,7 @@
 
 All notable changes to PixelDock32 are documented in this file.
 
-## [0.4.0] - Unreleased
+## [0.4.0] - 2026-11-07
 
 ### New
 

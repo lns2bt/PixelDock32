@@ -12,4 +12,4 @@ class VersionTests(unittest.IsolatedAsyncioTestCase):
             response = await client.get('/api/version')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {'version': VERSION})
-        self.assertEqual(VERSION, '0.3.0')
+        self.assertEqual(VERSION, '0.4.0')
