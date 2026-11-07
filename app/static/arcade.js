@@ -59,7 +59,7 @@
     const s = row.settings || {}, kind = row.key.split('-')[0];
     let html = input('Name', 'module_name', row.name, 'text', 'maxlength="100" required')
       + (automaticBitcoin(row)||automaticWeather(row) ? `<div class="automatic-duration"><strong data-duration>Automatic duration</strong><p class="muted" data-duration-info>Info and reading times are loading...</p><a href="/${automaticWeather(row)?'weather':'bitcoin'}">${automaticWeather(row)?'Weather':'Bitcoin'}-Stage einstellen</a><input type="hidden" name="duration_seconds" value="${escape(row.duration_seconds)}"></div>` : input('Duration (seconds)', 'duration_seconds', row.duration_seconds, 'number', 'min="1" max="300" required'))
-      + select('transition', 'transition_effect', s.transition_effect || 'fade', [['fade','Gentle fade'],['dissolve','Pixel-Dissolve'],['slide','Slide'],['none','Without']])
+      + select('transition', 'transition_effect', s.transition_effect || 'fade', [['fade','Gentle fade'],['dissolve','Soft pixel dissolve'],['slide','Vertical slide'],['push_left','Push left'],['push_right','Push right'],['wipe','Soft wipe'],['iris','Iris'],['morph','Pixel morph'],['glitch','Glitch'],['none','Without']])
       + input('Transition (ms)', 'transition_ms', s.transition_ms ?? 450, 'number', 'min="0" max="2000"')
       + input('Priority every … seconds (0 = off)', 'priority_every', s.priority_every ?? (kind === 'clock' ? 45 : 0), 'number', 'min="0" max="3600"')
       + checkbox('Random insertion instead of a fixed slot', 'shuffle', s.shuffle);
@@ -75,8 +75,9 @@
         + input('Scroll speed (Pixel/s)', 'scroll_speed', s.scroll_speed || 35, 'number', 'min="5" max="120"')
         + input('Text color', 'color', s.color || '#f4f4f5', 'color');
     } else if (kind === 'animations') {
-      html += select('Animation', 'preset', s.preset || 'bit_invaders', [['bit_invaders','Pixel Invaders'],['pixel_snake','Pixel Snake'],['retro_rainbow_tunnel','Rainbow Tunnel'],['psychedelic_plasma','Plasma'],['neon_equalizer','Neon Equalizer'],['matrix_rain','Matrix Rain'],['lava_lamp','Lava Lamp']])
-        + select('Palette', 'palette', s.palette || 'neon', [['neon','Neon'],['rainbow','Rainbow'],['fire','Fire'],['ocean','Ocean'],['matrix','Matrix']])
+      html += select('Animation', 'preset', s.preset || 'bit_invaders', [['aurora','Aurora'],['ripple','Water Ripple'],['fireflies','Fireflies'],['sine_ribbons','Sine Ribbons'],['synthwave','Synthwave'],['embers','Embers'],['game_of_life','Game of Life'],['starfield','Starfield'],['bit_invaders','Pixel Invaders'],['pixel_snake','Pixel Snake'],['retro_rainbow_tunnel','Rainbow Tunnel'],['psychedelic_plasma','Plasma'],['neon_equalizer','Neon Equalizer'],['matrix_rain','Matrix Rain'],['lava_lamp','Lava Lamp']])
+        + select('Palette', 'palette', s.palette || 'auto', [['auto','Automatic (matches the animation)'],['neon','Neon'],['rainbow','Rainbow'],['fire','Fire'],['ocean','Ocean'],['matrix','Matrix'],['aurora','Aurora'],['sunset','Sunset'],['ice','Ice'],['forest','Forest']])
+        + select('Mirror', 'mirror_mode', s.mirror_mode || 'none', [['none','None'],['horizontal','Left ↔ right'],['vertical','Top ↕ bottom'],['quad','Kaleidoscope (both)']])
         + input('speed', 'speed', s.speed || 1, 'number', 'min="0.1" max="4" step="0.1"')
         + input('intensity', 'intensity', s.intensity || .8, 'number', 'min="0.1" max="1" step="0.1"');
     } else if (kind === 'asset') {

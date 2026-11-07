@@ -53,3 +53,54 @@ The border is empty for `0s` and completely filled for `59s`.
 - Scroll speed above `scroll_speed` (recommended 0.25 to 20).
 
 Example files: `app/bitmaps/sample_arrow.txt` (mono) and `app/bitmaps/sample_gradient.ppm` (RGB)
+
+## Smooth motion pipeline
+
+All effects share `app/services/fx.py`: a linear-light float canvas with
+sub-pixel (anti-aliased) dots, lines, glows and sprites, OKLab gradients (no
+muddy midpoints), easing curves and deterministic noise. Rendering stays a pure
+function of time, so browser previews and LEDs match.
+
+The **output stage** (`app/services/output_stage.py`) runs on the Pi just before
+the serial transfer and needs **no firmware change**. It replicates the Uno's
+brightness scaling (`(v × (b + 1)) >> 8`), applies `LED_GAMMA` and quantises
+once. Lit pixels always keep at least one output step on their dominant channel,
+so dim night art never disappears at low brightness. Optional
+`LED_TEMPORAL_DITHER=true` adds sigma-delta dithering for even smoother dark
+fades (it may shimmer slightly at very low brightness). `LED_GAMMA=1.0` restores
+the previous output byte-for-byte. The browser preview always shows the authored
+colours; with gamma enabled the LEDs now look much closer to it.
+
+## Transitions between modules
+
+`transition_effect` per playlist entry, `transition_ms` sets the duration:
+
+| Effect | Look |
+|---|---|
+| `fade` | Gentle cross-fade in linear light |
+| `dissolve` | Pixels fade over in an even, Bayer-ordered pattern |
+| `slide` | Eased, sub-pixel vertical slide (`transition_direction` up/down) |
+| `push_left` / `push_right` | The new screen pushes the old one sideways |
+| `wipe` | Soft-edged wipe with a short highlight on lit pixels |
+| `iris` | Elliptical opening from the centre |
+| `morph` | Lit pixels fly in small arcs to their new positions |
+| `glitch` | Short digital row shift with colour split (no full flash) |
+| `none` | Hard cut |
+
+## Animations module
+
+Fifteen presets. `palette=auto` (default for new modules) uses each preset's
+signature colours; `neon`, `rainbow`, `fire`, `ocean`, `matrix`, `aurora`,
+`sunset`, `ice` and `forest` override them. `mirror_mode` is `none`,
+`horizontal`, `vertical` or `quad`.
+
+- **New**: Aurora, Water Ripple, Fireflies, Sine Ribbons, Synthwave, Embers,
+  Game of Life (cells fade in/out, reseeds when stagnant) and Starfield (parallax
+  with periodic warp bursts).
+- **Reworked**: Plasma (depth layer), Rainbow Tunnel (continuous brightness),
+  Bit Invaders (gliding, two-frame legs, starfield), Neon Equalizer (fractional
+  bar tops, falling peak markers), Matrix Rain (sub-pixel heads, long afterglow),
+  Lava Lamp (soft edges, four blobs), Pixel Snake (smooth Lissajous path).
+
+`scripts/preview-animations.py --output <dir>` renders GIFs and contact sheets of
+all presets and transitions without hardware.

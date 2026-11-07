@@ -23,6 +23,11 @@ indoor humidity, and current conditions. Configure scenes, rotation, and preview
 at `/weather`. Open-Meteo model data and local indoor readings have independent
 freshness indicators: [Weather-Stage](docs/weather-stage.md).
 
+**Smooth motion** (upcoming 0.4.0): Pi-side gamma correction without firmware
+changes, nine eased transitions, 15 anti-aliased animations, rolling clock
+digits and a clearer Weather-Stage card. Details:
+[Modules and features](docs/modules-and-features.md#smooth-motion-pipeline).
+
 The display targets 30 FPS using Uno firmware v3. Existing `.env` settings are
 preserved. Firmware compatibility and brightness synchronization:
 [Phase 2](docs/rework-phase2.md).

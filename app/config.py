@@ -64,6 +64,9 @@ class Settings(BaseSettings):
     poll_btc_seconds: int = Field(default=60, ge=15)
     poll_weather_seconds: int = Field(default=300, ge=60)
     render_fps: int = Field(default=30, ge=1, le=60)
+    # Perceptual output stage: 1.0 restores the previous linear output exactly.
+    led_gamma: float = Field(default=2.2, ge=1.0, le=3.0)
+    led_temporal_dither: bool = False
     asset_directory: str = "data/assets"
 
     @model_validator(mode="after")
