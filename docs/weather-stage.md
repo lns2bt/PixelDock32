@@ -12,16 +12,53 @@ all four information types: outdoor temperature (**outside**), indoor temperatur
 By default, a maximum of **two pieces of information per presentation**; the selection rotates fairly.
 Browser previews have independent scheduling and do not consume regular rotation slots.
 
-Pixel Home shows landscapes, room lights, and droplets; Weather Station uses
-animated scales; Nature World uses trees/houses/waves; Neon Lab uses glowing
-measurement chambers. Weather codes select sun, moon, clouds, rain, snow, fog,
-or a restrained thunderstorm motif without full-screen flashes or strobing.
-The reading phase is calm; compact labels distinguish outdoor, indoor, and humidity.
+### How a weather presentation reads
 
-Automatic total duration includes introduction, label, motif, transition, reading,
-and ending. The reading-time setting controls the actual quiet reading phase,
-not an extra delay afterward. No repeated information or extra stale/missing
-panels appear after reading.
+Each information runs in three clear steps:
+
+1. **Scene** (≈0.9 s): the whole panel shows what is happening — sun and rays,
+   moon and stars, drifting clouds, rain streaks, snowflakes, fog banks, a softly
+   glowing (never flashing) storm, a lit house (indoor) or a water level
+   (humidity).
+2. **Card** (reading time + 0.8 s): an animated 8 × 8 icon on the left and the
+   value on the right. The digits roll in once and then **stay still** while
+   reading; only the icon moves gently.
+3. **Outro** (0.6 s): the card fades back into the scene.
+
+| Icon | Meaning |
+|---|---|
+| Sun with rays / moon with stars | Clear sky by day / by night |
+| Sparkle | Clear sky, day/night unknown |
+| Cloud (with sun behind it by day) | Cloudy |
+| Cloud with falling drops / flakes | Rain / snow |
+| Dark cloud with yellow bolt | Thunderstorm |
+| Horizontal bands | Fog |
+| House with lit window | Indoor temperature |
+| Drop, filled to the measured level | Indoor humidity |
+| Thermometer | Outdoor temperature without known conditions |
+| Grey cloud with `?` | Conditions unknown |
+
+**Colour of the value** — you can read it without reading the digits:
+
+- Outdoor temperature uses a continuous scale: violet/blue (frost) → ice blue
+  (0 °C) → mint (10 °C) → green (18 °C) → yellow (24 °C) → orange (30 °C) → red.
+- Indoor temperature: blue = below the comfort range, green = comfortable,
+  coral = above it (`weather_comfort_min` / `weather_comfort_max`).
+- Humidity: amber = dry (< 30 %), cyan = comfortable, blue = humid (> 60 %).
+
+**Marks**: a small bobbing arrow on the right shows a measured trend (up/down).
+A pulsing **amber corner** (top right) plus a faded value means *older than
+expected*; a grey `--` means *no value*. Temperatures show one decimal when it
+fits (`-5.2°`), otherwise whole degrees (`-12°`).
+
+**Styles** only change the atmosphere, never the layout: *Pixel Home* (house and
+warm ground line), *Weather Station* (spinning anemometer, scale ticks with a
+needle at the measured value), *Nature World* (trees, swaying grass) and
+*Neon Lab* (glowing side bars, travelling light pulse).
+
+Automatic total duration includes introduction, scene, card, reading and outro.
+The reading-time setting controls the quiet reading phase; the card adds 0.8 s.
+No repeated information or extra stale/missing panels appear after reading.
 `POST /api/weather/duration` calculates the same duration from saved and
 unsaved options without changing runtime or rotation.
 

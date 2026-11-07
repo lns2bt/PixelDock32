@@ -49,7 +49,10 @@ class VisualTests(unittest.TestCase):
             self.assertEqual(DisplayService._transition(blank,dark,full,lit,0,effect), (blank,dark))
         self.assertEqual(DisplayService._transition(blank,dark,full,lit,0,'fade'), (blank,dark))
         frame, colors = DisplayService._transition(blank,dark,full,lit,.5,'fade')
-        self.assertEqual(colors[0][0], (50,75,100))
+        # Cross-fades mix in linear light: half the light, not half the code value.
+        from app.services.fx import from_linear, to_linear
+        self.assertEqual(colors[0][0], from_linear([c * .5 for c in to_linear((100, 150, 200))]))
+        self.assertGreater(colors[0][0][0], 50)
 
     def test_scroll_duration_covers_all_lines(self):
         lines, widths, speed = TextBoxModule.scroll_cycle({'lines':'HELLO\nPIXEL', 'font_size':'small','scroll_speed':35})

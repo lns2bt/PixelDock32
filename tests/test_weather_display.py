@@ -84,4 +84,6 @@ class WeatherDisplayTests(unittest.IsolatedAsyncioTestCase):
                 with self.subTest(style=style,info=info):
                     visit=Director().begin({'weather_styles':[style],'weather_infos':[info]},self.cache,preview=True)
                     self.assertNotEqual(render(visit,1.8).color_frame,render(visit,2.9).color_frame)
-                    self.assertEqual(render(visit,4).color_frame,render(visit,5).color_frame)
+                    # Reading: the value stays still while the icon may breathe.
+                    still=lambda frame:[row[10:29] for row in frame.color_frame[1:6]]
+                    self.assertEqual(still(render(visit,4)),still(render(visit,5)))

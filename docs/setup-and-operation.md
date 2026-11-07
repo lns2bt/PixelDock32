@@ -75,6 +75,9 @@ sudo ./scripts/manage-autostart.sh enable --repo-dir /home/pi/PixelDock32 --user
 - LED driver: `LED_*` (important: `LED_TRANSPORT`, `LED_SERIAL_*`)
 - Mapping: `DATA_STARTS_RIGHT`, `SERPENTINE`, `FIRST_PIXEL_OFFSET`
 - Rendering/Polling: `RENDER_FPS`, `POLL_BTC_SECONDS`, `POLL_WEATHER_SECONDS`
+- Perceptual output: `LED_GAMMA` (default `2.2`, `1.0` = previous linear output)
+  and `LED_TEMPORAL_DITHER` (default `false`). See
+  [Modules and features](modules-and-features.md#smooth-motion-pipeline).
 - Weather/BTC APIs: `WEATHER_*`, `BTC_API_URL`
 
 ## Troubleshooting

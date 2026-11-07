@@ -1,6 +1,6 @@
 # PixelDock32
 
-![Version](https://img.shields.io/badge/version-0.3.0-blue)
+![Version](https://img.shields.io/badge/version-0.4.0-blue)
 ![Status](https://img.shields.io/badge/status-release-brightgreen)
 
 
@@ -23,6 +23,11 @@ indoor humidity, and current conditions. Configure scenes, rotation, and preview
 at `/weather`. Open-Meteo model data and local indoor readings have independent
 freshness indicators: [Weather-Stage](docs/weather-stage.md).
 
+**Smooth motion**: Pi-side gamma correction without firmware
+changes, nine eased transitions, 15 anti-aliased animations, rolling clock
+digits and a clearer Weather-Stage card. Details:
+[Modules and features](docs/modules-and-features.md#smooth-motion-pipeline).
+
 The display targets 30 FPS using Uno firmware v3. Existing `.env` settings are
 preserved. Firmware compatibility and brightness synchronization:
 [Phase 2](docs/rework-phase2.md).
@@ -36,20 +41,16 @@ timing-preserving frame thinning, and three GIF playback modes
 Pi deployments retain settings, modules, assets, and mapping. Substantial updates
 use a separate directory with a private backup and rollback instructions.
 
-## Version 0.3.0 — Reliable sleep scheduling and English interface
+## Version 0.4.0 — Smooth motion
 
-Sleep scheduling separates the daily plan from temporary sleep/wake exceptions.
-The UI verifies saved times by reading them back, rejects stale-tab writes,
-shows the selected duration/timezone, and warns about unusually long sleep periods.
-Sliders use five-minute steps; direct time fields retain exact minute precision.
+A Pi-side perceptual output stage (gamma without firmware changes), nine eased
+module transitions, eight new and seven reworked anti-aliased animations,
+odometer-style clock digits and a redesigned Weather-Stage card with animated
+icons and colour-coded values. See the [changelog](CHANGELOG.md) for details.
 
-The shared navigation shows the **running server version**. Documentation,
-interface text, and new GitHub contributions use English; saved user content is
-not translated. See [Time-Stage](docs/time-stage.md) for details.
-
-- Current version: [`0.3.0`](VERSION)
+- Current version: [`0.4.0`](VERSION)
 - Release notes: [`CHANGELOG.md`](CHANGELOG.md)
-- Release tag: `v0.3.0` on `main`
+- Release tag: `v0.4.0` (planned, after merge to `main`)
 
 ## Quick start
 

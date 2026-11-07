@@ -25,7 +25,9 @@ assert.ok(/^http:\/\/(127\.0\.0\.1|localhost):8765$/.test(base), 'Use the mock f
     await context.request.put(base+'/api/time-stage',{headers,data:config});
     await page.goto(base+'/time-stage');
     await page.locator('#timeStageFields:not([disabled])').waitFor();
-    await page.locator('#activeVersion').filter({hasText:'v0.3.0'}).waitFor();
+    const running = (await (await context.request.get(base+'/api/version')).json()).version;
+    assert.equal(running, fs.readFileSync('VERSION','utf8').trim());
+    await page.locator('#activeVersion').filter({hasText:'v'+running}).waitFor();
     // Move an actual slider by keyboard, then verify the exact payload and reload.
     await page.locator('#sleepStartRange').focus();
     await page.keyboard.press('Home');

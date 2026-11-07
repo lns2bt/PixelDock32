@@ -170,27 +170,74 @@ class WeatherStageTests(unittest.TestCase):
                 self.assertGreater(len(set(sequence)), 2)
         self.assertEqual(len(set(frames)), 16)
 
-    def test_read_is_still_full_length_with_badges_then_art_only(self):
+    def test_read_value_is_still_with_badges_then_art_only(self):
+        from app.services.weather_stage import STALE, VALUE_X, phases
         for style in STYLES:
             for state in ('fresh', 'stale', 'missing'):
                 for seconds in (2, 4, 10):
                     data = {} if state == 'missing' else cache(0 if state == 'stale' else 1000)
                     visit = Director().begin(dict(weather_styles=[style], weather_read_seconds=seconds,
                                                   weather_infos=['outside', 'humidity']), data, 1000)
+                    marks = phases(visit)
+                    self.assertAlmostEqual(marks['read_end'] - marks['card'], seconds + .8)
+                    self.assertLessEqual(marks['outro_end'], visit.segment)
                     for index, info in enumerate(visit.infos):
                         start = .8 + index * visit.segment
-                        first = render(visit, start + 2.901)
-                        last = render(visit, start + 2.9 + seconds - .001)
-                        self.assertEqual(first.color_frame, last.color_frame)
-                        badge = (255, 65, 20) if state == 'stale' else (150, 150, 150) if state == 'missing' else None
-                        self.assertEqual(last.color_frame[0][0], badge)
-                        for phase in (2.9 + seconds + .2, visit.segment - .1):
+                        first = render(visit, start + marks['card'] + .001)
+                        last = render(visit, start + marks['read_end'] - .001)
+                        # Digits never move while reading; only the icon breathes.
+                        for y in range(1, 6):
+                            self.assertEqual(first.color_frame[y][VALUE_X:29], last.color_frame[y][VALUE_X:29])
+                        self.assertTrue(any(last.color_frame[y][x] for y in range(1, 6) for x in range(VALUE_X, 29)))
+                        corner = last.color_frame[0][30]
+                        if state == 'stale':
+                            self.assertIsNotNone(corner)
+                            self.assertGreater(corner[0], corner[2])
+                        else:
+                            self.assertIsNone(corner)
+                        for phase in (marks['outro_end'] + .05, visit.segment - .1):
                             elapsed = start + phase
-                            actual_phase = elapsed - .8 - index * visit.segment
                             self.assertEqual(render(visit, elapsed).color_frame,
-                                             story(style, actual_phase, info, 'normal').colors)
+                                             story(style, elapsed, info, 'normal').colors)
                     self.assertEqual(render(visit, visit.duration - .3).color_frame,
-                                     story(style, visit.segment + .3, visit.infos[-1], 'normal').colors)
+                                     story(style, visit.duration - .3, visit.infos[-1], 'normal').colors)
+
+    def test_card_value_formatting_and_colour_scale(self):
+        from app.services.weather_stage import display_value, icon_key, temperature_color, value_color
+        settings = normalize({})
+        info = info_value('outside', cache(), settings, 1000)
+        self.assertEqual(display_value(info, 22), '-5.2°')
+        self.assertEqual(display_value(dict(info, numeric=-12.5), 18), '-12°')
+        self.assertEqual(display_value(dict(info, numeric=-0.3), 4), '0°')
+        humidity = info_value('humidity', cache(), settings, 1000)
+        self.assertEqual(display_value(humidity, 22), '48%')
+        cold, mild, hot = temperature_color(-10), temperature_color(15), temperature_color(33)
+        self.assertGreater(cold[2], cold[0])
+        self.assertGreater(hot[0], hot[2])
+        self.assertGreater(mild[1], mild[2])
+        inside = info_value('inside', cache(), settings, 1000)
+        self.assertEqual(value_color(inside, settings), (120, 235, 140))
+        self.assertEqual(value_color(dict(inside, numeric=17), settings), (110, 170, 255))
+        self.assertEqual(icon_key(inside), 'house')
+        self.assertEqual(icon_key(humidity), 'drop')
+        for code, day, icon in ((0, 1, 'sun'), (0, 0, 'moon'), (0, None, 'clear'), (3, 1, 'cloudy'),
+                                (61, 1, 'rain'), (73, 1, 'snow'), (45, 1, 'fog'), (95, 1, 'storm')):
+            data = cache(); data.update(weather_code=code, weather_is_day=day)
+            self.assertEqual(icon_key(info_value('conditions', data, settings, 1000)), icon)
+        data = cache(); data['weather_code'] = None
+        self.assertEqual(icon_key(info_value('outside', data, settings, 1000)), 'thermo')
+        self.assertEqual(icon_key(info_value('conditions', data, settings, 1000)), 'unknown')
+
+    def test_long_condition_words_fit_beside_icon(self):
+        from app.services.weather_stage import _card_canvas
+        from app.services import fx
+        settings = normalize({})
+        for code in (0, 3, 45, 61, 73, 95):
+            data = cache(); data.update(weather_code=code)
+            info = info_value('conditions', data, settings, 1000)
+            self.assertLessEqual(fx.text_width(info['value']), 23, info['value'])
+            colors = _card_canvas('home', 1, info, settings).to_colors()
+            self.assertTrue(any(colors[y][31] for y in range(1, 6)) or fx.text_width(info['value']) < 22)
 
     def test_timing_caps_selection_ignores_playlist_and_extends_scroll(self):
         for count in range(1, 5):

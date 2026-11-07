@@ -2,6 +2,40 @@
 
 All notable changes to PixelDock32 are documented in this file.
 
+## [0.4.0] - 2026-11-07
+
+### New
+
+- Perceptual LED output stage on the Pi: gamma correction (`LED_GAMMA`, default
+  2.2) that replicates the Uno's brightness scaling exactly, keeps dim pixels
+  visible at low brightness and optionally dithers (`LED_TEMPORAL_DITHER`).
+  No firmware change; `LED_GAMMA=1.0` restores the previous output.
+- Shared effects toolkit (`fx.py`): linear-light float canvas, anti-aliased
+  sub-pixel drawing, OKLab gradients, easing and deterministic noise.
+- Nine eased module transitions: fade and dissolve (reworked), sub-pixel slide,
+  push left/right, soft wipe, iris, pixel morph and glitch.
+- Eight new animations: Aurora, Water Ripple, Fireflies, Sine Ribbons,
+  Synthwave, Embers, Game of Life and Starfield; new palettes and `auto`.
+- Time-Stage clocks: odometer-style digit roll at each minute and a softly
+  breathing colon.
+- Weather-Stage redesign: full-width weather scene, then a clear card with an
+  animated icon and a colour-coded value (temperature scale, comfort and
+  humidity colours), trend arrow and amber stale marker.
+- `scripts/preview-animations.py` renders offline GIFs and contact sheets.
+
+### Improved
+
+- All seven existing animations reworked for smooth sub-pixel motion and
+  softer edges.
+- Cross-fades mix in linear light; dissolve uses an even Bayer order instead of
+  visible diagonals; the slide no longer jumps in eight hard steps.
+
+### Compatibility
+
+- Saved modules, schedules, assets and mapping are unchanged. Existing palettes
+  and transition names remain valid; new animation modules default to `auto`.
+- Uno firmware unchanged.
+
 ## [0.3.0] - 2026-10-18
 
 ### Fixed

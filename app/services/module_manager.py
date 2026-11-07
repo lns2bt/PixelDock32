@@ -109,7 +109,7 @@ DEFAULT_MODULES = [
         "settings": {
             "preset": "bit_invaders",
             "speed": 1.0,
-            "palette": "neon",
+            "palette": "auto",
             "intensity": 0.8,
             "mirror_mode": "none",
             "transition_direction": "down",

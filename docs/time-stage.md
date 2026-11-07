@@ -41,6 +41,10 @@ Now 25 normal clock views: **Orbital Station**, **Pixel Greenhouse**,
 20 scenes. Satellite orbit, plant growth, train travel, coastal light and gears
 follow the actual second including fractions of a second, not the duration
 the display. Minute changes trigger small local accents, not full-screen flashes.
+At each new minute the changed digits roll like an odometer (right-most digit
+first, eased, anti-aliased); unchanged digits never move. The colon breathes
+softly with the seconds instead of blinking. Disabling the *minute change effect*
+turns the roll off.
 
 HH:MM remains high contrast, without blinking, masking or shifting. The entire thing
 19×5 numeric rectangle including spaces is reserved for the clock;

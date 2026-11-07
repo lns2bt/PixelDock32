@@ -69,7 +69,7 @@ MODULE_SETTING_DEFAULTS = {
     "animations": {
         "preset": "bit_invaders",
         "speed": 1.0,
-        "palette": "neon",
+        "palette": "auto",
         "intensity": 0.8,
         "mirror_mode": "none",
         "transition_direction": "down",
@@ -82,20 +82,15 @@ MODULE_SETTING_DEFAULTS = {
 }
 
 
+from app.modules.animations import PALETTE_CHOICES as ANIMATION_PALETTES, PRESETS as ANIMATION_PRESETS
+from app.services.transitions import EFFECTS as TRANSITION_EFFECTS
+
 ALLOWED_FONT_SIZES = {"small", "normal"}
 ALLOWED_TRANSITIONS = {"down", "up"}
 ALLOWED_TEXT_MODES = {"static", "scroll"}
 ALLOWED_TEXTBOX_PRESETS = {"welcome", "status", "alert", "ticker"}
-ALLOWED_ANIMATION_PRESETS = {
-    "psychedelic_plasma",
-    "retro_rainbow_tunnel",
-    "bit_invaders",
-    "neon_equalizer",
-    "matrix_rain",
-    "lava_lamp",
-    "pixel_snake",
-}
-ALLOWED_ANIMATION_PALETTES = {"neon", "rainbow", "fire", "ocean", "matrix"}
+ALLOWED_ANIMATION_PRESETS = set(ANIMATION_PRESETS)
+ALLOWED_ANIMATION_PALETTES = set(ANIMATION_PALETTES)
 ALLOWED_MIRROR_MODES = {"none", "horizontal", "vertical", "quad"}
 
 
@@ -244,7 +239,7 @@ def sanitize_settings(module_key: str, settings: dict) -> dict:
         merged["transition_ms"] = _clamp_int(merged.get("transition_ms"), 0, 2000, defaults["transition_ms"])
 
     merged["kind"] = module_key
-    merged["transition_effect"] = _normalize_allowed_string(merged.get("transition_effect"), {"fade", "dissolve", "slide", "none"}, "fade")
+    merged["transition_effect"] = _normalize_allowed_string(merged.get("transition_effect"), set(TRANSITION_EFFECTS), "fade")
     merged["transition_ms"] = _clamp_int(merged.get("transition_ms", 450), 0, 2000, 450)
     merged["transition_on_content_change"] = False
     merged["shuffle"] = bool(merged.get("shuffle", False))

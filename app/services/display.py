@@ -20,6 +20,8 @@ from app.modules.bitmap import BitmapModule
 from app.modules.animations import AnimationsModule
 from app.services.led_driver import LEDDriver
 from app.services.frame_pacer import FramePacer
+from app.services.output_stage import OutputStage
+from app.services import transitions
 from app.services.led_mapper import LEDMapper
 from app.services.colors import parse_hex_color
 from app.services.animations import ANIMATION_FACTORIES
@@ -136,6 +138,9 @@ class DisplayService:
         self._asset_identity = None
         self._slot_generation = -1
         self.target_fps = fps
+        app_settings = get_settings()
+        self.output_stage = OutputStage(app_settings.led_gamma, app_settings.led_temporal_dither)
+        self._last_output_brightness: int | None = None
         self._running = False
         self._task: asyncio.Task | None = None
         self._pacer: FramePacer | None = None
@@ -303,7 +308,7 @@ class DisplayService:
     def render_time_stage_preview(self, key, now, elapsed=0, info=None, config=None):
         from app.services.time_stage import SCENES, render_scene
         from app.services.time_stage.celestial import KEYS, render_celestial
-        from app.services.time_stage.core import Canvas, shade
+        from app.services.time_stage.core import DIGIT_ROLL, Canvas
         config = config or self.time_stage_config
         if key not in SCENES and key not in KEYS:
             raise ValueError("Unknown time stage scene")
@@ -318,17 +323,12 @@ class DisplayService:
             else:
                 scene = SCENES[key]
                 speed = {"calm": .45, "normal": 1.0, "lively": 1.3}[config["intensity"]]
-                payload = render_scene(key, now, elapsed if scene.events else elapsed * speed)
-                if not scene.events and config["minute_transition"] and now.second == 0 and now.microsecond < 700_000:
-                    # Scatter the old arrangement and settle into the actual new time.
-                    phase = now.microsecond / 700_000
-                    transformed = Canvas()
-                    for y, row in enumerate(payload.color_frame):
-                        for x, color in enumerate(row):
-                            if color is not None:
-                                offset = int((1 - phase) * ((x * 7 + y * 13) % 9 - 4))
-                                transformed.pixel(x, y + offset, shade(color, .5 + phase * .5))
-                    payload = transformed.payload(now, key)
+                # The minute transition is the eased odometer roll inside Canvas.clock.
+                token = DIGIT_ROLL.set(bool(config["minute_transition"]))
+                try:
+                    payload = render_scene(key, now, elapsed if scene.events else elapsed * speed)
+                finally:
+                    DIGIT_ROLL.reset(token)
             if config["color"] and key in SCENES and not SCENES[key].events:
                 tone = parse_hex_color(config["color"], (110, 225, 255))
                 payload.color_frame = [[tuple(round(c * max(rgb) / 255) for c in tone) if rgb else None for rgb in row] for row in payload.color_frame]
@@ -478,24 +478,7 @@ class DisplayService:
 
     @staticmethod
     def _transition(from_frame, from_colors, to_frame, to_colors, progress, direction):
-        if direction in {"up", "down"}:
-            return DisplayService._slide_vertical(from_frame, from_colors, to_frame, to_colors, progress, direction)
-        frame = [[0] * 32 for _ in range(8)]
-        colors = blank_color_frame(32, 8)
-        for y in range(8):
-            for x in range(32):
-                old = from_colors[y][x] or (80, 80, 80) if from_frame[y][x] else (0, 0, 0)
-                new = to_colors[y][x] or (80, 80, 80) if to_frame[y][x] else (0, 0, 0)
-                if direction == "dissolve":
-                    rank = (((x * 73 + y * 37) % 256) + 1) / 256
-                    color = new if progress >= rank else old
-                else:
-                    # Smooth crossfade: never brighten beyond either source.
-                    p = progress * progress * (3 - 2 * progress)
-                    color = tuple(round(a * (1 - p) + b * p) for a, b in zip(old, new))
-                if any(color):
-                    frame[y][x], colors[y][x] = 1, color
-        return frame, colors
+        return transitions.render(direction, from_frame, from_colors, to_frame, to_colors, progress)
 
     async def stop(self):
         self._running = False
@@ -659,40 +642,6 @@ class DisplayService:
         }
 
 
-    @staticmethod
-    def _slide_vertical(
-        from_frame: list[list[int]],
-        from_colors: list[list[tuple[int, int, int] | None]],
-        to_frame: list[list[int]],
-        to_colors: list[list[tuple[int, int, int] | None]],
-        progress: float,
-        direction: str,
-    ) -> tuple[list[list[int]], list[list[tuple[int, int, int] | None]]]:
-        progress = max(0.0, min(1.0, progress))
-        shift = int(round(progress * 8))
-        out_frame = [[0 for _ in range(32)] for _ in range(8)]
-        out_colors = blank_color_frame(32, 8)
-
-        if direction == "down":
-            old_shift = shift
-            new_shift = shift - 8
-        else:
-            old_shift = -shift
-            new_shift = 8 - shift
-
-        for y in range(8):
-            oy = y - old_shift
-            ny = y - new_shift
-            for x in range(32):
-                if 0 <= oy < 8 and from_frame[oy][x]:
-                    out_frame[y][x] = 1
-                    out_colors[y][x] = from_colors[oy][x]
-                if 0 <= ny < 8 and to_frame[ny][x]:
-                    out_frame[y][x] = 1
-                    out_colors[y][x] = to_colors[ny][x]
-
-        return out_frame, out_colors
-
     def _apply_clock_border_seconds(
         self,
         frame: list[list[int]],
@@ -732,6 +681,11 @@ class DisplayService:
 
         return frame, color_frame
 
+    def _output_brightness(self) -> int | None:
+        """Brightness the Uno applies to the next frame (for gamma-correct quantisation)."""
+        value = self._effective_brightness if self._effective_brightness is not None else self._day_brightness
+        return value if type(value) is int else None
+
     async def _loop(self):
         self._pacer = FramePacer(self.target_fps, time.perf_counter())
         while self._running:
@@ -740,7 +694,10 @@ class DisplayService:
                 frame, color_frame = await self._get_next_frame()
                 force_frame_send = bool(getattr(self.led_driver, "should_force_frame_send", lambda: False)())
                 mapping_revision = getattr(self.mapper, "revision", 0)
-                frame_changed = self._first_frame or force_frame_send or mapping_revision != self._last_mapping_revision or frame != self.last_frame or color_frame != self.last_color_frame
+                output_brightness = self._output_brightness()
+                frame_changed = (self._first_frame or force_frame_send or mapping_revision != self._last_mapping_revision
+                                 or frame != self.last_frame or color_frame != self.last_color_frame
+                                 or (not self.output_stage.bypass and output_brightness != self._last_output_brightness))
                 if frame_changed:
                     index_to_color: dict[int, tuple[int, int, int]] = {}
                     for y, row in enumerate(frame):
@@ -751,6 +708,8 @@ class DisplayService:
                             color = color_frame[y][x] if color_frame and color_frame[y][x] else (80, 80, 80)
                             index_to_color[led_index] = color
 
+                    index_to_color = self.output_stage.apply(index_to_color, output_brightness)
+                    self._last_output_brightness = output_brightness
                     led_write_started = time.perf_counter()
                     self.led_driver.write_color_frame(index_to_color)
                     self.last_led_write_ms = round((time.perf_counter() - led_write_started) * 1000, 3)
@@ -1055,10 +1014,10 @@ class DisplayService:
             transition_direction = "down"
         transition_ms = max(0, min(2000, _safe_int(settings.get("transition_ms", 350), 350)))
         effect = settings.get("transition_effect", "fade")
-        if effect in {"fade", "dissolve"}:
-            transition_direction = effect
-        elif effect == "none":
+        if effect == "none":
             transition_ms = 0
+        elif effect in transitions.EFFECTS and effect != "slide":
+            transition_direction = effect
 
         if self.transition_state:
             state = self.transition_state
