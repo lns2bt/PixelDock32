@@ -305,10 +305,21 @@ class DisplayService:
                     self._preview_sky_cache.pop(next(iter(self._preview_sky_cache)))
             return self._preview_sky_cache[identity]
 
+    def _scene_weather(self):
+        """Current outdoor weather for clock scenes (no IO; cache only)."""
+        from app.services.weather_stage import condition_category
+        cache = self.cache_provider() or {}
+        day = cache.get("weather_is_day")
+        return {
+            "category": condition_category(cache.get("weather_code")),
+            "is_day": bool(day) if isinstance(day, (bool, int)) and day in (0, 1) else None,
+        }
+
     def render_time_stage_preview(self, key, now, elapsed=0, info=None, config=None):
         from app.services.time_stage import SCENES, render_scene
         from app.services.time_stage.celestial import KEYS, render_celestial
         from app.services.time_stage.core import DIGIT_ROLL, Canvas
+        from app.services.time_stage.showcase import SCENE_CONTEXT
         config = config or self.time_stage_config
         if key not in SCENES and key not in KEYS:
             raise ValueError("Unknown time stage scene")
@@ -325,9 +336,15 @@ class DisplayService:
                 speed = {"calm": .45, "normal": 1.0, "lively": 1.3}[config["intensity"]]
                 # The minute transition is the eased odometer roll inside Canvas.clock.
                 token = DIGIT_ROLL.set(bool(config["minute_transition"]))
+                context = SCENE_CONTEXT.set({
+                    "astronomy": self.astronomy_data if info is None else info,
+                    "weather": self._scene_weather(),
+                })
                 try:
-                    payload = render_scene(key, now, elapsed if scene.events else elapsed * speed)
+                    payload = render_scene(key, now, elapsed if scene.events else elapsed * speed,
+                                           digit_style=config.get("digit_transition", "auto"))
                 finally:
+                    SCENE_CONTEXT.reset(context)
                     DIGIT_ROLL.reset(token)
             if config["color"] and key in SCENES and not SCENES[key].events:
                 tone = parse_hex_color(config["color"], (110, 225, 255))

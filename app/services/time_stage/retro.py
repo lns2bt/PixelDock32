@@ -1,6 +1,7 @@
 """Five wall-clock-driven arcade scenes for a 32 × 8 pixel display."""
 
 from datetime import datetime
+import math
 
 from .core import Canvas, Scene, perimeter, seconds, shade
 
@@ -19,21 +20,22 @@ def _platformer(now: datetime, elapsed: float) -> Canvas:
     canvas.bitmap(('01110', '11001' if step % 2 else '01010'), 0, 5,
                   (73, 141, 255))
 
-    # A coin flips once a second and bobs through four wall-clock phases.
-    coin_y = 1 + (step % 4 in (1, 2))
-    coin = ('010', '111', '010') if step % 2 == 0 else ('010', '010', '010')
-    canvas.bitmap(coin, 28, coin_y, gold)
+    # A coin spins once a second and bobs smoothly with the wall clock.
+    coin_y = 1.5 - .5 * math.cos(tick * math.pi / 2)
+    spin = abs(math.cos(tick * math.pi))
+    coin = ('010', '111', '010') if spin > .45 else ('010', '010', '010')
+    canvas.sprite(coin, 28, coin_y, gold)
     canvas.pixel(29, 5, shade(gold, .25))
-    if step % 4 == 0:
-        canvas.pixel(27, 1, shade(gold, .5))
-        canvas.pixel(31, 3, shade(gold, .5))
+    sparkle = max(0.0, 1 - (tick % 4) * 2)
+    canvas.blend(27, 1, gold, .5 * sparkle)
+    canvas.blend(31, 3, gold, .5 * sparkle)
 
-    head = int(tick * 32 / 60)
+    # The golden trail glides along the top edge over the real minute.
+    head = tick * 32 / 60
     for x in range(32):
         canvas.pixel(x, 7, shade(brick, .8 if x % 4 else .35))
-        if x < head:
-            canvas.pixel(x, 0, shade(gold, .35))
-    canvas.pixel(head, 0, gold)
+        canvas.pixel(x, 0, shade(gold, .35 * max(0.0, min(1.0, head - x))))
+    canvas.dot(head, 0, gold)
     return canvas
 
 
@@ -50,10 +52,8 @@ def _tetris(now: datetime, elapsed: float) -> Canvas:
     canvas = Canvas()
     tick = seconds(now)
     palette = ((74, 226, 255), (188, 115, 255), (255, 198, 68), (95, 234, 144))
-    for index, digit in enumerate(now.strftime('%H%M')):
-        x = (7, 11, 19, 23)[index]
-        canvas.text(digit, x=x, y=1, color=palette[index])
-    canvas.text(':', x=15, y=1, color=(216, 224, 245))
+    # One calm digit colour keeps the time readable; colour lives in the wells.
+    canvas.ticker(now, '%H:%M', 7, 1, (226, 234, 255), positions=(7, 11, 15, 19, 23))
 
     # Two tiny wells assemble and clear on a ten-second wall-clock cycle.
     for side, origin in enumerate((0, 28)):
@@ -65,14 +65,15 @@ def _tetris(now: datetime, elapsed: float) -> Canvas:
                 canvas.pixel(origin + column, 6 - row,
                              shade(shape_color, .55 if column % 2 else .8))
         shape, color = _TETROMINOES[(int(tick / 2) + side) % 5]
-        fall_y = int((phase % 2) * max(1, 5 - rows) / 2)
+        fall = (phase % 2) / 2
+        fall_y = (fall * fall) * max(1, 5 - rows)
         for dx, dy in shape:
-            canvas.pixel(origin + dx, fall_y + dy, color)
+            canvas.dot(origin + dx, fall_y + dy, color)
         for column in range(4):
             canvas.pixel(origin + column, 7, (49, 64, 90))
     for x in range(7, 26):
         canvas.pixel(x, 7, shade(palette[(x // 4) % 4], .13))
-    canvas.pixel(7 + int(tick * 19 / 60), 7, (235, 245, 255))
+    canvas.dot(7 + tick * 18 / 60, 7, (235, 245, 255))
     return canvas
 
 
@@ -87,14 +88,15 @@ def _invaders(now: datetime, elapsed: float) -> Canvas:
     canvas.clock(now, (190, 255, 179), x=7)
 
     # A cannon patrols beneath the score; its shot stays outside the digits.
-    cannon_x = 1 + int(tick * 28 / 60)
-    canvas.pixel(cannon_x, 6, (225, 238, 255))
-    canvas.bitmap(('111',), cannon_x - 1, 7, (101, 185, 255))
-    laser_y = 6 - step % 7
-    canvas.pixel(5 if step % 2 else 26, laser_y, (255, 91, 122))
+    cannon_x = 1 + tick * 28 / 60
+    canvas.dot(cannon_x, 6, (225, 238, 255))
+    canvas.sprite(('111',), cannon_x - 1, 7, (101, 185, 255))
+    # One laser shot per second rises smoothly beside the score.
+    shot = tick % 1
+    canvas.dot(5 if step % 2 else 26, 6 - shot * 6, (255, 91, 122), 1 - shot * .5)
     for x in range(7, 26):
         canvas.pixel(x, 0, shade(green, .12))
-    canvas.pixel(7 + int(tick * 19 / 60), 0, green)
+    canvas.dot(7 + tick * 18 / 60, 0, green)
     # Fixed bunkers keep the bottom row recognizably arcade-like.
     for x in (4, 12, 20, 28):
         canvas.pixel(x, 7, shade(green, .38))
@@ -107,7 +109,8 @@ def _pac_maze(now: datetime, elapsed: float) -> Canvas:
     blue = (45, 71, 210)
     gold = (255, 222, 43)
     route = perimeter()
-    position = int(tick * len(route) / 60) % len(route)
+    exact = tick * len(route) / 60
+    position = int(exact) % len(route)
 
     for index, (x, y) in enumerate(route):
         if index % 2 == 0:
@@ -129,12 +132,12 @@ def _pac_maze(now: datetime, elapsed: float) -> Canvas:
         x, y = route[(position - behind) % len(route)]
         canvas.pixel(x, y, (0, 0, 0))
     x, y = route[position]
-    canvas.pixel(x, y, gold)
+    canvas.track(route, exact, gold)
     inward_y = 1 if y == 0 else 6 if y == 7 else y
     inward_x = 1 if x == 0 else 30 if x == 31 else x
     canvas.pixel(inward_x, inward_y, gold)
-    if int(tick * 4) % 2 == 0:
-        canvas.pixel(inward_x + (1 if x < 16 else -1), inward_y, shade(gold, .7))
+    mouth = .5 + .5 * math.cos(tick * math.tau * 2)
+    canvas.blend(inward_x + (1 if x < 16 else -1), inward_y, shade(gold, .7), mouth)
     # Paint the score last so a runner at the top cannot obscure the time.
     canvas.clock(now, (255, 239, 182), x=7)
     return canvas
@@ -146,8 +149,8 @@ def _cartridge(now: datetime, elapsed: float) -> Canvas:
     amber = (255, 177, 54)
     phosphor = (133, 239, 191)
     # Eight full 3×5 characters fit exactly: HH:MM:SS occupies 31 columns.
-    canvas.text(now.strftime('%H:%M:%S'), x=0, y=1, color=phosphor)
-    canvas.text(now.strftime('%S'), x=24, y=1, color=amber)
+    canvas.ticker(now, '%H:%M:%S', 0, 1, phosphor, unit='second',
+                  colors=[phosphor] * 6 + [amber] * 2)
     for x in range(32):
         canvas.pixel(x, 0, shade(phosphor, .11 if x % 4 else .3))
         canvas.pixel(x, 7, shade(amber, .12 if x % 4 else .3))
@@ -157,7 +160,7 @@ def _cartridge(now: datetime, elapsed: float) -> Canvas:
         color = amber if now.second & (1 << bit) else shade(amber, .15)
         canvas.pixel(2 + bit * 5, 6, color)
         canvas.pixel(3 + bit * 5, 6, color)
-    canvas.pixel(int(tick * 32 / 60), 0, phosphor)
+    canvas.dot(tick * 31 / 60, 0, phosphor)
     return canvas
 
 
@@ -166,19 +169,19 @@ SCENES = [
         key='retro_platformer', title='Coin Jump', style='Arcade platformer',
         description='Warm score clock over bricks, with running hero and golden coin.',
         seconds='The coin spins every second; the golden trail fills up every minute.',
-        render=_platformer,
+        render=_platformer, digit_style='drop',
     ),
     Scene(
         key='retro_tetris', title='Block Time', style='Tetris Mosaic',
-        description='Four colored numbers between two small, filling brick shafts.',
+        description='A calm clock between two small, colourful, filling brick shafts.',
         seconds='Stones fall towards the wall clock; The setup starts again every ten seconds.',
-        render=_tetris,
+        render=_tetris, digit_style='drop',
     ),
     Scene(
         key='retro_invaders', title='Star Defense', style='Space Arcade',
         description='Glowing alien guards flank the clock above a patrolling cannon.',
         seconds='Aliens change their legs every second; Cannon and point of light follow the minute.',
-        render=_invaders,
+        render=_invaders, digit_style='decode',
     ),
     Scene(
         key='retro_pac_maze', title='Point hunter', style='Maze Arcade',

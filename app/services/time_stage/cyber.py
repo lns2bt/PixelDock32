@@ -23,18 +23,8 @@ def _matrix(now: datetime, elapsed: float) -> Canvas:
             if distance < 3:
                 canvas.pixel(x, y, shade(GREEN, .16 * (1 - distance / 3)))
 
-    digits = Canvas()
-    digits.text(now.strftime('%H:%M:%S'), x=1, y=1, color=GREEN)
-    # Only the start of each real second assembles; the time remains readable
-    # even then because unfinished strokes keep a dim persistent silhouette.
-    phase = wall % 1
-    for y in range(1, 6):
-        for x in range(32):
-            color = digits.colors[y][x]
-            if color is not None:
-                delay = ((x * 3 + y * 7) % 17) / 100
-                amount = .55 + .45 * max(0.0, min(1.0, (phase - delay) / .08))
-                canvas.pixel(x, y, shade(color, amount))
+    # Seconds decode like a terminal; the time stays readable around it.
+    canvas.ticker(now, '%H:%M:%S', 1, 1, GREEN, unit='second')
     progress(canvas, now, shade(GREEN, .45))
     return canvas
 
@@ -70,11 +60,11 @@ def _orbit(now: datetime, elapsed: float) -> Canvas:
         x = round(15.5 + 15 * math.cos(angle))
         y = round(3.5 + 3.5 * math.sin(angle))
         canvas.pixel(x, y, shade(PURPLE, .12))
+    # Sub-pixel satellite with a fading comet tail.
     for index in range(14, -1, -1):
         angle = phase - index * .025
-        x = round(15.5 + 15 * math.cos(angle))
-        y = round(3.5 + 3.5 * math.sin(angle))
-        canvas.pixel(x, y, shade(CYAN, .18 + .82 * (1 - index / 14)))
+        canvas.dot(15.5 + 15 * math.cos(angle), 3.5 + 3.5 * math.sin(angle),
+                   CYAN, .18 + .82 * (1 - index / 14))
     canvas.clock(now, color=PURPLE, x=6)
     return canvas
 
@@ -88,12 +78,12 @@ def _starfield(now: datetime, elapsed: float) -> Canvas:
         x = (index * 13 + 5 - elapsed * (.35 + depth * .45)) % 32
         y = (index * 5 + index // 3) % 8
         brightness = .10 + .12 * (1 + math.sin(elapsed * .6 + index)) / 2
-        canvas.pixel(x, y, shade(CYAN, brightness))
-    canvas.text(now.strftime('%H:%M:%S'), x=1, y=1, color=(170, 215, 255))
+        canvas.dot(x, y, shade(CYAN, brightness))
+    canvas.ticker(now, '%H:%M:%S', 1, 1, (170, 215, 255), unit='second')
     # A small comet on the bottom row also supplies the minute's second hand.
     head = seconds(now) / 60 * 32
     for index in range(6, -1, -1):
-        canvas.pixel((head - index) % 32, 7, shade(PURPLE, .8 * (1 - index / 7)))
+        canvas.dot((head - index) % 32, 7, shade(PURPLE, .8 * (1 - index / 7)))
     return canvas
 
 
@@ -111,11 +101,9 @@ def _circuit(now: datetime, elapsed: float) -> Canvas:
             canvas.pixel(x, y, shade(CYAN, .13))
     # The scan goes out across the upper bus and returns on the lower bus.
     position = seconds(now) / 60 * 64
-    for tail in range(8, -1, -1):
-        step = int(position - tail) % 64
-        x, y = (step, 0) if step < 32 else (63 - step, 7)
-        canvas.pixel(x, y, shade(CYAN, .2 + .8 * (1 - tail / 8)))
-    canvas.text(now.strftime('%H:%M:%S'), x=1, y=1, color=(105, 235, 215))
+    path = [(x, 0) for x in range(32)] + [(x, 7) for x in range(31, -1, -1)]
+    canvas.track(path, position, CYAN, tail=8, tail_level=.8)
+    canvas.ticker(now, '%H:%M:%S', 1, 1, (105, 235, 215), unit='second')
     return canvas
 
 
@@ -127,6 +115,7 @@ SCENES = [
         description='Quiet rain of code behind numbers that are briefly made up of pixels.',
         seconds='HH:MM:SS shows real seconds; the bottom bar fills up over the course of the minute.',
         render=_matrix,
+        digit_style='decode',
     ),
     Scene(
         key='cyber_radar',
@@ -135,6 +124,7 @@ SCENES = [
         description='A green radar disk scans the field next to the easy-to-read clock.',
         seconds='The radar beam starts at the top at second 0 and rotates once per real minute; The seconds bar grows at the bottom.',
         render=_radar,
+        digit_style='roll',
     ),
     Scene(
         key='cyber_orbit',
@@ -143,6 +133,7 @@ SCENES = [
         description='A cyan satellite draws a purple ellipse around the time.',
         seconds='The satellite is at the top at second 0 and orbits the clock clockwise once every real minute.',
         render=_orbit,
+        digit_style='morph',
     ),
     Scene(
         key='cyber_starfield',
@@ -151,6 +142,7 @@ SCENES = [
         description='Several quiet layers of stars slide past behind a bright digital clock.',
         seconds='HH:MM:SS shows real seconds; the small comet below passes through the line once a minute.',
         render=_starfield,
+        digit_style='roll',
     ),
     Scene(
         key='cyber_circuit',
@@ -159,5 +151,6 @@ SCENES = [
         description='A gentle light pulse travels on two conductor tracks around the digital display.',
         seconds='HH:MM:SS shows real seconds; the pulse runs up in seconds 0-29 and back down in seconds 30-59.',
         render=_circuit,
+        digit_style='decode',
     ),
 ]

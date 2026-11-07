@@ -3,7 +3,7 @@
 from datetime import datetime
 import math
 
-from .core import Canvas, Scene, perimeter, seconds, shade
+from .core import Canvas, Scene, mix, perimeter, seconds, shade
 
 
 AMBER = (245, 173, 65)
@@ -13,9 +13,13 @@ BLUE = (91, 185, 250)
 
 
 def _second_track(canvas, now, color):
-    """Sixty fixed cells, read left-to-right in two thirty-cell rows."""
+    """Sixty fixed cells, read left-to-right in two thirty-cell rows.
+
+    The current cell lights up smoothly during its second.
+    """
+    current = seconds(now)
     for index in range(60):
-        level = 1 if index <= now.second else .09
+        level = .09 + .91 * max(0.0, min(1.0, (current - index) * 3 + 1))
         canvas.pixel(1 + index % 30, 6 + index // 30, shade(color, level))
 
 
@@ -32,12 +36,14 @@ def sandglass(now: datetime, elapsed: float) -> Canvas:
         canvas.pixel(x, 5, IVORY)
     upper = ((26, 1), (27, 1), (28, 1), (27, 2))
     lower = ((26, 4), (27, 4), (28, 4), (27, 3))
-    filled = int(seconds(now) / 60 * 4)
-    for x, y in upper[filled:]:
-        canvas.pixel(x, y, AMBER)
-    for x, y in lower[:filled]:
-        canvas.pixel(x, y, AMBER)
-    canvas.pixel(27, 2 + now.second % 2, shade(AMBER, .7))
+    level = seconds(now) / 60 * 4
+    for index, (x, y) in enumerate(upper):
+        canvas.blend(x, y, AMBER, max(0.0, min(1.0, index + 1 - level)))
+    for index, (x, y) in enumerate(lower):
+        canvas.blend(x, y, AMBER, max(0.0, min(1.0, level - index)))
+    # A grain falls through the neck every second, smoothly.
+    grain = seconds(now) % 1
+    canvas.dot(27, 2 + grain * 1.6, shade(AMBER, .9), 1 - grain * .3)
     _second_track(canvas, now, AMBER)
     return canvas
 
@@ -60,50 +66,56 @@ def _glow(canvas, x, y, color):
 
 
 def roman_scroll(now: datetime, elapsed: float) -> Canvas:
+    """Hours (ivory) and minutes (amber) alternate, each centred and still."""
     canvas = Canvas()
-    inscription = _roman(now.hour) + ':' + _roman(now.minute)
-    cycle = (len(inscription) + 3) * 4
-    # Subpixel cross-fading keeps the scroll smooth without changing the time.
-    offset = (elapsed * 5) % cycle
-    for repeat in range(2):
-        for index, glyph in enumerate(inscription):
-            tile = Canvas()
-            tile.text(glyph, 0, 0, IVORY)
-            position = 1 + index * 4 + repeat * cycle - offset
-            left = math.floor(position)
-            fraction = position - left
-            for y in range(5):
-                for x in range(3):
-                    if tile.colors[y][x] is not None:
-                        _glow(canvas, left + x, y + 1, shade(IVORY, 1 - fraction))
-                        _glow(canvas, left + x + 1, y + 1, shade(IVORY, fraction))
+    phase = seconds(now) % 8 / 8          # 4 s hours, 4 s minutes
+    showing_hours = phase < .5
+    local = (phase % .5) / .5
+    # Short slide + fade between the two words; mostly perfectly still.
+    enter = min(1.0, local / .12)
+    leave = max(0.0, (local - .88) / .12)
+    for word, color, active in ((_roman(now.hour), IVORY, showing_hours),
+                                (_roman(now.minute), AMBER, not showing_hours)):
+        if not active:
+            continue
+        width = len(word) * 4 - 1
+        x0 = (32 - width) // 2
+        offset = (1 - enter) * 3 - leave * 3
+        alpha = min(enter, 1 - leave)
+        tile = Canvas()
+        tile.text(word, 0, 0, color)
+        for y in range(5):
+            for x in range(min(32, width)):
+                if tile.colors[y][x] is not None:
+                    canvas.dot(x0 + x, y + 1 + offset, color, alpha)
+    # Hour/minute badge: left half of the top edge = hours, right half = minutes.
+    for x in range(1, 31):
+        hours_side = x < 16
+        canvas.pixel(x, 0, shade(IVORY if hours_side else AMBER,
+                                 .5 if hours_side == showing_hours else .08))
     border = perimeter()
-    head = int(now.second * len(border) / 60)
+    head = seconds(now) * len(border) / 60
     for index, (x, y) in enumerate(border):
+        if y == 0 and 0 < x < 31:
+            continue
         canvas.pixel(x, y, shade(AMBER, .35 if index < head else .07))
-    canvas.pixel(*border[head], (255, 245, 185))
+    canvas.track(border, head, (255, 245, 185))
     return canvas
 
 
 def mechanical_flip(now: datetime, elapsed: float) -> Canvas:
+    """Split-flap tiles: HH:MM on dark cards, amber seconds, minute bar below."""
     canvas = Canvas()
-    digits = now.strftime('%H%M')
-    for index, x in enumerate((0, 6, 13, 19)):
-        for y in range(6):
-            canvas.pixel(x, y, shade(IVORY, .17))
-            canvas.pixel(x + 4, y, shade(IVORY, .17))
-        canvas.text(digits[index], x + 1, 0, IVORY)
-        # The hinge and shutter are driven by wall time, not scene age.
-        canvas.pixel(x, 2, AMBER)
-        canvas.pixel(x + 4, 2, AMBER)
-        if now.second == 0 and now.microsecond < 250_000:
-            shutter = min(4, int(now.microsecond / 50_000))
-            for dx in range(1, 4):
-                canvas.pixel(x + dx, shutter, shade(IVORY, .3))
-    canvas.pixel(11, 1, AMBER)
-    canvas.pixel(11, 3, AMBER)
-    canvas.text(f'{now.second:02d}', 25, 0, AMBER)
-    _second_track(canvas, now, AMBER)
+    for x0 in (0, 6, 13, 19):
+        for y in range(7):
+            for x in range(x0, x0 + 5):
+                # Card face with a darker hinge line through the middle.
+                canvas.pixel(x, y, shade(IVORY, .035 if y == 3 else .1))
+    canvas.ticker(now, '%H:%M', 0, 1, IVORY, positions=(1, 7, 10, 14, 20))
+    canvas.ticker(now, '%S', 0, 1, AMBER, unit='second', positions=(25, 29))
+    filled = seconds(now) / 60 * 32
+    for x in range(32):
+        canvas.pixel(x, 7, mix(shade(AMBER, .08), shade(AMBER, .8), max(0.0, min(1.0, filled - x))))
     return canvas
 
 
@@ -111,35 +123,43 @@ def botanical(now: datetime, elapsed: float) -> Canvas:
     canvas = Canvas()
     canvas.clock(now, GREEN, x=0, y=0)
     growth = seconds(now) / 60
-    height = 1 + int(growth * 5)
+    height = 1 + growth * 5
     soil = (116, 78, 43)
     for x in range(23, 32):
         canvas.pixel(x, 5, soil)
-    for step in range(height):
+    for step in range(int(height) + 1):
         y = 5 - step
-        canvas.pixel(27, y, GREEN)
+        amount = max(0.0, min(1.0, height - step))
+        if amount <= 0:
+            break
+        canvas.blend(27, y, GREEN, amount)
         if step > 0:
             direction = -1 if step % 2 else 1
-            canvas.pixel(27 + direction, y, shade(GREEN, .7))
-            canvas.pixel(27 + 2 * direction, min(5, y + 1), shade(GREEN, .45))
-    if now.second >= 45:
+            canvas.blend(27 + direction, y, shade(GREEN, .7), amount)
+            canvas.blend(27 + 2 * direction, min(5, y + 1), shade(GREEN, .45), amount)
+    bloom = max(0.0, min(1.0, (seconds(now) - 45) / 3))
+    if bloom > 0:
         for x, y in ((26, 0), (28, 0), (27, 1)):
-            canvas.pixel(x, y, (244, 130, 175))
-        canvas.pixel(27, 0, AMBER)
+            canvas.blend(x, y, (244, 130, 175), bloom)
+        canvas.blend(27, 0, AMBER, bloom)
     _second_track(canvas, now, GREEN)
     return canvas
 
 
 def binary_precision(now: datetime, elapsed: float) -> Canvas:
     canvas = Canvas()
-    for x, value, color in ((2, now.hour, AMBER),
-                            (12, now.minute, GREEN),
-                            (22, now.second, BLUE)):
+    from datetime import timedelta
+    before = now - timedelta(seconds=1)
+    fade = min(1.0, (now.microsecond / 1_000_000) / .3)
+    for x, value, previous, color in ((2, now.hour, before.hour, AMBER),
+                                      (12, now.minute, before.minute, GREEN),
+                                      (22, now.second, before.second, BLUE)):
         for dx in range(6):
             canvas.pixel(x + dx, 0, shade(color, .55))
         for row in range(6):
             bit = 5 - row
-            level = 1 if value & (1 << bit) else .09
+            on, was = bool(value & (1 << bit)), bool(previous & (1 << bit))
+            level = (1 if on else .09) if on == was else (.09 + .91 * fade if on else 1 - .91 * fade)
             for dx in range(4):
                 canvas.pixel(x + dx, row + 1, shade(color, level))
             # Fixed reference marks delimit all six bit weights.
@@ -154,25 +174,25 @@ SCENES = [
         key='craft_sandglass', title='Hourglass', style='Golden sand',
         description='Digital hours and minutes next to an emptying hourglass.',
         seconds='Two fixed rows with 30 points each: Point 1 stands for second 00, point 60 for 59. The sand follows the real minute.',
-        render=sandglass,
+        render=sandglass, digit_style='fade',
     ),
     Scene(
         key='craft_roman_scroll', title='Roman scroll', style='Antique treadmill',
-        description='True 24 hour time and minutes in Roman numerals; N means zero. The writing glides smoothly through the frame.',
+        description='Hours (ivory) and minutes (amber) alternate in Roman numerals every four seconds; N means zero. The top edge shows which one is visible.',
         seconds='The bright dot runs clockwise from the top left along the fixed frame and follows the wall clock second, not the running time.',
         render=roman_scroll,
     ),
     Scene(
         key='craft_mechanical_flip', title='Flip Clock', style='Mechanical panels',
-        description='Four framed number panels with gold hinges and a short folding effect at the change of minutes.',
-        seconds='The two gold numbers on the right show 00-59; In addition, two fixed rows with 30 points each count the seconds.',
-        render=mechanical_flip,
+        description='Split-flap cards for hours and minutes that fold over at every change, plus amber seconds.',
+        seconds='The amber numbers on the right show 00-59 and flip every second; the bottom bar fills over the minute.',
+        render=mechanical_flip, digit_style='flip',
     ),
     Scene(
         key='craft_botanical', title='Minute Garden', style='Botanical growth',
         description='A green clock next to a seedling that grows every minute and finally blooms pink.',
         seconds='Two fixed rows of 30 points each count 00-59 (first point = 00). Growth and flowering follow the current wall clock minute.',
-        render=botanical,
+        render=botanical, digit_style='drop',
     ),
     Scene(
         key='craft_binary_precision', title='Binary precision', style='Lighting bit registers',

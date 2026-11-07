@@ -141,9 +141,8 @@ def _neon_pulse(now: datetime, elapsed: float) -> Canvas:
         for y in range(1, 7):
             for x in range(x0, x0 + 4):
                 canvas.pixel(x, y, shade(color, breath))
-    digits = f"{now.second:02d}"
-    canvas.text(digits[0], x=0, y=2, color=(95, 247, 255))
-    canvas.text(digits[1], x=28, y=2, color=(255, 116, 219))
+    canvas.ticker(now, '%S', 0, 2, (95, 247, 255), unit='second', positions=(0, 28),
+                  colors=((95, 247, 255), (255, 116, 219)))
     _clock(canvas, now, (205, 255, 244))
     return canvas
 
@@ -153,25 +152,25 @@ SCENES = [
           description="Reflective colored flowers around a calm, bright clock.",
           seconds="The edge chain fills clockwise during the minute; "
                   "the flowering phase also follows the real seconds.",
-          render=_kaleidoscope),
+          render=_kaleidoscope, digit_style='morph'),
     Scene(key="chroma_lava", title="Lava Lamp", style="Psychedelic",
           description="Purple-orange lava flows into two chambers next to the clock.",
           seconds="The lava level rises from the bottom with the real seconds "
                   "above and starts again every full minute.",
-          render=_lava),
+          render=_lava, digit_style='fade'),
     Scene(key="chroma_pop_art", title="Seconds Comic", style="Pop-Art",
           description="Six colorful comic fields, grid dots and a yellow clock.",
           seconds="Each field stands for ten seconds: first to the left from top to bottom "
                   "down, then right. The current field fills pixel by pixel.",
-          render=_pop_art),
+          render=_pop_art, digit_style='flip'),
     Scene(key="chroma_prism", title="Minute Prism", style="Spectral",
           description="Angular rainbow rays and spectrally colored numbers.",
           seconds="Sixty light cells count the real seconds: up "
                   "right, then down to the left.",
-          render=_prism),
+          render=_prism, digit_style='morph'),
     Scene(key="chroma_neon_pulse", title="Neon Pulse", style="Neon",
           description="Turquoise and pink light trails frame a mint-colored clock.",
           seconds="On the left is the second tens digit, on the right is the ones digit; "
                   "the light trails run through one round per minute in parallel.",
-          render=_neon_pulse),
+          render=_neon_pulse, digit_style='fade'),
 ]

@@ -129,6 +129,8 @@ class Config(StrictModel):
     intensity: Literal["calm", "normal", "lively"] = "normal"
     color: Color | None = None
     minute_transition: bool = True
+    # Digit-change animation; "auto" uses each scene's own style.
+    digit_transition: Literal["auto", "roll", "flip", "drop", "fade", "decode", "morph"] = "auto"
     event_grace_seconds: int = Field(default=120, ge=0, le=3600)
     events: dict[str, Event] = Field(default_factory=_default_events)
     sleep: Sleep = Field(default_factory=Sleep)

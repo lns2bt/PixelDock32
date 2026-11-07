@@ -28,26 +28,36 @@ def _ease(value):
 
 
 def fireworks(now: datetime, elapsed: float) -> Canvas:
-    """Three small fireworks scatter sparks that become clock strokes."""
+    """Three rockets burst into glowing, falling sparks that become the time."""
     color = (255, 190, 95)
     canvas, phase, settled = _frame(now, elapsed, 9.0, color)
     if settled:
         return canvas
-    centers = ((5, 4), (16, 3), (27, 4))
+    centers = ((5, 3), (16, 2.5), (27, 3))
     palette = ((255, 100, 130), (255, 205, 90), (110, 200, 255))
     for index, (cx, cy) in enumerate(centers):
-        burst = max(0.0, min(1.0, (phase - index * .08) / .48))
-        if burst < .2:
-            y = 7 - int(burst / .2 * (7 - cy))
-            canvas.pixel(cx, y, palette[index])
-            canvas.pixel(cx, y + 1, shade(palette[index], .3))
-        elif phase < .65:
-            radius = (burst - .2) * 5
-            for ray in range(8):
-                angle = ray * math.tau / 8
-                canvas.pixel(cx + math.cos(angle) * radius,
-                             cy + math.sin(angle) * radius * .6,
-                             shade(palette[index], 1 - burst * .65))
+        burst = max(0.0, min(1.0, (phase - index * .08) / .5))
+        tint = palette[index]
+        if 0 < burst < .2:
+            # Rocket climbs with a short glowing trail.
+            rise = _ease(burst / .2)
+            y = 7.5 - rise * (7.5 - cy)
+            canvas.dot(cx, y, tint)
+            canvas.dot(cx, y + 1, shade(tint, .4))
+        elif burst >= .2 and phase < .75:
+            age = (burst - .2) / .8
+            if age < .12:
+                canvas.glow(cx, cy, 2.2 * (1 - age / .12), (255, 245, 220), .7)
+            for ray in range(12):
+                angle = ray * math.tau / 12 + index
+                speed = 4.2 + (ray % 3) * .6
+                for trail in range(3):
+                    t = max(0.0, age - trail * .05)
+                    x = cx + math.cos(angle) * speed * t
+                    # Sparks slow down and fall with gravity.
+                    y = cy + math.sin(angle) * speed * .55 * t + 4.5 * t * t
+                    fade = (1 - age) ** 1.3 * (1 - trail * .35)
+                    canvas.dot(x, y, shade(tint, .9), fade)
     if phase >= .3:
         gather = _ease((phase - .3) / .7)
         for index, (x, y) in enumerate(_clock_pixels(now)):
@@ -55,8 +65,7 @@ def fireworks(now: datetime, elapsed: float) -> Canvas:
             angle = index * 2.4
             sx = cx + math.cos(angle) * 4
             sy = cy + math.sin(angle) * 2
-            canvas.pixel(sx + (x - sx) * gather,
-                         sy + (y - sy) * gather, color)
+            canvas.dot(sx + (x - sx) * gather, sy + (y - sy) * gather, color, .4 + .6 * gather)
     return canvas
 
 
@@ -73,17 +82,15 @@ def coin_burst(now: datetime, elapsed: float) -> Canvas:
         if 0 <= flight <= 1:
             x = 16 + (coin - 3) * flight * 4
             y = 5 - 16 * flight * (1 - flight)
-            canvas.pixel(x, y, color)
-            if coin % 2 == 0:
-                canvas.pixel(x, y + 1, (185, 125, 35))
+            canvas.dot(x, y, color)
+            canvas.dot(x, y + 1, (185, 125, 35), .6 * abs(math.cos(flight * 9 + coin)))
     gather = _ease((phase - .25) / .75)
     if phase >= .25:
         for index, (x, y) in enumerate(_clock_pixels(now)):
             angle = index * 2.399 + phase * math.tau
             sx = 16 + math.cos(angle) * 14
             sy = 3.5 + math.sin(angle) * 3
-            canvas.pixel(sx + (x - sx) * gather,
-                         sy + (y - sy) * gather, color)
+            canvas.dot(sx + (x - sx) * gather, sy + (y - sy) * gather, color, .45 + .55 * gather)
     return canvas
 
 
@@ -97,9 +104,9 @@ def level_up(now: datetime, elapsed: float) -> Canvas:
     for x in range(2, 30):
         canvas.pixel(x, 7, color if x - 2 < charge * 28 else (20, 45, 25))
     if phase < .4:
-        lift = int(charge * 2)
-        canvas.bitmap(('00100', '01110', '10101'), 14, 3 - lift, color)
-        canvas.pixel(16, 6 - lift, shade(color, .6))
+        lift = _ease(charge) * 2
+        canvas.sprite(('00100', '01110', '10101'), 14, 3 - lift, color)
+        canvas.dot(16, 6 - lift, shade(color, .6))
     else:
         sweep = (phase - .4) / .6
         edge = 6 + sweep * 19
@@ -126,13 +133,12 @@ def portal(now: datetime, elapsed: float) -> Canvas:
     radius = 1 + opening * 14
     for step in range(24):
         angle = step * math.tau / 24
-        canvas.pixel(15.5 + math.cos(angle) * radius,
-                     3.5 + math.sin(angle) * 3.5,
-                     shade((165, 90, 255), .45 + .3 * math.sin(angle + phase * 8)))
+        canvas.dot(15.5 + math.cos(angle) * radius, 3.5 + math.sin(angle) * 3.5,
+                   shade((165, 90, 255), .45 + .3 * math.sin(angle + phase * 8)))
     stretch = _ease((phase - .15) / .85)
     if phase >= .15:
         for x, y in _clock_pixels(now):
-            canvas.pixel(15.5 + (x - 15.5) * stretch, y, color)
+            canvas.dot(15.5 + (x - 15.5) * stretch, y, color)
     return canvas
 
 
@@ -149,10 +155,10 @@ def block_build(now: datetime, elapsed: float) -> Canvas:
         fall = max(0.0, min(1.0, (phase - start) / .35))
         if phase < start:
             continue
-        offset = int(round((1 - _ease(fall)) * 8))
+        offset = (1 - _ease(fall)) * 8
         for x, y in pixels:
             if x == column:
-                canvas.pixel(x, y - offset, color if fall == 1 else (255, 175, 90))
+                canvas.dot(x, y - offset, color if fall == 1 else (255, 175, 90))
         if fall < 1:
             canvas.pixel(column, 7, shade(color, .35))
     return canvas

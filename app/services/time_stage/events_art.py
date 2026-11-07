@@ -28,8 +28,8 @@ def event_sand_turn(now: datetime, elapsed: float) -> Canvas:
 
     def turn(x, y, color):
         dx, dy = x - 15.5, y - 3.5
-        canvas.pixel(round(15.5 + dx * cosine - dy * sine),
-                     round(3.5 + dx * sine + dy * cosine), color)
+        canvas.dot(15.5 + dx * cosine - dy * sine,
+                   3.5 + dx * sine + dy * cosine, color)
 
     for x in range(11, 21):
         turn(x, 0, brass)
@@ -159,12 +159,11 @@ def event_star_alignment(now: datetime, elapsed: float) -> Canvas:
         orbit_y = 3.5 + 3 * math.sin(angle)
         target_x = 3 + index * 4
         target_y = 0 if index % 2 == 0 else 7
-        x = round(orbit_x * (1 - settle) + target_x * settle)
-        y = round(orbit_y * (1 - settle) + target_y * settle)
-        canvas.pixel(x, y, (205, 223, 255))
+        x = orbit_x * (1 - settle) + target_x * settle
+        y = orbit_y * (1 - settle) + target_y * settle
         if phase < .55:
-            canvas.pixel(x - 1, y, shade(blue, .25))
-            canvas.pixel(x, y + 1, shade(blue, .25))
+            canvas.glow(x, y, 1.4, shade(blue, .6), .6)
+        canvas.dot(x, y, (205, 223, 255))
     return _reveal(canvas, now, phase, (207, 229, 255))
 
 
