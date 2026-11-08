@@ -2,8 +2,10 @@ import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
-from fastapi.responses import FileResponse
+import re
+
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api import auth, debug, display, modules, assets, time_stage, bitcoin, weather
@@ -97,57 +99,75 @@ app.include_router(weather.router)
 static_dir = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
+_ASSET_URL = re.compile(r'(/static/[\w./-]+\.(?:css|js))(?:\?v=[^"\']*)?')
+NO_CACHE = {"Cache-Control": "no-cache"}
+
+
+@app.middleware("http")
+async def revalidate_static(request: Request, call_next):
+    """Static files are revalidated (ETag → 304) so updates show up at once."""
+    response = await call_next(request)
+    if request.url.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
+def _page(name: str) -> HTMLResponse:
+    """Serve a page with versioned asset URLs: a release never mixes old CSS with new JS."""
+    html = (static_dir / name).read_text(encoding="utf-8")
+    return HTMLResponse(_ASSET_URL.sub(lambda m: f"{m.group(1)}?v={VERSION}", html), headers=NO_CACHE)
+
 
 @app.get("/")
 async def root():
-    return FileResponse(static_dir / "dashboard.html")
+    return _page("dashboard.html")
 
 
 @app.get("/modules")
 async def modules_page():
-    return FileResponse(static_dir / "playlist.html")
+    return _page("playlist.html")
 
 
 @app.get("/debug")
 async def debug_page():
-    return FileResponse(static_dir / "debug.html")
+    return _page("debug.html")
 
 
 @app.get("/tools")
 async def tools_page():
-    return FileResponse(static_dir / "tools.html")
+    return _page("tools.html")
 
 
 @app.get("/mapping")
 async def mapping_page():
-    return FileResponse(static_dir / "mapping.html")
+    return _page("mapping.html")
 
 
 @app.get("/login")
 async def login_page():
-    return FileResponse(static_dir / "login.html")
+    return _page("login.html")
 
 
 @app.get("/studio")
 async def studio_page():
-    return FileResponse(static_dir / "studio.html")
+    return _page("studio.html")
 
 
 @app.get("/advanced")
 async def advanced_page():
-    return FileResponse(static_dir / "advanced.html")
+    return _page("advanced.html")
 
 
 @app.get("/time-stage")
 async def time_stage_page():
-    return FileResponse(static_dir / "time-stage.html")
+    return _page("time-stage.html")
 
 
 @app.get("/bitcoin")
 async def bitcoin_page():
-    return FileResponse(static_dir / "bitcoin.html")
+    return _page("bitcoin.html")
 
 
 @app.get('/weather')
 async def weather_page():
-    return FileResponse(static_dir / 'weather.html')
+    return _page('weather.html')

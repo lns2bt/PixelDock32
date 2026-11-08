@@ -287,3 +287,8 @@ body[data-screen=time-stage] .event-scene-preview { display:flex; align-items:ce
 .btn { border-radius:12px; } .btn.btn-secondary { background:var(--raised); color:var(--text); border-color:var(--border-strong); }
 .subtle { color:var(--muted); }
 .app-shell { margin-top:1.2rem !important; }
+/* Header actions: one consistent button style. */
+.shell-actions button { background:var(--raised); border:1px solid var(--border-strong); color:var(--text); }
+.shell-actions button:hover { border-color:var(--mint); }
+.shell-actions #headerMatrixToggle { font-size:1rem; }
+.shell-actions .logout-action { color:var(--muted); }
