@@ -1,34 +1,44 @@
-/* Time-Stage uses the shared sticky shell. Controls remain usable at 320px. */
-#timeStageForm, #timeStageFields { display:grid; gap:1.25rem; }
+/* Clock page: tabs, dual-handle sleep timeline, scene cards. Usable at 320px. */
+#timeStageForm, #timeStageFields { display:grid; gap:1.1rem; }
 #timeStageFields { border:0; margin:0; padding:0; min-width:0; }
-.feedback { padding:.7rem 1rem; border-left:3px solid var(--mint); margin:0; overflow-wrap:anywhere; }
-.feedback.error { border-color:var(--pink); color:#ffadba; }
-.status-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:.8rem; }
-.status-grid strong { display:block; color:var(--gold); }
-.status-grid > * { min-width:0; overflow-wrap:anywhere; }
-#advancedSettings > summary { color:var(--text); font-weight:700; }
-#advancedSettings h2 { margin:1.5rem 0 .7rem; }
-.scene-list, .event-list { display:grid; gap:.65rem; margin:1rem 0; }
-.scene-row, .event-row { padding:.85rem; border:1px solid var(--border); border-radius:9px; min-width:0; }
-.scene-title { display:flex; align-items:center; gap:.6rem; }
-.scene-title label { flex:1; min-width:0; overflow-wrap:anywhere; color:var(--text); font-size:1rem; }
-.scene-row p { margin:.3rem 0; overflow-wrap:anywhere; }
-.scene-controls { display:flex; align-items:end; flex-wrap:wrap; gap:.5rem; }
-.scene-controls label:not(.check) { width:100px; }
-.scene-controls .check { flex:1; min-width:115px; }
-.scene-controls button { min-width:44px; }
+[data-tab][hidden] { display:none !important; }
+.status-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:.7rem; margin-bottom:.6rem; }
+.status-grid > div { padding:.75rem .85rem; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg-2); min-width:0; overflow-wrap:anywhere; }
+.status-grid small { display:block; font-size:.74rem; }
+.status-grid strong { display:block; color:var(--text); font-size:1.02rem; margin-top:.15rem; }
+.scene-list { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:.7rem; margin:.9rem 0 1.2rem; }
+.event-list { display:grid; gap:.6rem; margin:1rem 0; }
+.scene-row, .event-row { padding:.85rem .95rem; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg-2); min-width:0; transition:border-color .15s; }
+.scene-row:has(input[data-action=select]:checked) { border-color:#2f5a5a; background:linear-gradient(160deg,#10222a,var(--bg-2)); }
+.scene-title { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
+.scene-title label { flex:1; min-width:0; overflow-wrap:anywhere; color:var(--text); font-size:.98rem; font-weight:620; }
+.scene-row p { margin:.3rem 0; overflow-wrap:anywhere; font-size:.8rem; }
+.scene-controls { display:flex; align-items:end; flex-wrap:wrap; gap:.45rem; margin-top:.5rem; }
+.scene-controls label:not(.check) { width:90px; }
+.scene-controls .check { flex:1; min-width:110px; font-size:.85rem; }
+.scene-controls button { min-width:40px; min-height:38px; }
 .event-scenes, .panel-flags { display:flex; flex-wrap:wrap; gap:.2rem 1rem; }
 .event-scenes label { min-width:0; overflow-wrap:anywhere; }
-.sleep-strip { height:22px; border:1px solid var(--border); border-radius:6px; background:#29354d; }
-.time-scale { display:flex; justify-content:space-between; font-size:.7rem; color:var(--muted); margin:.35rem 0; }
-input[type=range] { accent-color:var(--mint); padding:0 !important; border:0 !important; background:transparent !important; }
+.event-row > summary { color:var(--text); font-weight:600; }
+/* One timeline, two handles: the range inputs sit on top of the strip. */
+.sleep-dual { position:relative; height:44px; margin:1rem 0 .2rem; }
+.sleep-strip { position:absolute; left:0; right:0; top:11px; height:22px; border:1px solid var(--border); border-radius:99px; background:#1d2640; overflow:hidden; }
+.sleep-dual input[type=range] { position:absolute; left:0; right:0; top:0; width:100%; height:44px; margin:0; appearance:none; -webkit-appearance:none; background:transparent !important; pointer-events:none; }
+.sleep-dual input[type=range]::-webkit-slider-runnable-track { background:transparent; height:44px; }
+.sleep-dual input[type=range]::-moz-range-track { background:transparent; }
+.sleep-dual input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; pointer-events:auto; width:30px; height:30px; margin-top:7px; border-radius:50%; background:#fff; border:3px solid var(--gold); box-shadow:0 2px 10px #000a; cursor:grab; }
+.sleep-dual input[type=range]::-moz-range-thumb { pointer-events:auto; width:26px; height:26px; border-radius:50%; background:#fff; border:3px solid var(--gold); cursor:grab; }
+.sleep-dual #sleepEndRange::-webkit-slider-thumb { border-color:var(--mint); }
+.sleep-dual #sleepEndRange::-moz-range-thumb { border-color:var(--mint); }
+.time-scale { display:flex; justify-content:space-between; font-size:.7rem; color:var(--muted); margin:.1rem 0 .4rem; font-family:var(--mono); }
+.sleep-handles { display:flex; gap:.5rem; flex-wrap:wrap; }
+.sleep-handles .chip { font-size:.85rem; padding:.25rem .7rem; font-family:var(--mono); }
 .sleep-actions { margin-top:1rem; }
-#sleepStatus { border-left:3px solid var(--mint); padding:.5rem .75rem; overflow-wrap:anywhere; }
-.save-bar { display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; }
+#sleepStatus { border-left:3px solid var(--mint); padding:.5rem .75rem; overflow-wrap:anywhere; background:var(--mint-soft); border-radius:0 8px 8px 0; color:var(--text); }
+.save-bar { display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; position:sticky; bottom:calc(var(--tabbar) + .6rem); z-index:15; padding:.7rem 1rem; box-shadow:0 12px 40px #000c; }
 .save-bar span { font-size:.85rem; color:var(--muted); }
-#timeStageCanvas { display:block; width:100%; max-width:768px; height:auto; image-rendering:pixelated; border:1px solid var(--border); border-radius:8px; background:#070a11; }
-.sky-info { display:grid; grid-template-columns:minmax(110px,1fr) 2fr; gap:.4rem 1rem; }
+#timeStageCanvas { display:block; width:100%; max-width:768px; height:auto; border:1px solid #1d2438; border-radius:12px; background:#04060b; margin:.4rem 0 .6rem; }
+.sky-info { display:grid; grid-template-columns:minmax(140px,1fr) 2fr; gap:.45rem 1rem; }
 .sky-info dt { color:var(--muted); } .sky-info dd { margin:0; overflow-wrap:anywhere; }
-pre { white-space:pre-wrap; overflow-wrap:anywhere; font-size:.75rem; max-height:360px; overflow:auto; }
 #importTimeStage { width:100%; max-width:340px; }
-@media(max-width:480px) { .field-grid { grid-template-columns:1fr; } .scene-controls { gap:.4rem; } .sky-info { grid-template-columns:1fr; gap:.2rem; } .sky-info dd { margin-bottom:.6rem; } .save-bar button { width:100%; } .sleep-actions button { flex-basis:40%; } }
+@media(max-width:560px) { .scene-list { grid-template-columns:1fr; } .scene-controls { gap:.4rem; } .sky-info { grid-template-columns:1fr; gap:.15rem; } .sky-info dd { margin-bottom:.6rem; } .save-bar button { width:100%; } .sleep-actions button { flex:1 1 40%; } }

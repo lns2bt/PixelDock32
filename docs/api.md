@@ -6,6 +6,8 @@
 - `POST /api/display/text` → Show instant text
 - `POST /api/display/draw` → Show 8x32 pixel frame
 - `POST /api/display/brightness` → Set brightness
+- `POST /api/display/skip` → End the current playlist slot early (never wakes the display)
+- `GET /api/debug/status` → includes `display.playlist` with `current`, `duration_s`, `elapsed_s`, `remaining_s`
 - `POST /api/debug/pattern` → Start calibration/debug pattern
 - `DELETE /api/debug/pattern` → Stop debug pattern
 - `GET /api/debug/status` → Runtime/Debug status (FPS, active source, polling status)

@@ -1,5 +1,26 @@
 # Time-Stage – scene studio and independent clock scheduling
 
+## Clocks in v0.5.0
+
+- **Smooth seconds:** progress bars, satellites, comets, sand, runners and
+  sparks glide with sub-pixel precision instead of jumping once per second.
+- **Digit change styles:** `roll`, `flip` (split-flap), `drop` (with bounce),
+  `fade`, `decode` and `morph`. Every scene has a fitting default; the
+  `digit_transition` setting (Clock page → Clocks) overrides it for all scenes.
+  Seconds digits in HH:MM:SS scenes animate as well. Disabling “Animate digits”
+  (`minute_transition`) shows plain digits.
+- **Legibility:** split-flap cards for the Flip Clock, Roman hours and minutes
+  alternate every four seconds, one calm digit colour in Block Time, Binary
+  bits fade instead of blinking.
+- **Five new scenes:** Newton's Cradle, Live Sky (real sun/moon positions and
+  twilight colours from the astronomy data), Nixie Tubes, Weather Clock (uses the
+  current outdoor weather) and Aquarium. Existing saved selections are not
+  changed; the Clocks tab marks them “New” and offers “Add new views”.
+- **Events:** fireworks with gravity, trails and glow; sub-pixel motion in the
+  other ceremonies.
+- **Clock page:** tabs for Overview, Clocks, Night, Events and Sky & backup. The
+  sleep time is one 24-hour timeline with two handles plus exact time fields.
+
 ## Sleep scheduling in v0.3.0
 
 - The daily plan uses the configured IANA timezone, independently of the Pi's

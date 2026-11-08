@@ -17,16 +17,37 @@
     node.textContent = message; node.classList.toggle('error', error); node.hidden = false;
     clearTimeout(toastTimer); toastTimer = setTimeout(() => { node.hidden = true; }, error ? 7000 : 3000);
   }
+  // LED matrix renderer. grid=true keeps crisp squares for editors; otherwise
+  // pixels are drawn as round LEDs with a soft glow, like the real panel.
   function matrix(canvas, pixels, grid = false, ghost = null) {
     const ctx = canvas.getContext('2d'), w = canvas.width / 32, h = canvas.height / 8;
-    ctx.fillStyle = '#070a11'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    for (let i = 0; i < 256; i++) {
-      const value = pixels[i] || 0;
-      ctx.fillStyle = value ? '#' + value.toString(16).padStart(6, '0') : '#121827';
-      const x = i % 32 * w, y = Math.floor(i / 32) * h;
-      if (!value && ghost && ghost[i]) { ctx.fillStyle = '#' + ghost[i].toString(16).padStart(6, '0'); ctx.globalAlpha = .2; }
-      ctx.fillRect(x + (grid ? 1 : 1.5), y + (grid ? 1 : 1.5), w - (grid ? 2 : 3), h - (grid ? 2 : 3)); ctx.globalAlpha = 1;
+    ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    ctx.fillStyle = grid ? '#070a11' : '#04060b'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (grid) {
+      for (let i = 0; i < 256; i++) {
+        const value = pixels[i] || 0;
+        ctx.fillStyle = value ? '#' + value.toString(16).padStart(6, '0') : '#121827';
+        const x = i % 32 * w, y = Math.floor(i / 32) * h;
+        if (!value && ghost && ghost[i]) { ctx.fillStyle = '#' + ghost[i].toString(16).padStart(6, '0'); ctx.globalAlpha = .2; }
+        ctx.fillRect(x + 1, y + 1, w - 2, h - 2); ctx.globalAlpha = 1;
+      }
+      return;
     }
+    const r = Math.min(w, h) * .36;
+    for (let i = 0; i < 256; i++) {
+      const value = pixels[i] || 0, cx = (i % 32 + .5) * w, cy = (Math.floor(i / 32) + .5) * h;
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      if (!value) {
+        ctx.shadowBlur = 0;
+        if (ghost && ghost[i]) { ctx.fillStyle = '#' + ghost[i].toString(16).padStart(6, '0'); ctx.globalAlpha = .2; }
+        else ctx.fillStyle = '#121828';
+        ctx.fill(); ctx.globalAlpha = 1; continue;
+      }
+      const color = '#' + value.toString(16).padStart(6, '0');
+      // Lift dim colours slightly so the preview stays readable on screens.
+      ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = w * .55; ctx.fill();
+    }
+    ctx.shadowBlur = 0;
   }
   const bitcoinTimings = new Map();
   function bitcoinDuration(row) {
@@ -54,18 +75,46 @@
   }
   window.PixelDock = { api, toast, matrix, bitcoinDuration, bitcoinDurationText, weatherDuration };
   document.querySelector('.top-nav')?.remove();
+  const NAV = [
+    ['/', 'Home', '⌂'], ['/modules', 'Playlist', '☰'], ['/time-stage', 'Clock', '◷'],
+    ['/weather', 'Weather', '☁\uFE0E'], ['/bitcoin', 'Bitcoin', '₿'], ['/studio', 'Studio', '✎\uFE0E'], ['/advanced', 'Advanced', '⛭'],
+  ];
+  const navLink = ([href, label, icon]) => `<a href="${href}"><span class="nav-icon" aria-hidden="true">${icon}</span>${label}</a>`;
   const header = document.createElement('header'); header.className = 'live-header';
-  header.innerHTML = `<div class="live-header-inner"><div class="live-top"><a class="pixel-brand" href="/">PIXEL<span>DOCK</span><small> /32</small></a><span class="live-label"><i class="live-dot" aria-hidden="true"></i><span id="previewConnection">CONNECTING …</span></span><strong id="onAir" class="live-on-air">—</strong><button id="headerMatrixToggle" type="button" aria-controls="headerMatrixPanel" aria-expanded="true" aria-label="Collapse live matrix"><span aria-hidden="true">▴</span></button></div><div class="live-matrix" id="headerMatrixPanel"><canvas id="headerMatrix" width="512" height="128" aria-label="Live preview of the rendered LED display"></canvas><div class="live-caption">RENDERED FRAME<br>32 × 8 · 256 pixels</div></div><nav class="retro-nav" aria-label="Main navigation"><a href="/">Dashboard</a><a href="/modules">Playlist</a><a href="/studio">Pixel-Studio</a><a href="/advanced">Advanced</a><button id="shellLogout" type="button">Log out</button></nav></div>`;
+  header.innerHTML = `<div class="live-header-inner"><div class="live-top">
+      <a class="pixel-brand" href="/" aria-label="PixelDock home">PIXEL<span>DOCK</span><small>/32</small></a>
+      <small id="activeVersion" class="version-tag">…</small>
+      <nav class="retro-nav desktop-nav" aria-label="Main navigation">${NAV.map(navLink).join('')}</nav>
+      <div class="shell-actions">
+        <button id="headerMatrixToggle" type="button" class="ghost icon-button" aria-controls="headerMatrixPanel" aria-expanded="true" aria-label="Collapse live matrix"><span aria-hidden="true">▴</span></button>
+        <button id="shellLogout" type="button" class="ghost icon-button logout-action" title="Log out" aria-label="Log out">⏻</button>
+      </div></div>
+    <div class="live-matrix" id="headerMatrixPanel"><canvas id="headerMatrix" width="640" height="160" aria-label="Live preview of the rendered LED display"></canvas>
+      <div class="live-caption"><p class="kicker">On air <span class="live-label" title="Connection to the display"><i class="live-dot" aria-hidden="true"></i><span id="previewConnection" class="label-text">CONNECTING</span></span></p><strong id="onAir" class="live-on-air">—</strong><div class="progress" aria-hidden="true"><i id="onAirProgress"></i></div></div></div></div>`;
   document.body.prepend(header);
-  const versionHint = document.createElement('small');
-  versionHint.id = 'activeVersion'; versionHint.className = 'muted';
-  versionHint.textContent = 'Version …';
-  header.querySelector('.retro-nav').append(versionHint);
+  // Mobile: bottom tab bar plus a "more" sheet for the remaining pages.
+  const tabbar = document.createElement('nav'); tabbar.className = 'tabbar'; tabbar.setAttribute('aria-label', 'Main navigation');
+  tabbar.innerHTML = NAV.slice(0, 3).map(navLink).join('') + navLink(NAV[5]) + '<button type="button" id="moreButton" aria-haspopup="dialog" aria-expanded="false"><span class="nav-icon" aria-hidden="true">⋯</span>More</button>';
+  document.body.append(tabbar);
+  const backdrop = document.createElement('div'); backdrop.className = 'sheet-backdrop'; backdrop.hidden = true;
+  const sheet = document.createElement('div'); sheet.className = 'sheet'; sheet.hidden = true; sheet.setAttribute('role', 'dialog'); sheet.setAttribute('aria-label', 'More pages');
+  sheet.innerHTML = [NAV[3], NAV[4], NAV[6]].map(navLink).join('') + '<button type="button" class="logout-action"><span class="nav-icon" aria-hidden="true">⏻</span>Log out</button><p class="sheet-meta" data-version></p>';
+  document.body.append(backdrop, sheet);
+  const moreButton = tabbar.querySelector('#moreButton');
+  const setSheet = open => { sheet.hidden = backdrop.hidden = !open; moreButton.setAttribute('aria-expanded', String(open)); };
+  moreButton.onclick = () => setSheet(sheet.hidden);
+  backdrop.onclick = () => setSheet(false);
+  document.addEventListener('keydown', event => { if (event.key === 'Escape') setSheet(false); });
+  const syncHeaderHeight = () => document.documentElement.style.setProperty('--header-h', header.offsetHeight + 'px');
+  new ResizeObserver(syncHeaderHeight).observe(header);
+  const versionHint = header.querySelector('#activeVersion');
   fetch('/api/version', {cache:'no-store'}).then(response => {
     if (!response.ok) throw new Error('Version unavailable');
     return response.json();
-  }).then(data => { versionHint.textContent = `v${data.version}`; versionHint.title = 'Running server version'; })
-    .catch(() => { versionHint.textContent = 'Version unavailable'; });
+  }).then(data => {
+    versionHint.textContent = `v${data.version}`; versionHint.title = 'Running server version';
+    sheet.querySelector('[data-version]').textContent = `PixelDock v${data.version}`;
+  }).catch(() => { versionHint.textContent = 'Version unavailable'; });
   const matrixToggle = document.getElementById('headerMatrixToggle');
   let matrixExpanded = true;
   try { matrixExpanded = localStorage.getItem('pixeldock.matrixExpanded') !== 'false'; } catch (_) {}
@@ -73,7 +122,7 @@
     document.getElementById('headerMatrixPanel').hidden = !matrixExpanded;
     header.classList.toggle('matrix-collapsed', !matrixExpanded);
     matrixToggle.setAttribute('aria-expanded', String(matrixExpanded));
-    matrixToggle.setAttribute('aria-label', `Live matrix ${matrixExpanded ? 'collapse' : 'expand'}`);
+    matrixToggle.setAttribute('aria-label', `${matrixExpanded ? 'Collapse' : 'Expand'} live matrix`);
     matrixToggle.firstElementChild.textContent = matrixExpanded ? '▴' : '▾';
   }
   syncMatrixVisibility();
@@ -81,16 +130,13 @@
     matrixExpanded = !matrixExpanded; syncMatrixVisibility();
     try { localStorage.setItem('pixeldock.matrixExpanded', String(matrixExpanded)); } catch (_) {}
   };
-  const stageNav = document.createElement('a'); stageNav.href = '/time-stage'; stageNav.textContent = 'Time-Stage';
-  header.querySelector('.retro-nav').insertBefore(stageNav, header.querySelector('[href="/studio"]'));
-  const bitcoinNav = document.createElement('a'); bitcoinNav.href='/bitcoin'; bitcoinNav.textContent='Bitcoin';
-  header.querySelector('.retro-nav').insertBefore(bitcoinNav,header.querySelector('[href="/studio"]'));
-  const weatherNav=document.createElement('a');weatherNav.href='/weather';weatherNav.textContent='Weather';
-  header.querySelector('.retro-nav').insertBefore(weatherNav,header.querySelector('[href="/studio"]'));
   window.PixelDockBrightness?.mount({api,toast,header});
+  const actions = header.querySelector('.shell-actions');
+  const brightnessTrigger = header.querySelector('.brightness-trigger');
+  if (brightnessTrigger) actions.insertBefore(brightnessTrigger, matrixToggle);
   const sleepButton = document.createElement('button'); sleepButton.type = 'button'; sleepButton.id = 'shellSleep';
   sleepButton.textContent = '☾'; sleepButton.disabled = true; sleepButton.setAttribute('aria-label','Toggle sleep mode');
-  sleepButton.setAttribute('aria-pressed','false'); header.querySelector('.live-top').append(sleepButton);
+  sleepButton.setAttribute('aria-pressed','false'); actions.insertBefore(sleepButton, matrixToggle);
   let sleepActive = false;
   sleepButton.onclick = async () => {
     if (sleepActive && !confirm('Turn off sleep mode now? The normal brightness and playlist become active again.')) return;
@@ -103,11 +149,14 @@
       lastStatus = 0;
     } catch (error) {toast(error.message,true);} finally {sleepButton.disabled=false;}
   };
-  document.querySelectorAll('.retro-nav a').forEach(link => {
-    const active = link.getAttribute('href') === location.pathname || (link.getAttribute('href') === '/advanced' && ['/debug','/mapping','/tools'].includes(location.pathname));
+  const here = location.pathname;
+  document.querySelectorAll('.retro-nav a, .tabbar a, .sheet a').forEach(link => {
+    const href = link.getAttribute('href');
+    const active = href === here || (href === '/advanced' && ['/debug','/mapping','/tools'].includes(here));
     link.classList.toggle('active', active); if (active) link.setAttribute('aria-current', 'page');
   });
-  document.getElementById('shellLogout').onclick = () => { localStorage.removeItem('token'); location.href = '/login'; };
+  if ([NAV[3], NAV[4], NAV[6]].some(([href]) => href === here || (href === '/advanced' && ['/debug','/mapping','/tools'].includes(here)))) moreButton.classList.add('active');
+  document.querySelectorAll('.logout-action').forEach(button => button.onclick = () => { localStorage.removeItem('token'); location.href = '/login'; });
   let lastStatus = 0, hardwareOnline = true, moduleNames = {}, namesUpdated = 0;
   const canvas = document.getElementById('headerMatrix');
   async function poll() {
@@ -133,6 +182,14 @@
             sleepButton.title = `${sleepActive?'Sleep mode':'Awake'} · ${stage.sleep.mode==='auto'?'Automatic':'Manual'}${stage.sleep.until?' until '+new Date(stage.sleep.until).toLocaleString('en-GB',{timeZone:stage.timezone || 'UTC'}):''} · ${stage.timezone || 'UTC'}`;
           }
           document.getElementById('onAir').textContent = status.display.last_source === 'module' ? moduleNames[status.display.last_module] || 'Playlist' : status.display.last_source === 'manual' ? 'Message/drawing' : status.display.last_source === 'bitcoin-preview' ? 'Bitcoin · LED Preview' : status.display.last_source === 'weather-preview' ? 'Weather · LED preview' : status.display.last_source === 'time-stage-preview' ? 'Time Stage · LED preview' : status.display.last_source === 'sleep' ? 'Time-Stage · Sleep mode' : status.display.last_source.startsWith('time-stage') ? 'Time-Stage' : status.display.last_source === 'idle' ? 'Pause' : 'Test pattern';
+          const slot = status.display.playlist, bar = document.getElementById('onAirProgress');
+          if (bar) {
+            // Glide linearly to where the slot will be at the next status poll.
+            const now = status.display.last_source === 'module' && slot?.duration_s ? 100 * slot.elapsed_s / slot.duration_s : 0;
+            const next = status.display.last_source === 'module' && slot?.duration_s ? Math.min(100, 100 * (slot.elapsed_s + 5) / slot.duration_s) : 0;
+            if (now < (parseFloat(bar.style.width) || 0) - 1) { bar.style.transition = 'none'; bar.style.width = now + '%'; void bar.offsetWidth; }
+            bar.style.transition = 'width 5s linear'; bar.style.width = next + '%';
+          }
           window.dispatchEvent(new CustomEvent('pixeldock-status', { detail: status }));
         }
       } catch (_) { document.querySelector('.live-dot').classList.remove('online'); document.getElementById('previewConnection').textContent = 'CONNECTION INTERRUPTED'; }

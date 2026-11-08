@@ -17,10 +17,10 @@
   const categories = {
     hour:'Full hour', half:'Half an hour', quarter:'Quarter of an hour', midnight:'Midnight',
     sunrise:'sunrise', sunset:'sunset', moonrise:'Moonrise', moonset:'Moonset',
-    golden_hour:'Golden hour', solar_noon:'Peak of the sun', full_moon:'Full moon', new_moon:'new moon', equinox:'Equinox', solstice:'Solstice'
+    golden_hour:'Golden hour', solar_noon:'Peak of the sun', full_moon:'Full moon', new_moon:'New moon', equinox:'Equinox', solstice:'Solstice'
   };
-  const skyLabels = { sunrise:'sunrise', sunset:'sunset', moonrise:'Moonrise', moonset:'Moonset', golden_hour:'Golden hour', solar_noon:'Peak of the sun', full_moon:'Full moon', new_moon:'new moon', equinox:'Equinox', solstice:'Solstice', moon_phase:'Moon phase', illumination:'Moon illumination', latitude:'Latitude', longitude:'Longitude', source:'Source', updated_at:'Calculated on', cached_at:'In the cache since', timezone:'Timezone' };
-  const scalarFields = ['timezone','profile','intensity','selection'];
+  const skyLabels = { sunrise:'Sunrise', sunset:'Sunset', moonrise:'Moonrise', moonset:'Moonset', golden_hour:'Golden hour', solar_noon:'Peak of the sun', full_moon:'Full moon', new_moon:'New moon', equinox:'Equinox', solstice:'Solstice', moon_phase:'Moon phase', illumination:'Moon illumination', latitude:'Latitude', longitude:'Longitude', source:'Source', updated_at:'Calculated on', cached_at:'In the cache since', timezone:'Timezone' };
+  const scalarFields = ['timezone','profile','intensity','selection','digit_transition'];
   const numberFields = ['after_entries','interval_seconds','duration_seconds','event_grace_seconds'];
   const checkFields = ['enabled','avoid_style_repeat','minute_transition'];
   let original = null, catalog = [], sceneOrder = [], selected = new Set(), favorites = new Set(), weights = {}, dirty = false, status = {}, busy = false;
@@ -40,7 +40,7 @@
     const sleep = status.sleep || {};
     const zone = data.config?.timezone || status.timezone || original?.timezone || 'UTC';
     const deadline = sleep.until ? new Date(sleep.until).toLocaleString('en-GB', {timeZone:zone}) : '—';
-    const rows = [['Display', sleep.active ? 'Sleep mode' : status.active ? 'Clock active' : 'Playlist / ready'], ['Sleep control', ({auto:'Automatic', sleep:'Sleep', wake:'Awake'})[sleep.mode] || '—'], [sleep.mode === 'auto' ? 'Next schedule change' : 'Override ends', deadline], ['Next clock (sec.)', status.next_clock_seconds ?? '—'], ['Entries remaining', status.entries_remaining ?? '—']];
+    const rows = [['Display', sleep.active ? 'Sleep mode' : status.active ? 'Clock active' : 'Playlist / ready'], ['Sleep control', ({auto:'Automatic', sleep:'Sleep', wake:'Awake'})[sleep.mode] || '—'], [sleep.mode === 'auto' ? 'Next schedule change' : 'Override ends', deadline], ['Next clock in', status.next_clock_seconds == null ? '—' : `${Math.round(status.next_clock_seconds)} s`], ['Items until next clock', status.entries_remaining ?? '—']];
     $('timeStageStatus').replaceChildren(...rows.map(([name, value]) => { const div = document.createElement('div'), label = document.createElement('small'), strong = document.createElement('strong'); label.textContent = name; strong.textContent = plain(value); div.append(label, strong); return div; }));
     const next = sleep.mode !== 'auto' ? 'returns to automatic mode' : sleep.active ? 'wakes' : 'sleeps';
     $('sleepStatus').textContent = `${sleep.active ? 'Sleeping' : 'Awake'} · ${sleep.mode === 'auto' ? 'daily schedule' : 'temporary override'}${sleep.until ? ` · ${next}: ${deadline}` : ' · no scheduled change'} · ${zone}`;
@@ -48,7 +48,7 @@
     $('astronomyInfo').replaceChildren();
     const sky = data.astronomy || {};
     if (!Object.keys(sky).length) addDefinition($('astronomyInfo'), 'Astronomy data', null);
-    const friendly = {sunrise:'sunrise',sunset:'sunset',civil_dawn:'Civil dawn',civil_dusk:'End of civil twilight',moonrise:'Moonrise',moonset:'Moonset',moon_phase:'Moon phase',moon_illumination:'Moon illumination',day_length_minutes:'Day length',day_delta_minutes:'Change from yesterday',moon_above_minutes:'Moon above the horizon today',next_full_moon:'Next full moon',next_new_moon:'Next new moon'};
+    const friendly = {sunrise:'Sunrise',sunset:'Sunset',civil_dawn:'Civil dawn',civil_dusk:'End of civil twilight',moonrise:'Moonrise',moonset:'Moonset',moon_phase:'Moon phase',moon_illumination:'Moon illumination',day_length_minutes:'Day length',day_delta_minutes:'Change from yesterday',moon_above_minutes:'Moon above the horizon today',next_full_moon:'Next full moon',next_new_moon:'Next new moon'};
     for (const [key,label] of Object.entries(friendly)) {
       let value=sky[key];
       if(value!=null && key.endsWith('_minutes')) value=`${Math.round(value)} min`;
@@ -56,7 +56,7 @@
       else if(typeof value==='string' && /^\d{4}-\d{2}-\d{2}T/.test(value)) value=new Date(value).toLocaleString('en-GB',{timeZone:original?.timezone});
       addDefinition($('astronomyInfo'),label,value);
     }
-    if (data.location) addDefinition($('astronomyInfo'), 'Location used', data.location);
+    if (data.location) addDefinition($('astronomyInfo'), 'Location used', [data.location.latitude, data.location.longitude].every(Number.isFinite) ? `${Number(data.location.latitude).toFixed(4)}, ${Number(data.location.longitude).toFixed(4)} · ${data.location.source === 'custom' ? 'own coordinates' : 'weather location'}` : data.location.source || '—');
     $('astronomyRaw').textContent = JSON.stringify({astronomy:sky, location:data.location ?? null}, null, 2);
   }
   function minutes(time) { const [h, m] = time.split(':').map(Number); return h * 60 + m; }
@@ -80,16 +80,20 @@
     const known = new Map(normalScenes().map(scene => [scene.key, scene]));
     $('sceneList').innerHTML = sceneOrder.filter(key => known.has(key)).map((key, i, keys) => {
       const scene = known.get(key);
-      return `<article class="scene-row" data-scene-key="${escapeHtml(key)}"><div class="scene-title"><label class="check"><input type="checkbox" data-action="select" ${selected.has(key) ? 'checked' : ''}>${escapeHtml(scene.title)}</label></div><p class="muted">${escapeHtml(scene.description)}</p><p class="muted">Style: ${escapeHtml(scene.style)} · Seconds: ${escapeHtml(scene.seconds)}</p><div class="scene-controls"><label>Weight<input type="number" data-action="weight" min="1" max="10" step="1" value="${escapeHtml(weights[key] ?? 1)}" required></label><label class="check"><input type="checkbox" data-action="favorite" ${favorites.has(key) ? 'checked' : ''}>★ Favorite</label><button type="button" data-action="up" aria-label="${escapeHtml(scene.title)} up" ${i === 0 ? 'disabled' : ''}>↑</button><button type="button" data-action="down" aria-label="${escapeHtml(scene.title)} downward" ${i === keys.length - 1 ? 'disabled' : ''}>↓</button><button type="button" data-preview-key="${escapeHtml(key)}" aria-label="${escapeHtml(scene.title)}: LED preview">LED preview</button></div></article>`;
+      const isNew = !!scene.added && !(original?.scenes || []).includes(key);
+      return `<article class="scene-row" data-scene-key="${escapeHtml(key)}"><div class="scene-title"><label class="check"><input type="checkbox" data-action="select" ${selected.has(key) ? 'checked' : ''}>${escapeHtml(scene.title)}</label>${isNew ? '<span class="chip new">New</span>' : ''}</div><p class="muted">${escapeHtml(scene.description)}</p><p class="muted">Style: ${escapeHtml(scene.style)} · Seconds: ${escapeHtml(scene.seconds)}</p><div class="scene-controls"><label>Weight<input type="number" data-action="weight" min="1" max="10" step="1" value="${escapeHtml(weights[key] ?? 1)}" required></label><label class="check"><input type="checkbox" data-action="favorite" ${favorites.has(key) ? 'checked' : ''}>★ Favourite</label><button type="button" data-action="up" aria-label="${escapeHtml(scene.title)} up" ${i === 0 ? 'disabled' : ''}>↑</button><button type="button" data-action="down" aria-label="${escapeHtml(scene.title)} downward" ${i === keys.length - 1 ? 'disabled' : ''}>↓</button><button type="button" data-preview-key="${escapeHtml(key)}" aria-label="${escapeHtml(scene.title)}: show on LEDs">On LEDs</button></div></article>`;
     }).join('');
+    const missing = normalScenes().filter(scene => scene.added && !selected.has(scene.key) && !(original?.scenes || []).includes(scene.key));
+    $('addNewScenes').hidden = !missing.length;
+    $('addNewScenes').textContent = `+ Add ${missing.length} new view${missing.length === 1 ? '' : 's'}`;
   }
   // Existing panel flags are always retained; only known, applicable controls are exposed.
   function panelOptions(category, panels) {
     const celestial = !['hour','half','quarter','midnight'].includes(category);
     if (!celestial) return [];
-    const flags = {time:'time', next_event:'Next event'};
+    const flags = {time:'Time', next_event:'Next event'};
     if (['moonrise','moonset','full_moon','new_moon'].includes(category)) Object.assign(flags, {phase:'Moon phase', illumination:'Moon illumination', next_full:'Next full moon', moon_above:'Moon over the horizon'});
-    else Object.assign(flags, {day_length:'Day length', day_delta:'Change in day length', twilight:'dusk', night_length:'night length'});
+    else Object.assign(flags, {day_length:'Day length', day_delta:'Change in day length', twilight:'Twilight', night_length:'Night length'});
     // Discover additional flags provided by the backend without losing their values.
     if (object(panels)) for (const [key, value] of Object.entries(panels)) if (typeof value === 'boolean' && !(key in flags)) flags[key] = key;
     return Object.entries(flags);
@@ -98,14 +102,14 @@
     $('eventList').innerHTML = Object.entries(categories).map(([category, title]) => {
       const event = original.events?.[category] || {}, choices = catalog.filter(scene => scene.events?.includes(category));
       const flags = panelOptions(category, event.panels);
-       return `<details class="event-row" data-category="${category}"><summary>${title}${event.enabled ? ' · aktiv' : ''}</summary><label class="check"><input type="checkbox" data-event="enabled" ${event.enabled ? 'checked' : ''}>${title} activate</label><label>Duration (seconds)<input type="number" min="${['hour','half','quarter','midnight'].includes(category)?6:30}" max="60" step="1" data-event="duration" value="${escapeHtml(event.duration_seconds ?? 8)}" required></label><div class="event-scenes">${choices.length ? choices.map(scene => `<div class="event-scene-preview"><label class="check"><input type="checkbox" data-event="scene" value="${escapeHtml(scene.key)}" ${event.scenes?.includes(scene.key) ? 'checked' : ''}>${escapeHtml(categories[scene.key] || scene.title)}</label><button type="button" data-preview-key="${escapeHtml(scene.key)}" aria-label="${escapeHtml(categories[scene.key] || scene.title)}: LED preview">LED preview</button></div>`).join('') : '<p class="muted">No matching scene available in the catalog.</p>'}</div>${flags.length ? `<p class="muted">Astronomical display panels</p><div class="panel-flags">${flags.map(([key,label]) => `<label class="check"><input type="checkbox" data-panel="${escapeHtml(key)}" ${object(event.panels) ? event.panels[key] ? 'checked' : '' : Array.isArray(event.panels) && event.panels.includes(key) ? 'checked' : ''}>${escapeHtml(label)}</label>`).join('')}</div>` : ''}</details>`;
+       return `<details class="event-row" data-category="${category}"><summary>${title}${event.enabled ? ' · active' : ''}</summary><label class="check"><input type="checkbox" data-event="enabled" ${event.enabled ? 'checked' : ''}>Enable ${title.toLowerCase()}</label><label>Duration (seconds)<input type="number" min="${['hour','half','quarter','midnight'].includes(category)?6:30}" max="60" step="1" data-event="duration" value="${escapeHtml(event.duration_seconds ?? 8)}" required></label><div class="event-scenes">${choices.length ? choices.map(scene => `<div class="event-scene-preview"><label class="check"><input type="checkbox" data-event="scene" value="${escapeHtml(scene.key)}" ${event.scenes?.includes(scene.key) ? 'checked' : ''}>${escapeHtml(categories[scene.key] || scene.title)}</label><button type="button" data-preview-key="${escapeHtml(scene.key)}" aria-label="${escapeHtml(categories[scene.key] || scene.title)}: LED preview">LED preview</button></div>`).join('') : '<p class="muted">No matching scene available in the catalog.</p>'}</div>${flags.length ? `<p class="muted">Astronomical display panels</p><div class="panel-flags">${flags.map(([key,label]) => `<label class="check"><input type="checkbox" data-panel="${escapeHtml(key)}" ${object(event.panels) ? event.panels[key] ? 'checked' : '' : Array.isArray(event.panels) && event.panels.includes(key) ? 'checked' : ''}>${escapeHtml(label)}</label>`).join('')}</div>` : ''}</details>`;
     }).join('');
   }
   function populate(data) {
     if (!object(data.config) || !Array.isArray(data.catalog)) throw new Error('Invalid response from GET /api/time-stage');
     revision = data.revision;
     original = clone(data.config); changedEvents.clear(); catalog = data.catalog.filter(scene => object(scene) && typeof scene.key === 'string');
-    for (const id of scalarFields) $(id).value = original[id] ?? ({timezone:'Europe/Berlin', profile:'all', intensity:'normal', selection:'ordered'})[id];
+    for (const id of scalarFields) $(id).value = original[id] ?? ({timezone:'Europe/Vienna', profile:'all', intensity:'normal', selection:'ordered', digit_transition:'auto'})[id];
     for (const id of numberFields) $(id).value = original[id] ?? ({after_entries:2, interval_seconds:50, duration_seconds:8, event_grace_seconds:120})[id];
     for (const id of checkFields) $(id).checked = !!original[id];
     $('color').value = original.color || '';
@@ -198,6 +202,22 @@
   for (const id of ['sleep_start','sleep_end','sleep_enabled']) $(id).addEventListener('input', () => syncSleep());
   for (const id of ['sleepStartRange','sleepEndRange']) $(id).addEventListener('input', () => syncSleep(id));
   $('location_source').addEventListener('change', syncLocation);
+  // Tabs: one topic at a time; the save bar stays visible on every tab.
+  const tabNames = [...document.querySelectorAll('[data-tab-target]')].map(button => button.dataset.tabTarget);
+  function showTab(name) {
+    if (!tabNames.includes(name)) name = tabNames[0];
+    document.querySelectorAll('[data-tab]').forEach(node => { node.hidden = node.dataset.tab !== name; });
+    document.querySelectorAll('[data-tab-target]').forEach(button => button.setAttribute('aria-selected', String(button.dataset.tabTarget === name)));
+    try { history.replaceState(null, '', '#' + name); } catch (_) {}
+  }
+  document.querySelectorAll('[data-tab-target]').forEach(button => button.addEventListener('click', () => showTab(button.dataset.tabTarget)));
+  // An invalid field on a hidden tab would block saving silently: reveal it.
+  $('timeStageForm').addEventListener('invalid', event => { const tab = event.target.closest('[data-tab]'); if (tab?.hidden) showTab(tab.dataset.tab); }, true);
+  showTab(location.hash.slice(1));
+  $('addNewScenes').addEventListener('click', () => {
+    for (const scene of normalScenes()) if (scene.added && !(original?.scenes || []).includes(scene.key)) selected.add(scene.key);
+    markDirty(); renderScenes(); feedback('New clock views selected. Save to add them to the rotation.');
+  });
   $('sceneList').addEventListener('input', event => {
     const row = event.target.closest('[data-scene-key]'); if (!row) return;
     const key = row.dataset.sceneKey, action = event.target.dataset.action;

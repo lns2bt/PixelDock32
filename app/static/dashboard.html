@@ -1,15 +1,22 @@
 <!doctype html>
-<html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PixelDock · Dashboard</title><link rel="stylesheet" href="/static/retro.css"><script defer src="/static/brightness.js"></script><script defer src="/static/shell.js"></script><script defer src="/static/arcade.js"></script></head>
+<html lang="en-GB">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#080b14"><title>PixelDock · Home</title><link rel="stylesheet" href="/static/retro.css"><script defer src="/static/brightness.js"></script><script defer src="/static/shell.js"></script><script defer src="/static/arcade.js"></script></head>
 <body data-screen="dashboard">
 <main class="retro-main">
-  <div class="page-heading"><div><p class="kicker">YOUR LITTLE PIXEL UNIVERSE</p><h1>Ready. Set. Pixel.</h1><p class="muted">Live data, small stories and big ideas on 256 LEDs.</p></div><a class="button primary" href="/studio">+ Create pixels</a></div>
-  <section class="metric-row" aria-label="Live data">
-    <article class="panel"><span class="kicker">BITCOIN</span><strong id="btcValue">—</strong><small>EUR · last available value</small></article>
-    <article class="panel"><span class="kicker">OUTDOORS</span><strong id="outValue">—</strong><small>Temperature</small></article>
-    <article class="panel"><span class="kicker">INDOORS</span><strong id="inValue">—</strong><small id="humidityValue">Humidity —</small></article>
+  <div class="page-heading hello"><div><p class="kicker" id="greeting">Hello</p><h1>Your display</h1></div><a class="button primary" href="/studio">+ Create pixels</a></div>
+  <section class="panel now-card" aria-labelledby="nowName">
+    <div class="now-head">
+      <div><p class="kicker">Now playing</p><h2 id="nowName">—</h2><div class="now-meta"><span class="chip mint" id="nowKind">Connecting</span><span id="nowNext"></span></div></div>
+      <div class="form-actions"><button type="button" id="skipNow" class="primary" disabled>⏭ Next</button><a class="button" href="/modules">Edit playlist</a></div>
+    </div>
+    <div><div class="progress" aria-hidden="true"><i id="nowProgress"></i></div><div class="now-time"><span id="nowElapsed">0:00</span><span id="nowRemaining"></span></div></div>
   </section>
-  <section class="panel"><div class="section-heading"><div><p class="kicker">ON AIR</p><h2>Your playlist</h2></div><a href="/modules">Edit playlist →</a></div><div id="dashboardModules" class="mini-list"><p>Load modules...</p></div></section>
-  <section class="panel"><p class="kicker">QUICK PLAY</p><h2>A message for your display</h2><form id="quickText" class="inline-form"><label class="grow">Text<input name="text" maxlength="64" placeholder="HELLO PIXEL WORLD" required></label><label>Duration (s)<input name="seconds" type="number" min="1" max="120" value="8"></label><button class="primary" type="submit">Show now</button></form><p class="muted">Your playlist will then take over again.</p></section>
-  <section class="panel accent-panel"><p class="kicker">NEXT LEVEL</p><h2>From a pixel to your own story.</h2><p>Import GIFs, draw sprites and animate frames. Three original arcade scenes are already waiting in your library.</p><a class="button" href="/studio">Open Pixel Studio →</a></section>
+  <section class="tiles" aria-label="Live data">
+    <article class="panel tile" id="outTile"><span class="tile-icon" id="outIcon" aria-hidden="true">☁&#xFE0E;</span><span class="kicker">Outside</span><strong id="outValue">—</strong><small id="outMeta">Waiting for weather data</small></article>
+    <article class="panel tile" id="inTile"><span class="tile-icon" aria-hidden="true">⌂</span><span class="kicker">Inside</span><strong id="inValue">—</strong><small id="humidityValue">Humidity —</small></article>
+    <article class="panel tile" id="btcTile"><span class="tile-icon" aria-hidden="true">₿</span><span class="kicker">Bitcoin</span><strong id="btcValue">—</strong><small id="btcMeta">Waiting for price data</small></article>
+  </section>
+  <section class="panel"><div class="section-heading"><div><p class="kicker">Playlist</p><h2>Up next</h2></div><a href="/modules">Edit playlist →</a></div><div id="dashboardModules" class="mini-list"><p class="muted">Loading modules…</p></div></section>
+  <section class="panel"><p class="kicker">Quick message</p><h2>Say something on the display</h2><form id="quickText" class="inline-form"><label class="grow">Text<input name="text" maxlength="64" placeholder="HELLO PIXEL WORLD" required></label><label>Seconds<input name="seconds" type="number" min="1" max="120" value="8"></label><button class="primary" type="submit">Show now</button></form><p class="muted">The playlist continues afterwards.</p></section>
+  <a class="panel accent-panel link-panel" href="/studio"><p class="kicker">Pixel Studio</p><h2>Draw sprites and import GIFs</h2><p class="muted">Animate frames and add them to your playlist.</p></a>
 </main></body></html>

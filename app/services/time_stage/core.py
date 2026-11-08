@@ -32,6 +32,7 @@ class Scene:
     duration: float = 8.0
     events: tuple[str, ...] = ()
     digit_style: str = 'roll'
+    added: str = ''  # release that introduced the scene (UI "New" badge)
 
 
 class Canvas:

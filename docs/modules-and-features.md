@@ -104,3 +104,16 @@ signature colours; `neon`, `rainbow`, `fire`, `ocean`, `matrix`, `aurora`,
 
 `scripts/preview-animations.py --output <dir>` renders GIFs and contact sheets of
 all presets and transitions without hardware.
+
+## Web interface (v0.5.0)
+
+- One dark design system (`retro.css`) for every page, including diagnostics.
+- Header with a round-LED live preview, “on air” name and slot progress;
+  brightness, sleep and preview toggle stay in reach. Desktop shows the full
+  navigation; phones get a bottom tab bar (Home, Playlist, Clock, Studio, More).
+- **Home** is a control centre: now playing with progress and *Next*, live
+  tiles with freshness/offline hints, up-next list and a quick message.
+- **Playlist** rows are compact: kind icon, chips (duration, shuffle, priority),
+  an *Active* switch that saves immediately, and an *Edit* panel whose save bar
+  appears only while editing.
+- Pages declare `en-GB`, so time fields use the 24-hour format.

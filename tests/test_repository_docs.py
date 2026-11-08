@@ -11,7 +11,7 @@ class RepositoryDocsTests(unittest.TestCase):
     def test_static_pages_declare_english(self):
         for page in (ROOT/'app/static').glob('*.html'):
             with self.subTest(page=page.name):
-                self.assertRegex(page.read_text(), r'<html\s+lang="en"')
+                self.assertRegex(page.read_text(), r'<html\s+lang="en(-GB)?"')
 
     def test_relative_documentation_links_exist(self):
         for page in [ROOT/'README.md', ROOT/'CHANGELOG.md', *(ROOT/'docs').glob('*.md')]:

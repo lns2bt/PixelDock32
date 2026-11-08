@@ -23,7 +23,7 @@ assert.ok(/^http:\/\/(127\.0\.0\.1|localhost):8765$/.test(base), 'Use the mock f
     const config = structuredClone(initial.config);
     config.sleep = {...config.sleep,start:'02:00',end:'08:00',mode:'auto',until:null};
     await context.request.put(base+'/api/time-stage',{headers,data:config});
-    await page.goto(base+'/time-stage');
+    await page.goto(base+'/time-stage#night');
     await page.locator('#timeStageFields:not([disabled])').waitFor();
     const running = (await (await context.request.get(base+'/api/version')).json()).version;
     assert.equal(running, fs.readFileSync('VERSION','utf8').trim());

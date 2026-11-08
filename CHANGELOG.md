@@ -2,6 +2,41 @@
 
 All notable changes to PixelDock32 are documented in this file.
 
+## [0.5.0] - 2026-11-08
+
+### Clocks
+
+- Sub-pixel motion for seconds indicators, runners, satellites, sand and sparks
+  in the existing scenes; continuous minute progress bars.
+- Six digit change styles (roll, split-flap, drop, fade, decode, morph) with a
+  per-scene default and a global `digit_transition` override; animated seconds.
+- Legible split-flap Flip Clock, alternating Roman hours/minutes, calm Block
+  Time digits, fading binary bits.
+- New scenes: Newton's Cradle, Live Sky, Nixie Tubes, Weather Clock, Aquarium.
+- Glowing fireworks with gravity and smoother hourly ceremonies.
+
+### Web interface redesign
+
+- New design system for all pages (dark diagnostics pages included), round-LED
+  live preview with slot progress, mobile tab bar and "More" sheet.
+- Home as control centre: now playing, *Next* (`POST /api/display/skip`), live
+  tiles with freshness, up-next list.
+- Compact playlist rows with instant *Active* switch and on-demand save bar.
+- Clock page in tabs with a two-handle sleep timeline, "New" badges and
+  "Add new views".
+- 24-hour time fields (`en-GB`), consistent English labels, formatted values.
+
+### Removed
+
+- Unrouted legacy pages `index.html` and `modules.html` and the classic clock
+  module editor in the playlist (clocks live on the Clock page).
+
+### Compatibility
+
+- Saved modules, schedules, scene selections, assets and mapping are unchanged.
+  New clock views are only added to the rotation on request.
+- Uno firmware unchanged.
+
 ## [0.4.0] - 2026-11-07
 
 ### New

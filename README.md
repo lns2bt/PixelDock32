@@ -1,6 +1,6 @@
 # PixelDock32
 
-![Version](https://img.shields.io/badge/version-0.4.0-blue)
+![Version](https://img.shields.io/badge/version-0.5.0-blue)
 ![Status](https://img.shields.io/badge/status-release-brightgreen)
 
 
@@ -10,7 +10,7 @@ See [`docs/`](docs) for setup, architecture, hardware, and feature guides.
 
 ## Features
 
-**Time-Stage**: 25 clock views, 10 magical event animations,
+**Time-Stage**: 30 clock views, 10 magical event animations,
 independent clock scheduling, sleep mode and local sun/moon ceremonies.
 Details: [Time-Stage](docs/time-stage.md).
 
@@ -41,16 +41,16 @@ timing-preserving frame thinning, and three GIF playback modes
 Pi deployments retain settings, modules, assets, and mapping. Substantial updates
 use a separate directory with a private backup and rollback instructions.
 
-## Version 0.4.0 — Smooth motion
+## Version 0.5.0 — Clocks and redesign
 
-A Pi-side perceptual output stage (gamma without firmware changes), nine eased
-module transitions, eight new and seven reworked anti-aliased animations,
-odometer-style clock digits and a redesigned Weather-Stage card with animated
-icons and colour-coded values. See the [changelog](CHANGELOG.md) for details.
+Smoother clocks with six digit change styles and five new scenes (Newton's
+Cradle, Live Sky, Nixie Tubes, Weather Clock, Aquarium), plus a redesigned web
+interface: control-centre home page, compact playlist, tabbed clock settings and
+a mobile tab bar. See the [changelog](CHANGELOG.md) for details.
 
-- Current version: [`0.4.0`](VERSION)
+- Current version: [`0.5.0`](VERSION)
 - Release notes: [`CHANGELOG.md`](CHANGELOG.md)
-- Release tag: `v0.4.0` (planned, after merge to `main`)
+- Release tag: `v0.5.0` (planned, after merge to `main`)
 
 ## Quick start
 

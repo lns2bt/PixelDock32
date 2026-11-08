@@ -64,8 +64,8 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
   assert.equal(await btcCard.locator('input[name="duration_seconds"]').getAttribute('type'),'hidden');
   await btcCard.locator('.module-head [data-duration]').filter({hasText:'28.4'}).waitFor();
   assert.equal(await page.locator('#headerMatrixToggle').getAttribute('aria-expanded'),'false');
-  await page.goto(base+'/time-stage');await page.locator('#timeStageFields:not([disabled])').waitFor();
-  await page.locator('#advancedSettings summary').first().click();await page.locator('#color').fill('#ff0011');
+  await page.goto(base+'/time-stage#clocks');await page.locator('#timeStageFields:not([disabled])').waitFor();
+  await page.locator('#color').fill('#ff0011');
   const timeRequest=page.waitForRequest(request=>request.url().endsWith('/api/time-stage/preview')&&request.postDataJSON()?.physical);
   await page.locator('[data-preview-key="retro_cartridge"]').first().click();
   assert.equal((await timeRequest).postDataJSON().settings.color,'#ff0011');

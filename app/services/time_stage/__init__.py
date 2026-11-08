@@ -33,5 +33,5 @@ def render_scene(key, now, elapsed=0.0, digit_style=None):
 def catalog():
     return [dict(key=s.key, title=s.title, style=s.style, description=s.description,
                  seconds=s.seconds, duration=s.duration, events=list(s.events),
-                 digit_style=s.digit_style)
+                 digit_style=s.digit_style, added=s.added)
             for s in NORMAL_SCENES + EVENT_SCENES]

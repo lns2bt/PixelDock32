@@ -586,9 +586,39 @@ class DisplayService:
     def get_preview_colors(self) -> list[list[tuple[int, int, int] | None]]:
         return [row[:] for row in self.last_color_frame]
 
+    def skip_current(self) -> bool:
+        """End the current playlist slot early; the next one starts at once.
+
+        Never wakes the display or bypasses sleep; previews are not affected.
+        """
+        if self._play_once:
+            self._play_once["end"] = time.monotonic()
+            return True
+        if self.playlist.current is None:
+            return False
+        self.playlist.deadline = time.monotonic()
+        return True
+
+    def playlist_status(self) -> dict:
+        now = time.monotonic()
+        if self._play_once:
+            started, deadline = self._play_once["start"], self._play_once["end"]
+            current = self.playlist.identity(self._play_once["row"])
+        else:
+            started, deadline, current = self.playlist.started, self.playlist.deadline, self.playlist.current
+        duration = max(0.0, deadline - started)
+        return {
+            "current": current,
+            "slot_type": "play_once" if self._play_once else self.playlist.slot_type,
+            "duration_s": round(duration, 1),
+            "elapsed_s": round(min(duration, max(0.0, now - started)), 1),
+            "remaining_s": round(max(0.0, deadline - now), 1),
+        }
+
     def get_status(self) -> dict:
         uptime = max(time.monotonic() - self._started_monotonic, 1)
         return {
+            "playlist": self.playlist_status(),
             "running": self._running,
             "task_alive": bool(self._task and not self._task.done()),
             "target_fps": self.target_fps,
@@ -643,6 +673,9 @@ class DisplayService:
             "btc_error": cache.get("btc_error"),
             "weather_temp": cache.get("weather_temp"),
             "weather_outdoor_temp": cache.get("weather_outdoor_temp"),
+            "weather_outdoor_updated_at": cache.get("weather_outdoor_updated_at"),
+            "weather_code": cache.get("weather_code"),
+            "weather_is_day": cache.get("weather_is_day"),
             "weather_indoor_temp": cache.get("weather_indoor_temp"),
             "weather_indoor_humidity": cache.get("weather_indoor_humidity"),
             "weather_updated_at": cache.get("weather_updated_at"),
